@@ -91,41 +91,59 @@ export default function ChatArea({ currentChannel }) {
 
             {/* Messages */}
             <div className="flex-1 p-6 overflow-y-auto custom-scrollbar relative">
-                <div className="space-y-6">
-                    {/* Date Separator Placeholder */}
-                    <div className="relative flex items-center justify-center my-4">
-                        <div className="bg-[#222529] border border-gray-700 rounded-full px-4 py-1 text-xs font-bold text-gray-400 z-10">
-                            Today
-                        </div>
-                        <div className="absolute w-full border-t border-gray-700/50 left-0 top-1/2 -translate-y-1/2 z-0"></div>
-                    </div>
-
+                <div className="space-y-1">
                     {messages.map((msg, index) => {
                         const isSameUser = index > 0 && messages[index - 1].user_id === msg.user_id;
+                        const showDateSeparator = index === 0 ||
+                            new Date(messages[index - 1].created_at).toDateString() !== new Date(msg.created_at).toDateString();
+
+                        const formatDate = (dateString) => {
+                            const date = new Date(dateString);
+                            const today = new Date();
+                            const yesterday = new Date(today);
+                            yesterday.setDate(yesterday.getDate() - 1);
+
+                            if (date.toDateString() === today.toDateString()) return 'Today';
+                            if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+                            return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                        };
 
                         return (
-                            <div key={msg.id} className={`group flex gap-3 ${isSameUser ? 'mt-1' : 'mt-4'}`}>
-                                {!isSameUser ? (
-                                    <div className="w-9 h-9 rounded bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 cursor-pointer hover:opacity-90">
-                                        {msg.username?.[0]?.toUpperCase()}
-                                    </div>
-                                ) : (
-                                    <div className="w-9 flex-shrink-0 text-[10px] text-gray-500 opacity-0 group-hover:opacity-100 text-right pt-1">
-                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <div key={msg.id}>
+                                {showDateSeparator && (
+                                    <div className="relative flex items-center justify-center my-6">
+                                        <div className="bg-[#222529] border border-gray-700 rounded-full px-4 py-1 text-xs font-bold text-gray-400 z-10">
+                                            {formatDate(msg.created_at)}
+                                        </div>
+                                        <div className="absolute w-full border-t border-gray-700/50 left-0 top-1/2 -translate-y-1/2 z-0"></div>
                                     </div>
                                 )}
 
-                                <div className="flex-1 min-w-0">
-                                    {!isSameUser && (
-                                        <div className="flex items-baseline gap-2 mb-0.5">
-                                            <span className="font-bold text-[15px] text-white hover:underline cursor-pointer">{msg.username}</span>
-                                            <span className="text-xs text-gray-500">
-                                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
+                                <div className={`group flex gap-3 hover:bg-gray-800/30 px-4 py-1 -mx-4 rounded ${isSameUser ? 'mt-0.5' : 'mt-2'}`}>
+                                    {!isSameUser ? (
+                                        <img
+                                            src={msg.avatar_url || `https://ui-avatars.com/api/?name=${msg.username}&background=random&size=36`}
+                                            alt={msg.username}
+                                            className="w-9 h-9 rounded flex-shrink-0 cursor-pointer hover:opacity-90"
+                                        />
+                                    ) : (
+                                        <div className="w-9 flex-shrink-0 text-[10px] text-gray-500 opacity-0 group-hover:opacity-100 text-right pt-1">
+                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     )}
-                                    <div className="text-[15px] text-gray-300 leading-relaxed break-words">
-                                        {msg.content}
+
+                                    <div className="flex-1 min-w-0">
+                                        {!isSameUser && (
+                                            <div className="flex items-baseline gap-2 mb-0.5">
+                                                <span className="font-bold text-[15px] text-white hover:underline cursor-pointer">{msg.username}</span>
+                                                <span className="text-xs text-gray-500">
+                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="text-[15px] text-gray-300 leading-relaxed break-words">
+                                            {msg.content}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
