@@ -3,7 +3,7 @@ const db = require('./db-adapter');
 // Initialize tables
 const initDb = async () => {
   const isPostgres = db.dbType === 'postgres';
-  const autoIncrement = isPostgres ? 'SERIAL' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+  const autoIncrement = isPostgres ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
   const textType = isPostgres ? 'TEXT' : 'TEXT'; // Same for both
 
   try {
