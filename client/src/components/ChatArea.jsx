@@ -3,12 +3,15 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { Hash, Send, Info, Smile, Plus, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import EmojiPicker from 'emoji-picker-react';
 
 const socket = io();
 
 export default function ChatArea({ currentChannel }) {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [reactions, setReactions] = useState({});
+    const [showEmojiPicker, setShowEmojiPicker] = useState(null);
     const { user } = useAuth();
     const messagesEndRef = useRef(null);
 
@@ -39,8 +42,38 @@ export default function ChatArea({ currentChannel }) {
         try {
             const res = await axios.get(`/api/messages/${channelId}`);
             setMessages(res.data);
+
+            // Fetch reactions for all messages
+            const reactionsData = {};
+            await Promise.all(res.data.map(async (msg) => {
+                try {
+                    const reactionsRes = await axios.get(`/api/reactions/${msg.id}/reactions`);
+                    reactionsData[msg.id] = reactionsRes.data;
+                } catch (err) {
+                    console.error(`Failed to fetch reactions for message ${msg.id}`, err);
+                }
+            }));
+            setReactions(reactionsData);
         } catch (error) {
             console.error('Failed to fetch messages', error);
+        }
+    };
+
+    const addReaction = async (messageId, emoji) => {
+        try {
+            await axios.post(`/api/reactions/${messageId}/reactions`, {
+                userId: user.id,
+                emoji: emoji
+            });
+            // Refresh reactions for this message
+            const reactionsRes = await axios.get(`/api/reactions/${messageId}/reactions`);
+            setReactions(prev => ({
+                ...prev,
+                [messageId]: reactionsRes.data
+            }));
+            setShowEmojiPicker(null);
+        } catch (err) {
+            console.error('Failed to add reaction', err);
         }
     };
 
@@ -151,7 +184,7 @@ export default function ChatArea({ currentChannel }) {
 
                                     {/* Message Actions (visible on hover) */}
                                     {msg.user_id === user.id && (
-                                        <div className="absolute -top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-[#1a1d21] border border-gray-700 rounded-lg shadow-xl flex items-center gap-1 p-1">
+                                        <div className="absolute -top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-[#1a1d21] border border-gray-700 rounded-lg shadow-xl flex items-center gap-1 p-1 z-20">
                                             <button
                                                 onClick={() => {
                                                     const newContent = prompt('Edit message:', msg.content);
@@ -190,50 +223,44 @@ export default function ChatArea({ currentChannel }) {
                                             </button>
                                             <div className="w-px h-4 bg-gray-700"></div>
                                             <button
-                                                onClick={() => {
-                                                    axios.post(`/api/reactions/${msg.id}/reactions`, {
-                                                        userId: user.id,
-                                                        emoji: '👍'
-                                                    }).then(() => {
-                                                        fetchMessages(currentChannel.id);
-                                                    });
-                                                }}
-                                                className="p-1.5 hover:bg-gray-700 rounded transition-colors"
+                                                onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
+                                                className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
                                                 title="Add reaction"
                                             >
-                                                👍
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    axios.post(`/api/reactions/${msg.id}/reactions`, {
-                                                        userId: user.id,
-                                                        emoji: '❤️'
-                                                    }).then(() => {
-                                                        fetchMessages(currentChannel.id);
-                                                    });
-                                                }}
-                                                className="p-1.5 hover:bg-gray-700 rounded transition-colors"
-                                                title="Add reaction"
-                                            >
-                                                ❤️
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    axios.post(`/api/reactions/${msg.id}/reactions`, {
-                                                        userId: user.id,
-                                                        emoji: '😂'
-                                                    }).then(() => {
-                                                        fetchMessages(currentChannel.id);
-                                                    });
-                                                }}
-                                                className="p-1.5 hover:bg-gray-700 rounded transition-colors"
-                                                title="Add reaction"
-                                            >
-                                                😂
+                                                <Smile size={16} />
                                             </button>
                                         </div>
                                     )}
+
+                                    {/* Emoji Picker */}
+                                    {showEmojiPicker === msg.id && (
+                                        <div className="absolute top-8 right-4 z-30">
+                                            <EmojiPicker
+                                                onEmojiClick={(emojiData) => addReaction(msg.id, emojiData.emoji)}
+                                                theme="dark"
+                                                searchPlaceholder="Search emoji..."
+                                                width={350}
+                                                height={400}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
+
+                                {/* Reactions Display */}
+                                {reactions[msg.id] && reactions[msg.id].length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1 ml-12">
+                                        {reactions[msg.id].map((reaction, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={() => addReaction(msg.id, reaction.emoji)}
+                                                className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded-full text-sm transition-colors"
+                                            >
+                                                <span>{reaction.emoji}</span>
+                                                <span className="text-xs text-gray-300">{reaction.count}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
