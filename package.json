@@ -1,0 +1,18 @@
+{
+  "name": "corpmessenger",
+  "version": "1.0.0",
+  "description": "CorpMessenger - Slack Clone",
+  "scripts": {
+    "install-all": "npm install --prefix client && npm install --prefix server",
+    "build-client": "npm run build --prefix client",
+    "start": "node server/index.js",
+    "dev": "concurrently \"npm run dev --prefix client\" \"node server/index.js\"",
+    "postinstall": "npm run install-all && npm run build-client"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
