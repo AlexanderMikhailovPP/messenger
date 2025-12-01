@@ -32,14 +32,35 @@ const initDb = async () => {
         user_id INTEGER NOT NULL,
         channel_id INTEGER NOT NULL,
         created_at ${isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'},
+        edited_at ${isPostgres ? 'TIMESTAMP' : 'DATETIME'},
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (channel_id) REFERENCES channels (id)
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS reactions (
+        id ${autoIncrement},
+        message_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        emoji ${textType} NOT NULL,
+        created_at ${isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'},
+        FOREIGN KEY (message_id) REFERENCES messages (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        UNIQUE(message_id, user_id, emoji)
       );
     `);
 
     // Migration: Add type column if it doesn't exist
     try {
       await db.query(`ALTER TABLE channels ADD COLUMN type ${textType} DEFAULT 'public'`);
+    } catch (error) {
+      // Column likely already exists
+    }
+
+    // Migration: Add edited_at column if it doesn't exist
+    try {
+      await db.query(`ALTER TABLE messages ADD COLUMN edited_at ${isPostgres ? 'TIMESTAMP' : 'DATETIME'}`);
     } catch (error) {
       // Column likely already exists
     }

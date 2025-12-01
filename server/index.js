@@ -23,7 +23,8 @@ app.use(express.json());
 const authRoutes = require('./routes/auth');
 const channelRoutes = require('./routes/channels');
 const messageRoutes = require('./routes/messages');
-const userRoutes = require('./routes/users'); // Define userRoutes
+const userRoutes = require('./routes/users');
+const reactionsRoutes = require('./routes/reactions');
 const db = require('./db');
 
 // API Routes
@@ -31,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/channels', channelRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/reactions', reactionsRoutes);
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../client/dist')));

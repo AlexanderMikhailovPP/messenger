@@ -119,7 +119,7 @@ export default function ChatArea({ currentChannel }) {
                                     </div>
                                 )}
 
-                                <div className={`group flex gap-3 hover:bg-gray-800/30 px-4 py-1 -mx-4 rounded ${isSameUser ? 'mt-0.5' : 'mt-2'}`}>
+                                <div className={`group flex gap-3 hover:bg-gray-800/30 px-4 py-1 -mx-4 rounded relative ${isSameUser ? 'mt-0.5' : 'mt-2'}`}>
                                     {!isSameUser ? (
                                         <img
                                             src={msg.avatar_url || `https://ui-avatars.com/api/?name=${msg.username}&background=random&size=36`}
@@ -139,12 +139,100 @@ export default function ChatArea({ currentChannel }) {
                                                 <span className="text-xs text-gray-500">
                                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
+                                                {msg.edited_at && (
+                                                    <span className="text-xs text-gray-500">(edited)</span>
+                                                )}
                                             </div>
                                         )}
                                         <div className="text-[15px] text-gray-300 leading-relaxed break-words">
                                             {msg.content}
                                         </div>
                                     </div>
+
+                                    {/* Message Actions (visible on hover) */}
+                                    {msg.user_id === user.id && (
+                                        <div className="absolute -top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-[#1a1d21] border border-gray-700 rounded-lg shadow-xl flex items-center gap-1 p-1">
+                                            <button
+                                                onClick={() => {
+                                                    const newContent = prompt('Edit message:', msg.content);
+                                                    if (newContent && newContent !== msg.content) {
+                                                        axios.put(`/api/reactions/${msg.id}`, {
+                                                            content: newContent,
+                                                            userId: user.id
+                                                        }).then(() => {
+                                                            fetchMessages(currentChannel.id);
+                                                        });
+                                                    }
+                                                }}
+                                                className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
+                                                title="Edit"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    if (confirm('Delete this message?')) {
+                                                        axios.delete(`/api/reactions/${msg.id}`, {
+                                                            data: { userId: user.id }
+                                                        }).then(() => {
+                                                            fetchMessages(currentChannel.id);
+                                                        });
+                                                    }
+                                                }}
+                                                className="p-1.5 text-gray-400 hover:bg-red-600 hover:text-white rounded transition-colors"
+                                                title="Delete"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                            <div className="w-px h-4 bg-gray-700"></div>
+                                            <button
+                                                onClick={() => {
+                                                    axios.post(`/api/reactions/${msg.id}/reactions`, {
+                                                        userId: user.id,
+                                                        emoji: '👍'
+                                                    }).then(() => {
+                                                        fetchMessages(currentChannel.id);
+                                                    });
+                                                }}
+                                                className="p-1.5 hover:bg-gray-700 rounded transition-colors"
+                                                title="Add reaction"
+                                            >
+                                                👍
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    axios.post(`/api/reactions/${msg.id}/reactions`, {
+                                                        userId: user.id,
+                                                        emoji: '❤️'
+                                                    }).then(() => {
+                                                        fetchMessages(currentChannel.id);
+                                                    });
+                                                }}
+                                                className="p-1.5 hover:bg-gray-700 rounded transition-colors"
+                                                title="Add reaction"
+                                            >
+                                                ❤️
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    axios.post(`/api/reactions/${msg.id}/reactions`, {
+                                                        userId: user.id,
+                                                        emoji: '😂'
+                                                    }).then(() => {
+                                                        fetchMessages(currentChannel.id);
+                                                    });
+                                                }}
+                                                className="p-1.5 hover:bg-gray-700 rounded transition-colors"
+                                                title="Add reaction"
+                                            >
+                                                😂
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         );
