@@ -56,20 +56,35 @@ export default function ProfileModal({ isOpen, onClose }) {
                         />
                     </div>
 
-                    {/* Avatar URL Input */}
+                    {/* Avatar File Upload */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Avatar URL
+                            Upload Avatar
                         </label>
                         <input
-                            type="text"
-                            value={avatarUrl}
-                            onChange={(e) => setAvatarUrl(e.target.value)}
-                            placeholder="https://example.com/avatar.jpg"
-                            className="w-full px-3 py-2 bg-[#222529] border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500"
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    const formData = new FormData();
+                                    formData.append('avatar', file);
+
+                                    try {
+                                        const res = await axios.post('/api/users/avatar', formData, {
+                                            headers: { 'Content-Type': 'multipart/form-data' }
+                                        });
+                                        setAvatarUrl(res.data.avatar_url);
+                                    } catch (err) {
+                                        console.error('Failed to upload avatar:', err);
+                                        alert('Failed to upload avatar');
+                                    }
+                                }
+                            }}
+                            className="w-full px-3 py-2 bg-[#222529] border border-gray-600 rounded text-white focus:outline-none focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                            Leave empty to use generated avatar
+                            Upload an image file (max 5MB)
                         </p>
                     </div>
 

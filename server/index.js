@@ -34,6 +34,9 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reactions', reactionsRoutes);
 
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, '../client/dist')));
 

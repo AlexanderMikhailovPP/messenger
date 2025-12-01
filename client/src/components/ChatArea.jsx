@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import { Hash, Send, Info, Smile, Plus, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import EmojiPicker from 'emoji-picker-react';
+import RichTextEditor from './RichTextEditor';
 
 const socket = io();
 
@@ -280,36 +281,23 @@ export default function ChatArea({ currentChannel }) {
 
             {/* Input Area */}
             <div className="p-5 pt-0">
-                <div className="border border-gray-600 rounded-xl bg-[#222529] focus-within:border-gray-400 focus-within:shadow-md transition-all">
-                    <form onSubmit={sendMessage} className="relative">
-                        <input
-                            type="text"
-                            placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
-                            className="w-full p-3 min-h-[80px] bg-transparent border-none focus:outline-none text-gray-200 placeholder-gray-500 align-top"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                        />
+                <form onSubmit={sendMessage} className="relative">
+                    <RichTextEditor
+                        value={newMessage}
+                        onChange={setNewMessage}
+                        placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
+                    />
 
-                        <div className="flex items-center justify-between p-2">
-                            <div className="flex items-center gap-1">
-                                <ActionBtn icon={<Plus size={16} />} />
-                                <ActionBtn icon={<Smile size={16} />} />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="submit"
-                                    className={`p-2 rounded transition-colors ${newMessage.trim() ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
-                                    disabled={!newMessage.trim()}
-                                >
-                                    <Send size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div className="text-center text-xs text-gray-500 mt-2">
-                    <strong>Tip:</strong> Shift + Enter for new line
-                </div>
+                    <div className="flex items-center justify-end gap-2 mt-2">
+                        <button
+                            type="submit"
+                            className={`px-4 py-2 rounded transition-colors ${newMessage.trim() ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                            disabled={!newMessage.trim()}
+                        >
+                            Send
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
