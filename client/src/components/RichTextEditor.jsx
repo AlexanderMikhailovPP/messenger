@@ -48,11 +48,14 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 ref={editorRef}
                 contentEditable
                 onInput={handleInput}
-                className="w-full p-3 min-h-[80px] max-h-[200px] overflow-y-auto bg-transparent text-gray-200 focus:outline-none"
+                dir="ltr"
+                className="w-full p-3 min-h-[80px] max-h-[200px] overflow-y-auto bg-transparent text-gray-200 focus:outline-none text-left"
                 dangerouslySetInnerHTML={{ __html: value }}
                 data-placeholder={placeholder}
                 style={{
-                    wordBreak: 'break-word'
+                    wordBreak: 'break-word',
+                    direction: 'ltr',
+                    textAlign: 'left'
                 }}
             />
 

@@ -22,12 +22,12 @@ export default function ChatLayout() {
             </div>
 
             {/* Workspace Sidebar - Hidden on mobile unless toggled */}
-            <div className={`${showSidebar ? 'block' : 'hidden'} md:block fixed md:relative z-30 h-full`}>
+            <div className={`${showSidebar ? 'fixed' : 'hidden'} md:block md:relative z-30 h-full`}>
                 <WorkspaceSidebar />
             </div>
 
             {/* Navigation Sidebar - Hidden on mobile unless toggled */}
-            <div className={`${showSidebar ? 'block' : 'hidden'} md:block fixed md:relative z-30 h-full`}>
+            <div className={`${showSidebar ? 'fixed' : 'hidden'} md:block md:relative z-30 h-full`}>
                 <NavigationSidebar currentChannel={currentChannel} setCurrentChannel={setCurrentChannel} />
             </div>
 
