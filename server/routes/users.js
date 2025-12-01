@@ -18,4 +18,27 @@ router.get('/search', async (req, res) => {
     }
 });
 
+// Update user profile
+router.put('/profile', async (req, res) => {
+    const { userId, username, avatar_url } = req.body;
+
+    if (!userId || !username) {
+        return res.status(400).json({ error: 'User ID and username are required' });
+    }
+
+    try {
+        await db.query(
+            'UPDATE users SET username = ?, avatar_url = ? WHERE id = ?',
+            [username, avatar_url || null, userId]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
+            return res.status(400).json({ error: 'Username already taken' });
+        }
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update profile' });
+    }
+});
+
 module.exports = router;

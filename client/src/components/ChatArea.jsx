@@ -253,10 +253,17 @@ export default function ChatArea({ currentChannel }) {
                                             <button
                                                 key={idx}
                                                 onClick={() => addReaction(msg.id, reaction.emoji)}
-                                                className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded-full text-sm transition-colors"
+                                                className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded-full text-sm transition-colors group relative"
+                                                title={reaction.users.map(u => u.username).join(', ')}
                                             >
                                                 <span>{reaction.emoji}</span>
                                                 <span className="text-xs text-gray-300">{reaction.count}</span>
+
+                                                {/* Tooltip */}
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black border border-gray-700 rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                                                    {reaction.users.map(u => u.username).join(', ')}
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black"></div>
+                                                </div>
                                             </button>
                                         ))}
                                     </div>

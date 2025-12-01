@@ -1,8 +1,12 @@
 import { Home, LogOut } from 'lucide-react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import ProfileModal from './ProfileModal';
 
 export default function WorkspaceSidebar() {
     const { user, logout } = useAuth();
+    const [showProfile, setShowProfile] = useState(false);
+
     return (
         <div className="w-[70px] bg-[#1a1d21] flex flex-col items-center py-4 border-r border-gray-700/50">
 
@@ -20,10 +24,16 @@ export default function WorkspaceSidebar() {
                     <LogOut size={20} />
                 </button>
 
-                <div className="w-10 h-10 rounded-lg bg-gray-600 overflow-hidden cursor-pointer border-2 border-transparent hover:border-gray-400">
-                    <img src={`https://ui-avatars.com/api/?name=${user?.username || 'User'}&background=random`} alt="Profile" />
-                </div>
+                <button
+                    onClick={() => setShowProfile(true)}
+                    className="w-10 h-10 rounded-lg bg-gray-600 overflow-hidden cursor-pointer border-2 border-transparent hover:border-blue-400 transition-colors"
+                    title="Edit Profile"
+                >
+                    <img src={user?.avatar_url || `https://ui-avatars.com/api/?name=${user?.username || 'User'}&background=random`} alt="Profile" />
+                </button>
             </div>
+
+            <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
         </div>
     );
 }

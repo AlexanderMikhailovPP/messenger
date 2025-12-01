@@ -38,11 +38,32 @@ router.get('/:messageId/reactions', async (req, res) => {
     const { messageId } = req.params;
 
     try {
-        const result = await db.query(
-            'SELECT emoji, COUNT(*) as count FROM reactions WHERE message_id = ? GROUP BY emoji',
-            [messageId]
-        );
-        res.json(result.rows);
+        const result = await db.query(`
+            SELECT r.emoji, r.user_id, u.username
+            FROM reactions r
+            JOIN users u ON r.user_id = u.id
+            WHERE r.message_id = ?
+            ORDER BY r.created_at ASC
+        `, [messageId]);
+
+        // Group by emoji and include user list
+        const grouped = {};
+        result.rows.forEach(row => {
+            if (!grouped[row.emoji]) {
+                grouped[row.emoji] = {
+                    emoji: row.emoji,
+                    count: 0,
+                    users: []
+                };
+            }
+            grouped[row.emoji].count++;
+            grouped[row.emoji].users.push({
+                id: row.user_id,
+                username: row.username
+            });
+        });
+
+        res.json(Object.values(grouped));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to fetch reactions' });
