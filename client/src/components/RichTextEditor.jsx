@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Send, Plus, Smile } from 'lucide-react';
 
-export default function RichTextEditor({ value, onChange, placeholder }) {
+export default function RichTextEditor({ value, onChange, placeholder, onSubmit, disabled }) {
     const [showLinkInput, setShowLinkInput] = useState(false);
     const editorRef = useRef(null);
 
@@ -56,6 +56,22 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
                 }}
             />
 
+            {/* Action Bar */}
+            <div className="flex items-center justify-between p-2 border-t border-gray-700">
+                <div className="flex items-center gap-1">
+                    <ActionBtn icon={<Plus size={16} />} />
+                    <ActionBtn icon={<Smile size={16} />} />
+                </div>
+                <button
+                    type="submit"
+                    onClick={onSubmit}
+                    disabled={disabled}
+                    className={`p-2 rounded transition-colors ${!disabled ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                >
+                    <Send size={16} />
+                </button>
+            </div>
+
             <style>{`
                 [contentEditable][data-placeholder]:empty:before {
                     content: attr(data-placeholder);
@@ -91,6 +107,17 @@ function ToolbarButton({ onClick, icon, title }) {
             onClick={onClick}
             className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
             title={title}
+        >
+            {icon}
+        </button>
+    );
+}
+
+function ActionBtn({ icon }) {
+    return (
+        <button
+            type="button"
+            className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded-full transition-colors"
         >
             {icon}
         </button>

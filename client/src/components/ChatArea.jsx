@@ -281,23 +281,13 @@ export default function ChatArea({ currentChannel }) {
 
             {/* Input Area */}
             <div className="p-5 pt-0">
-                <form onSubmit={sendMessage} className="relative">
-                    <RichTextEditor
-                        value={newMessage}
-                        onChange={setNewMessage}
-                        placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
-                    />
-
-                    <div className="flex items-center justify-end gap-2 mt-2">
-                        <button
-                            type="submit"
-                            className={`px-4 py-2 rounded transition-colors ${newMessage.trim() ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
-                            disabled={!newMessage.trim()}
-                        >
-                            Send
-                        </button>
-                    </div>
-                </form>
+                <RichTextEditor
+                    value={newMessage}
+                    onChange={setNewMessage}
+                    placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
+                    onSubmit={sendMessage}
+                    disabled={!newMessage.trim()}
+                />
             </div>
         </div>
     );
