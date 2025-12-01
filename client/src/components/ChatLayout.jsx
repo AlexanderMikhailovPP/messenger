@@ -21,13 +21,13 @@ export default function ChatLayout() {
                 <span className="ml-3 text-white font-bold">Touch</span>
             </div>
 
-            {/* Workspace Sidebar - Hidden on mobile unless toggled */}
-            <div className={`${showSidebar ? 'fixed' : 'hidden'} md:block md:relative z-30 h-full`}>
+            {/* Workspace Sidebar */}
+            <div className={`${showSidebar ? 'fixed left-0 top-14' : 'hidden'} md:block md:static z-30 h-full`}>
                 <WorkspaceSidebar />
             </div>
 
-            {/* Navigation Sidebar - Hidden on mobile unless toggled */}
-            <div className={`${showSidebar ? 'fixed' : 'hidden'} md:block md:relative z-30 h-full`}>
+            {/* Navigation Sidebar */}
+            <div className={`${showSidebar ? 'fixed left-[70px] top-14' : 'hidden'} md:block md:static z-30 h-full`}>
                 <NavigationSidebar currentChannel={currentChannel} setCurrentChannel={setCurrentChannel} />
             </div>
 
