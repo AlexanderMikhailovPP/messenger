@@ -1,8 +1,8 @@
-import { Home } from 'lucide-react';
+import { Home, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function WorkspaceSidebar() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     return (
         <div className="w-[70px] bg-[#1a1d21] flex flex-col items-center py-4 border-r border-gray-700/50">
 
@@ -11,9 +11,16 @@ export default function WorkspaceSidebar() {
                 <NavItem icon={<Home size={20} />} label="Home" active />
             </nav>
 
-            <div className="mt-auto pb-4">
+            <div className="mt-auto pb-4 flex flex-col items-center gap-4">
+                <button
+                    onClick={logout}
+                    className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
+                    title="Logout"
+                >
+                    <LogOut size={20} />
+                </button>
 
-                <div className="w-10 h-10 mt-4 rounded-lg bg-gray-600 overflow-hidden cursor-pointer border-2 border-transparent hover:border-gray-400">
+                <div className="w-10 h-10 rounded-lg bg-gray-600 overflow-hidden cursor-pointer border-2 border-transparent hover:border-gray-400">
                     <img src={`https://ui-avatars.com/api/?name=${user?.username || 'User'}&background=random`} alt="Profile" />
                 </div>
             </div>
