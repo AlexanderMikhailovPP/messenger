@@ -1,48 +1,58 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-
-const db = new Database(path.join(__dirname, 'corp_messenger.db'), { verbose: console.log });
+const db = require('./db-adapter');
 
 // Initialize tables
-const initDb = () => {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL, -- In a real app, hash this!
-      avatar_url TEXT
-    );
+const initDb = async () => {
+  const isPostgres = db.dbType === 'postgres';
+  const autoIncrement = isPostgres ? 'SERIAL' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+  const textType = isPostgres ? 'TEXT' : 'TEXT'; // Same for both
 
-    CREATE TABLE IF NOT EXISTS channels (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT UNIQUE NOT NULL,
-      description TEXT,
-      type TEXT DEFAULT 'public' -- 'public' or 'dm'
-    );
-
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      content TEXT NOT NULL,
-      user_id INTEGER NOT NULL,
-      channel_id INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users (id),
-      FOREIGN KEY (channel_id) REFERENCES channels (id)
-    );
-  `);
-
-  // Migration: Add type column if it doesn't exist
   try {
-    db.prepare('ALTER TABLE channels ADD COLUMN type TEXT DEFAULT "public"').run();
-  } catch (error) {
-    // Column likely already exists
-  }
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id ${autoIncrement},
+        username ${textType} UNIQUE NOT NULL,
+        password ${textType} NOT NULL,
+        avatar_url ${textType}
+      );
+    `);
 
-  // Create default channel if not exists
-  const stmt = db.prepare('SELECT * FROM channels WHERE name = ?');
-  const general = stmt.get('general');
-  if (!general) {
-    db.prepare('INSERT INTO channels (name, description, type) VALUES (?, ?, ?)').run('general', 'General discussion', 'public');
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS channels (
+        id ${autoIncrement},
+        name ${textType} UNIQUE NOT NULL,
+        description ${textType},
+        type ${textType} DEFAULT 'public'
+      );
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id ${autoIncrement},
+        content ${textType} NOT NULL,
+        user_id INTEGER NOT NULL,
+        channel_id INTEGER NOT NULL,
+        created_at ${isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'},
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (channel_id) REFERENCES channels (id)
+      );
+    `);
+
+    // Migration: Add type column if it doesn't exist
+    try {
+      await db.query(`ALTER TABLE channels ADD COLUMN type ${textType} DEFAULT 'public'`);
+    } catch (error) {
+      // Column likely already exists
+    }
+
+    // Create default channel if not exists
+    const general = await db.query('SELECT * FROM channels WHERE name = ?', ['general']);
+    if (general.rows.length === 0) {
+      await db.query('INSERT INTO channels (name, description, type) VALUES (?, ?, ?)', ['general', 'General discussion', 'public']);
+    }
+
+    console.log(`Database initialized (${db.dbType})`);
+  } catch (err) {
+    console.error('Failed to initialize database:', err);
   }
 };
 

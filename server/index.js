@@ -49,24 +49,24 @@ io.on('connection', (socket) => {
         console.log(`User ${socket.id} joined channel ${channelId}`);
     });
 
-    socket.on('send_message', (data) => {
+    socket.on('send_message', async (data) => {
         console.log('Server received send_message:', data);
         const { content, userId, channelId } = data;
 
         // Save to DB
         try {
-            const stmt = db.prepare('INSERT INTO messages (content, user_id, channel_id) VALUES (?, ?, ?)');
-            const info = stmt.run(content, userId, channelId);
-            const messageId = info.lastInsertRowid;
+            const result = await db.insertReturning('INSERT INTO messages (content, user_id, channel_id) VALUES (?, ?, ?) RETURNING id', [content, userId, channelId]);
+            const messageId = result.id || result.lastID;
 
             // Fetch full message with user info to broadcast
-            const msgStmt = db.prepare(`
+            const msgResult = await db.query(`
                 SELECT m.*, u.username, u.avatar_url 
                 FROM messages m 
                 JOIN users u ON m.user_id = u.id 
                 WHERE m.id = ?
-            `);
-            const fullMessage = msgStmt.get(messageId);
+            `, [messageId]);
+
+            const fullMessage = msgResult.rows[0];
             console.log('Broadcasting message to channel:', channelId, fullMessage);
 
             // Broadcast to channel

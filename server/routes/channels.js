@@ -2,36 +2,37 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const stmt = db.prepare("SELECT * FROM channels WHERE type = 'public' OR type IS NULL");
-        const channels = stmt.all();
-        res.json(channels);
+        const result = await db.query("SELECT * FROM channels WHERE type = 'public' OR type IS NULL");
+        res.json(result.rows);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: 'Database error' });
     }
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
     const { name, description } = req.body;
     if (!name) {
         return res.status(400).json({ error: 'Channel name required' });
     }
 
     try {
-        const stmt = db.prepare("INSERT INTO channels (name, description, type) VALUES (?, ?, 'public')");
-        const info = stmt.run(name, description);
-        res.json({ id: info.lastInsertRowid, name, description, type: 'public' });
+        const result = await db.insertReturning("INSERT INTO channels (name, description, type) VALUES (?, ?, 'public') RETURNING id, name, description, type", [name, description]);
+        const id = result.id || result.lastID;
+        res.json({ id, name, description, type: 'public' });
     } catch (err) {
-        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
             return res.status(400).json({ error: 'Channel name already taken' });
         }
+        console.error(err);
         res.status(500).json({ error: 'Database error' });
     }
 });
 
 // Create or get DM channel
-router.post('/dm', (req, res) => {
+router.post('/dm', async (req, res) => {
     const { currentUserId, targetUserId } = req.body;
     if (!currentUserId || !targetUserId) {
         return res.status(400).json({ error: 'User IDs required' });
@@ -43,17 +44,16 @@ router.post('/dm', (req, res) => {
 
     try {
         // Check if exists
-        const stmt = db.prepare('SELECT * FROM channels WHERE name = ?');
-        const existing = stmt.get(dmName);
+        const existing = await db.query('SELECT * FROM channels WHERE name = ?', [dmName]);
 
-        if (existing) {
-            return res.json(existing);
+        if (existing.rows.length > 0) {
+            return res.json(existing.rows[0]);
         }
 
         // Create new
-        const insert = db.prepare("INSERT INTO channels (name, type) VALUES (?, 'dm')");
-        const info = insert.run(dmName);
-        res.json({ id: info.lastInsertRowid, name: dmName, type: 'dm' });
+        const result = await db.insertReturning("INSERT INTO channels (name, type) VALUES (?, 'dm') RETURNING id, name, type", [dmName]);
+        const id = result.id || result.lastID;
+        res.json({ id, name: dmName, type: 'dm' });
     } catch (err) {
         console.error('DM creation error:', err);
         res.status(500).json({ error: 'Database error' });
@@ -61,34 +61,32 @@ router.post('/dm', (req, res) => {
 });
 
 // Get user's DMs
-router.get('/dms/:userId', (req, res) => {
+router.get('/dms/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
         // Find DMs where name contains the userId
-        // Note: We fetch all DMs and filter in JS to handle the naming convention dm_u1_u2 correctly
-        // because SQL LIKE is tricky with the underscores and variable positions
-        const stmt = db.prepare("SELECT * FROM channels WHERE type = 'dm'");
-        const allDms = stmt.all();
+        const allDms = await db.query("SELECT * FROM channels WHERE type = 'dm'");
 
-        const channels = allDms.filter(ch => {
+        const channels = allDms.rows.filter(ch => {
             const parts = ch.name.split('_');
             return parts[1] == userId || parts[2] == userId;
         });
 
         // Enrich with other user's info
-        const enrichedChannels = channels.map(ch => {
+        // We need to do this async now
+        const enrichedChannels = await Promise.all(channels.map(async ch => {
             const parts = ch.name.split('_'); // dm, u1, u2
             const otherId = parts[1] == userId ? parts[2] : parts[1];
 
-            const userStmt = db.prepare('SELECT username, avatar_url FROM users WHERE id = ?');
-            const otherUser = userStmt.get(otherId);
+            const userRes = await db.query('SELECT username, avatar_url FROM users WHERE id = ?', [otherId]);
+            const otherUser = userRes.rows[0];
 
             return {
                 ...ch,
                 displayName: otherUser ? otherUser.username : 'Unknown User',
                 avatarUrl: otherUser ? otherUser.avatar_url : null
             };
-        });
+        }));
 
         res.json(enrichedChannels);
     } catch (err) {
