@@ -1,4 +1,3 @@
-```javascript
 import { useState } from 'react';
 import WorkspaceSidebar from './WorkspaceSidebar';
 import NavigationSidebar from './NavigationSidebar';
@@ -23,12 +22,12 @@ export default function ChatLayout() {
             </div>
 
             {/* Workspace Sidebar - Hidden on mobile unless toggled */}
-            <div className={`${ showSidebar ? 'block' : 'hidden' } md:block fixed md:relative z - 30 h - full`}>
+            <div className={`${showSidebar ? 'block' : 'hidden'} md:block fixed md:relative z-30 h-full`}>
                 <WorkspaceSidebar />
             </div>
 
             {/* Navigation Sidebar - Hidden on mobile unless toggled */}
-            <div className={`${ showSidebar ? 'block' : 'hidden' } md:block fixed md:relative z - 30 h - full`}>
+            <div className={`${showSidebar ? 'block' : 'hidden'} md:block fixed md:relative z-30 h-full`}>
                 <NavigationSidebar currentChannel={currentChannel} setCurrentChannel={setCurrentChannel} />
             </div>
 
@@ -47,4 +46,3 @@ export default function ChatLayout() {
         </div>
     );
 }
-```
