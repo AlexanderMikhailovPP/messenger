@@ -1,9 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Send, Plus, Smile } from 'lucide-react';
 
 export default function RichTextEditor({ value, onChange, placeholder, onSubmit, disabled }) {
     const [showLinkInput, setShowLinkInput] = useState(false);
     const editorRef = useRef(null);
+
+    useEffect(() => {
+        if (editorRef.current && editorRef.current.innerHTML !== value) {
+            editorRef.current.innerHTML = value;
+        }
+    }, [value]);
 
     const applyFormat = (command, value = null) => {
         document.execCommand(command, false, value);
@@ -19,7 +25,14 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     };
 
     const handleInput = (e) => {
-        onChange(e.target.innerHTML);
+        onChange(e.currentTarget.innerHTML);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            onSubmit?.(e);
+        }
     };
 
     return (
@@ -48,15 +61,11 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 ref={editorRef}
                 contentEditable
                 onInput={handleInput}
+                onKeyDown={handleKeyDown}
                 dir="ltr"
-                className="w-full p-3 min-h-[80px] max-h-[200px] overflow-y-auto bg-transparent text-gray-200 focus:outline-none text-left"
-                dangerouslySetInnerHTML={{ __html: value }}
+                className="w-full p-3 min-h-[80px] max-h-[200px] overflow-y-auto bg-transparent text-gray-200 focus:outline-none"
                 data-placeholder={placeholder}
-                style={{
-                    wordBreak: 'break-word',
-                    direction: 'ltr',
-                    textAlign: 'left'
-                }}
+                suppressContentEditableWarning
             />
 
             {/* Action Bar */}
