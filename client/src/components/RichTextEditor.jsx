@@ -1,61 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Send, Plus, Smile, Hash, AtSign } from 'lucide-react';
+import { Send, Plus, Smile, Hash, AtSign } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 export default function RichTextEditor({ value, onChange, placeholder, onSubmit, disabled }) {
-    const [showLinkInput, setShowLinkInput] = useState(false);
+    const [textValue, setTextValue] = useState('');
     const [mentionQuery, setMentionQuery] = useState('');
-    const [mentionType, setMentionType] = useState(null); // '@' or '#'
+    const [mentionType, setMentionType] = useState(null);
     const [mentionResults, setMentionResults] = useState([]);
     const [showMentions, setShowMentions] = useState(false);
     const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
     const [cursorPosition, setCursorPosition] = useState(0);
-    const editorRef = useRef(null);
+    const textareaRef = useRef(null);
     const { user } = useAuth();
-
-    useEffect(() => {
-        if (editorRef.current && editorRef.current.innerHTML !== value) {
-            editorRef.current.innerHTML = value;
-        }
-    }, [value]);
-
-    // Debug logging
-    useEffect(() => {
-        console.log('State changed:', {
-            showMentions,
-            mentionType,
-            mentionQuery,
-            resultsCount: mentionResults.length
-        });
-    }, [showMentions, mentionType, mentionQuery, mentionResults]);
-
-    const applyFormat = (command, value = null) => {
-        document.execCommand(command, false, value);
-        editorRef.current?.focus();
-    };
-
-    const insertLink = () => {
-        const url = prompt('Enter URL:');
-        if (url) {
-            applyFormat('createLink', url);
-        }
-        setShowLinkInput(false);
-    };
 
     const searchMentions = async (query, type) => {
         try {
-            console.log('searchMentions called:', { query, type });
-            // Always search, even with empty query
-            const searchQuery = query.length === 0 ? '' : query;
-            const res = await axios.get(`/api/users/search?q=${encodeURIComponent(searchQuery || ' ')}`);
-            console.log('Search response:', res.data);
-
+            const res = await axios.get(`/api/users/search?q=${encodeURIComponent(query || ' ')}`);
             if (type === '@') {
-                console.log('Setting user results:', res.data.users);
                 setMentionResults(res.data.users || []);
             } else if (type === '#') {
-                console.log('Setting channel results:', res.data.channels);
                 setMentionResults(res.data.channels || []);
             }
         } catch (error) {
@@ -65,32 +29,16 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     };
 
     const insertMention = (item) => {
-        if (!editorRef.current) return;
+        if (!textareaRef.current) return;
 
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-
-        // Get all text content
-        const fullText = editorRef.current.textContent || '';
+        const textarea = textareaRef.current;
+        const text = textarea.value;
+        const cursorPos = textarea.selectionStart;
 
         // Find the @ or # position before cursor
-        let cursorOffset = 0;
-        try {
-            const preCaretRange = range.cloneRange();
-            preCaretRange.selectNodeContents(editorRef.current);
-            preCaretRange.setEnd(range.endContainer, range.endOffset);
-            cursorOffset = preCaretRange.toString().length;
-        } catch (e) {
-            console.error('Error getting cursor position:', e);
-            return;
-        }
-
-        // Find trigger position
         let triggerPos = -1;
-        for (let i = cursorOffset - 1; i >= 0; i--) {
-            if (fullText[i] === mentionType) {
+        for (let i = cursorPos - 1; i >= 0; i--) {
+            if (text[i] === mentionType) {
                 triggerPos = i;
                 break;
             }
@@ -98,48 +46,24 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
         if (triggerPos === -1) return;
 
-        // Create mention HTML
-        const mentionClass = mentionType === '@' ? 'mention-user' : 'mention-channel';
+        // Create mention text
         const mentionText = mentionType === '@' ? `@${item.username}` : `#${item.name}`;
-        const mentionId = item.id;
 
-        // Build new HTML with space after mention
-        const beforeText = fullText.substring(0, triggerPos);
-        const afterText = fullText.substring(cursorOffset);
+        // Build new text
+        const beforeText = text.substring(0, triggerPos);
+        const afterText = text.substring(cursorPos);
+        const newText = beforeText + mentionText + ' ' + afterText;
 
-        const mentionHTML = `<span class="${mentionClass}" data-id="${mentionId}" data-type="${mentionType === '@' ? 'user' : 'channel'}" contenteditable="false">${mentionText}</span>`;
+        // Update textarea
+        setTextValue(newText);
+        onChange(newText);
 
-        // Set new content with a space after mention
-        editorRef.current.innerHTML = beforeText + mentionHTML + ' ' + afterText;
-
-        // Position cursor after the space
-        const newRange = document.createRange();
-        const newSelection = window.getSelection();
-
-        // Find the text node with the space after mention
-        let targetNode = null;
-        const childNodes = editorRef.current.childNodes;
-
-        for (let i = 0; i < childNodes.length; i++) {
-            const node = childNodes[i];
-            if (node.nodeType === Node.TEXT_NODE && node.textContent.startsWith(' ')) {
-                targetNode = node;
-                break;
-            }
-        }
-
-        if (targetNode) {
-            // Position cursor after the space
-            newRange.setStart(targetNode, 1);
-            newRange.collapse(true);
-        } else {
-            // Fallback: position at end
-            newRange.selectNodeContents(editorRef.current);
-            newRange.collapse(false);
-        }
-
-        newSelection.removeAllRanges();
-        newSelection.addRange(newRange);
+        // Position cursor after mention
+        const newCursorPos = triggerPos + mentionText.length + 1;
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
 
         // Reset mention state
         setShowMentions(false);
@@ -147,37 +71,14 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         setMentionType(null);
         setMentionResults([]);
         setSelectedMentionIndex(0);
-
-        // Update value
-        onChange(editorRef.current.innerHTML);
-        editorRef.current.focus();
     };
 
     const handleInput = (e) => {
-        const content = e.currentTarget.innerHTML;
-        onChange(content);
+        const text = e.target.value;
+        setTextValue(text);
+        onChange(text);
 
-        const plainText = e.currentTarget.textContent || '';
-        const selection = window.getSelection();
-
-        if (!selection.rangeCount) {
-            setShowMentions(false);
-            return;
-        }
-
-        // Get cursor position
-        let cursorPos = 0;
-        try {
-            const range = selection.getRangeAt(0);
-            const preCaretRange = range.cloneRange();
-            preCaretRange.selectNodeContents(editorRef.current);
-            preCaretRange.setEnd(range.endContainer, range.endOffset);
-            cursorPos = preCaretRange.toString().length;
-        } catch (e) {
-            setShowMentions(false);
-            return;
-        }
-
+        const cursorPos = e.target.selectionStart;
         setCursorPosition(cursorPos);
 
         // Look for @ or # before cursor
@@ -185,9 +86,9 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         let triggerPos = -1;
 
         for (let i = cursorPos - 1; i >= 0; i--) {
-            const char = plainText[i];
+            const char = text[i];
             if (char === '@' || char === '#') {
-                if (i === 0 || plainText[i - 1] === ' ' || plainText[i - 1] === '\n') {
+                if (i === 0 || text[i - 1] === ' ' || text[i - 1] === '\n') {
                     foundTrigger = char;
                     triggerPos = i;
                     break;
@@ -198,18 +99,12 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
 
         if (foundTrigger && triggerPos >= 0) {
-            const query = plainText.substring(triggerPos + 1, cursorPos);
-            console.log('Mention detected:', foundTrigger, 'query:', `"${query}"`);
-
+            const query = text.substring(triggerPos + 1, cursorPos);
             setMentionType(foundTrigger);
             setMentionQuery(query);
             setShowMentions(true);
-            console.log('Setting showMentions to true');
             searchMentions(query, foundTrigger);
         } else {
-            if (showMentions) {
-                console.log('Hiding mentions');
-            }
             setShowMentions(false);
             setMentionQuery('');
             setMentionType(null);
@@ -243,55 +138,16 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     return (
         <div className="border border-gray-600 rounded-xl bg-[#222529] focus-within:border-gray-400 transition-all relative">
-            {/* Toolbar */}
-            <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-700">
-                <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Bold" />
-                <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Italic" />
-                <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Underline" />
-                <ToolbarButton onClick={() => applyFormat('strikeThrough')} icon={<Strikethrough size={16} />} title="Strikethrough" />
-
-                <div className="w-px h-5 bg-gray-700 mx-1"></div>
-
-                <ToolbarButton onClick={insertLink} icon={<Link size={16} />} title="Insert Link" />
-                <ToolbarButton onClick={() => applyFormat('insertOrderedList')} icon={<ListOrdered size={16} />} title="Numbered List" />
-                <ToolbarButton onClick={() => applyFormat('insertUnorderedList')} icon={<List size={16} />} title="Bullet List" />
-
-                <div className="w-px h-5 bg-gray-700 mx-1"></div>
-
-                <ToolbarButton onClick={() => applyFormat('formatBlock', '<pre>')} icon={<Code size={16} />} title="Code Block" />
-                <ToolbarButton onClick={() => applyFormat('insertHTML', '<code></code>')} icon={<FileCode size={16} />} title="Inline Code" />
-
-                <div className="w-px h-5 bg-gray-700 mx-1"></div>
-
-                <ToolbarButton
-                    onClick={() => {
-                        document.execCommand('insertText', false, '@');
-                        editorRef.current?.focus();
-                    }}
-                    icon={<AtSign size={16} />}
-                    title="Mention User (@)"
-                />
-                <ToolbarButton
-                    onClick={() => {
-                        document.execCommand('insertText', false, '#');
-                        editorRef.current?.focus();
-                    }}
-                    icon={<Hash size={16} />}
-                    title="Mention Channel (#)"
-                />
-            </div>
-
             {/* Editor */}
             <div className="relative">
-                <div
-                    ref={editorRef}
-                    contentEditable
-                    onInput={handleInput}
+                <textarea
+                    ref={textareaRef}
+                    value={textValue}
+                    onChange={handleInput}
                     onKeyDown={handleKeyDown}
+                    placeholder={placeholder}
+                    className="w-full p-3 min-h-[80px] max-h-[200px] resize-none bg-transparent text-gray-200 focus:outline-none placeholder-gray-500"
                     dir="ltr"
-                    className="w-full p-3 min-h-[80px] max-h-[200px] overflow-y-auto bg-transparent text-gray-200 focus:outline-none"
-                    data-placeholder={placeholder}
-                    suppressContentEditableWarning
                 />
 
                 {/* Mention Autocomplete Dropdown */}
@@ -306,8 +162,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                             <div
                                 key={item.id}
                                 className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${index === selectedMentionIndex
-                                    ? 'bg-blue-600/30 text-blue-400'
-                                    : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
+                                        ? 'bg-blue-600/30 text-blue-400'
+                                        : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
                                     }`}
                                 onMouseDown={(e) => {
                                     e.preventDefault();
@@ -346,6 +202,38 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 <div className="flex items-center gap-1">
                     <ActionBtn icon={<Plus size={16} />} />
                     <ActionBtn icon={<Smile size={16} />} />
+                    <ActionBtn
+                        icon={<AtSign size={16} />}
+                        onClick={() => {
+                            const textarea = textareaRef.current;
+                            if (textarea) {
+                                const pos = textarea.selectionStart;
+                                const newText = textValue.slice(0, pos) + '@' + textValue.slice(pos);
+                                setTextValue(newText);
+                                onChange(newText);
+                                setTimeout(() => {
+                                    textarea.focus();
+                                    textarea.setSelectionRange(pos + 1, pos + 1);
+                                }, 0);
+                            }
+                        }}
+                    />
+                    <ActionBtn
+                        icon={<Hash size={16} />}
+                        onClick={() => {
+                            const textarea = textareaRef.current;
+                            if (textarea) {
+                                const pos = textarea.selectionStart;
+                                const newText = textValue.slice(0, pos) + '#' + textValue.slice(pos);
+                                setTextValue(newText);
+                                onChange(newText);
+                                setTimeout(() => {
+                                    textarea.focus();
+                                    textarea.setSelectionRange(pos + 1, pos + 1);
+                                }, 0);
+                            }
+                        }}
+                    />
                 </div>
                 <button
                     type="submit"
@@ -356,57 +244,15 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     <Send size={16} />
                 </button>
             </div>
-
-            <style>{`
-                [contentEditable][data-placeholder]:empty:before {
-                    content: attr(data-placeholder);
-                    color: #6b7280;
-                    pointer-events: none;
-                }
-                [contentEditable] a {
-                    color: #3b82f6;
-                    text-decoration: underline;
-                }
-                [contentEditable] code {
-                    background: #374151;
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    font-family: monospace;
-                }
-                [contentEditable] pre {
-                    background: #1f2937;
-                    padding: 12px;
-                    border-radius: 6px;
-                    overflow-x: auto;
-                    font-family: monospace;
-                }
-                [contentEditable] .mention-user,
-                [contentEditable] .mention-channel {
-                    display: inline-block;
-                    margin: 0 1px;
-                }
-            `}</style>
         </div>
     );
 }
 
-function ToolbarButton({ onClick, icon, title }) {
+function ActionBtn({ icon, onClick }) {
     return (
         <button
             type="button"
             onClick={onClick}
-            className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
-            title={title}
-        >
-            {icon}
-        </button>
-    );
-}
-
-function ActionBtn({ icon }) {
-    return (
-        <button
-            type="button"
             className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded-full transition-colors"
         >
             {icon}
