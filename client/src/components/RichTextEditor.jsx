@@ -109,17 +109,16 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         range.setStart(range.startContainer, range.startOffset - (cursorPos - triggerPos));
         range.deleteContents();
 
-        // Insert mention span
+        // Insert mention span and space
         range.insertNode(mentionSpan);
-
-        // Add space after mention
-        const space = document.createTextNode(' ');
+        const space = document.createTextNode('\u00A0'); // Non-breaking space
         mentionSpan.parentNode.insertBefore(space, mentionSpan.nextSibling);
 
-        // Move cursor after space
+        // Position cursor after the space
         const newRange = document.createRange();
-        newRange.setStartAfter(space);
+        newRange.setStart(space, 1); // After the space character
         newRange.collapse(true);
+
         const newSelection = window.getSelection();
         newSelection.removeAllRanges();
         newSelection.addRange(newRange);
