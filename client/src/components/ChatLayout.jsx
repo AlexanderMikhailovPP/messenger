@@ -7,6 +7,42 @@ import ChatArea from './ChatArea';
 export default function ChatLayout() {
     const [currentChannel, setCurrentChannel] = useState(null);
     const [showSidebar, setShowSidebar] = useState(false);
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+
+    // Minimum swipe distance (in px)
+    const minSwipeDistance = 50;
+
+    const onTouchStart = (e) => {
+        setTouchEnd(null); // Reset touch end
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) {
+            // Swipe Left: Close Sidebar
+            setShowSidebar(false);
+        }
+
+        if (isRightSwipe) {
+            // Swipe Right: Open Sidebar
+            // Only allow opening if we started near the left edge (drag handle logic)
+            // or if we are just toggling
+            if (touchStart < 50) {
+                setShowSidebar(true);
+            }
+        }
+    };
 
     const handleChannelSelect = (channel) => {
         setCurrentChannel(channel);
@@ -15,7 +51,14 @@ export default function ChatLayout() {
     };
 
     return (
-        <div className="h-screen flex bg-[#2f3136] relative">
+        <div
+            className="h-screen flex bg-[#2f3136] relative"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+        >
+            {/* Drag Handle (Left Edge) - Invisible touch target for opening sidebar */}
+            <div className="absolute left-0 top-0 bottom-0 w-4 z-40 md:hidden" />
             {/* Workspace Sidebar (Left) */}
             <WorkspaceSidebar />
 
