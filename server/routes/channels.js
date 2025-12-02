@@ -43,17 +43,33 @@ router.post('/dm', async (req, res) => {
     const dmName = `dm_${u1}_${u2}`;
 
     try {
+        // Get target user info for display name
+        const targetUserRes = await db.query('SELECT username, avatar_url FROM users WHERE id = ?', [targetUserId]);
+        const targetUser = targetUserRes.rows[0];
+        const displayName = targetUser ? targetUser.username : 'Unknown User';
+        const avatarUrl = targetUser ? targetUser.avatar_url : null;
+
         // Check if exists
         const existing = await db.query('SELECT * FROM channels WHERE name = ?', [dmName]);
 
         if (existing.rows.length > 0) {
-            return res.json(existing.rows[0]);
+            return res.json({
+                ...existing.rows[0],
+                displayName,
+                avatarUrl
+            });
         }
 
         // Create new
         const result = await db.insertReturning("INSERT INTO channels (name, type) VALUES (?, 'dm') RETURNING id, name, type", [dmName]);
         const id = result.id || result.lastID;
-        res.json({ id, name: dmName, type: 'dm' });
+        res.json({
+            id,
+            name: dmName,
+            type: 'dm',
+            displayName,
+            avatarUrl
+        });
     } catch (err) {
         console.error('DM creation error:', err);
         res.status(500).json({ error: 'Database error' });

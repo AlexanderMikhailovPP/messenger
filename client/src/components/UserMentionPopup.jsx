@@ -68,51 +68,55 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
     return (
         <div
             ref={popupRef}
-            className="fixed z-50 bg-[#18191c] rounded-lg shadow-2xl border border-gray-700 w-80 overflow-hidden"
+            className="fixed z-50 bg-[#1a1d21] rounded-xl shadow-2xl border border-gray-700/50 w-[340px] overflow-hidden font-sans"
             style={{ left: position.x, top: position.y }}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >
-            {/* Header with close button */}
-            <div className="relative">
-                <button
-                    onClick={onClose}
-                    className="absolute top-2 right-2 p-1 hover:bg-gray-700 rounded transition-colors z-10"
-                >
-                    <X className="text-gray-400" size={16} />
-                </button>
-
-                {/* Banner */}
-                <div className="h-16 bg-gradient-to-br from-blue-600 to-purple-600" />
-
-                {/* Avatar */}
-                <div className="px-4 -mt-8">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold border-4 border-[#18191c]">
+            <div className="p-5">
+                <div className="flex gap-4">
+                    {/* Avatar */}
+                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-700">
                         {user.avatar_url ? (
                             <img
                                 src={user.avatar_url}
                                 alt={user.username}
-                                className="w-full h-full rounded-full object-cover"
+                                className="w-full h-full object-cover"
                             />
                         ) : (
-                            user.username[0]?.toUpperCase()
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl font-bold">
+                                {user.username[0]?.toUpperCase()}
+                            </div>
                         )}
                     </div>
-                </div>
-            </div>
 
-            {/* User Info */}
-            <div className="px-4 pb-4 mt-2">
-                <h3 className="text-xl font-bold text-white">{user.username}</h3>
-                {user.status && (
-                    <p className="text-sm text-gray-400 mt-1">{user.status}</p>
-                )}
+                    {/* User Info */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-white truncate">{user.username}</h3>
+                            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="Online"></div>
+                        </div>
+                        <p className="text-gray-400 text-sm leading-snug mt-0.5">
+                            {user.bio || 'No status provided'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Local Time */}
+                <div className="flex items-center gap-2 mt-4 text-gray-300">
+                    <div className="w-4 h-4 rounded-full border border-gray-500 flex items-center justify-center">
+                        <div className="w-2 h-0.5 bg-gray-500 rotate-45"></div>
+                    </div>
+                    <span className="text-sm">
+                        {new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} local time
+                    </span>
+                </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-2 mt-4">
+                <div className="flex gap-2 mt-5">
                     <button
                         onClick={handleMessage}
-                        className="flex-1 flex items-center justify-center gap-2 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors font-medium"
+                        className="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 border border-gray-600 rounded-lg hover:bg-gray-800 transition-colors text-white text-sm font-medium"
                     >
                         <MessageCircle size={16} />
                         Message
@@ -120,35 +124,13 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
                     {onCall && (
                         <button
                             onClick={handleCall}
-                            className="flex-1 flex items-center justify-center gap-2 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors font-medium"
+                            className="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 border border-gray-600 rounded-lg hover:bg-gray-800 transition-colors text-white text-sm font-medium"
                         >
                             <Phone size={16} />
-                            Call
+                            Huddle
                         </button>
                     )}
                 </div>
-
-                {/* Additional Info */}
-                <div className="mt-4 pt-4 border-t border-gray-700">
-                    <div className="text-xs text-gray-400 uppercase font-semibold mb-2">About Me</div>
-                    <p className="text-sm text-gray-300">
-                        {user.bio || 'No bio provided.'}
-                    </p>
-                </div>
-
-                {/* Member Since */}
-                {user.created_at && (
-                    <div className="mt-3">
-                        <div className="text-xs text-gray-400 uppercase font-semibold mb-1">Member Since</div>
-                        <p className="text-sm text-gray-300">
-                            {new Date(user.created_at).toLocaleDateString('en-US', {
-                                month: 'long',
-                                day: 'numeric',
-                                year: 'numeric'
-                            })}
-                        </p>
-                    </div>
-                )}
             </div>
         </div>
     );

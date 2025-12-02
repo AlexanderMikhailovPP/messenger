@@ -395,7 +395,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                             <div className="flex-1 min-w-0">
                                 {/* Header */}
                                 <div className="flex items-baseline gap-2 mb-1">
-                                    <span className="font-semibold text-white hover:underline cursor-pointer">
+                                    <span
+                                        className="font-semibold text-white hover:underline cursor-pointer mention-user relative"
+                                        data-id={msg.user_id}
+                                    >
                                         {msg.username}
                                     </span>
                                     <span className="text-xs text-gray-500">
