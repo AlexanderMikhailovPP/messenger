@@ -10,6 +10,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const [mentionResults, setMentionResults] = useState([]);
     const [showMentions, setShowMentions] = useState(false);
     const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
     const editorRef = useRef(null);
     const { user } = useAuth();
 
@@ -33,19 +34,11 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     };
 
     const searchMentions = async (query, type) => {
-        if (query.length === 0) {
-            setMentionResults([]);
-            return;
-        }
-
         try {
+            const res = await axios.get(`/api/users/search?q=${query}`);
             if (type === '@') {
-                // Search users
-                const res = await axios.get(`/api/users/search?q=${query}`);
                 setMentionResults(res.data.users || []);
             } else if (type === '#') {
-                // Search channels
-                const res = await axios.get(`/api/users/search?q=${query}`);
                 setMentionResults(res.data.channels || []);
             }
         } catch (error) {
@@ -56,44 +49,55 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     const insertMention = (item) => {
         const selection = window.getSelection();
-        const range = selection.getRangeAt(0);
+        if (!selection.rangeCount) return;
 
-        // Find and remove the trigger character and query
+        const range = selection.getRangeAt(0);
         const textNode = range.startContainer;
+
+        if (textNode.nodeType !== Node.TEXT_NODE) return;
+
         const text = textNode.textContent;
         const cursorPos = range.startOffset;
 
         // Find the position of @ or #
-        let triggerPos = cursorPos - mentionQuery.length - 1;
+        let triggerPos = cursorPos - 1;
         while (triggerPos >= 0 && text[triggerPos] !== mentionType) {
             triggerPos--;
         }
 
         if (triggerPos >= 0) {
-            // Remove the trigger and query text
-            const beforeText = text.substring(0, triggerPos);
-            const afterText = text.substring(cursorPos);
-
             // Create mention element
             const mentionClass = mentionType === '@' ? 'mention-user' : 'mention-channel';
             const mentionText = mentionType === '@' ? `@${item.username}` : `#${item.name}`;
-            const mentionHTML = `<span class="${mentionClass}" data-id="${item.id}">${mentionText}</span>&nbsp;`;
+            const mentionSpan = document.createElement('span');
+            mentionSpan.className = mentionClass;
+            mentionSpan.setAttribute('data-id', item.id);
+            mentionSpan.setAttribute('data-type', mentionType === '@' ? 'user' : 'channel');
+            mentionSpan.textContent = mentionText;
 
-            // Replace text
+            // Split text node
+            const beforeText = text.substring(0, triggerPos);
+            const afterText = text.substring(cursorPos);
+
             textNode.textContent = beforeText;
 
-            // Insert mention HTML
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = mentionHTML + afterText;
+            // Insert mention and space
+            const spaceNode = document.createTextNode('\u00A0');
+            textNode.parentNode.insertBefore(mentionSpan, textNode.nextSibling);
+            textNode.parentNode.insertBefore(spaceNode, mentionSpan.nextSibling);
 
-            while (tempDiv.firstChild) {
-                range.insertNode(tempDiv.lastChild);
+            // Insert remaining text
+            if (afterText) {
+                const afterNode = document.createTextNode(afterText);
+                textNode.parentNode.insertBefore(afterNode, spaceNode.nextSibling);
             }
 
-            // Move cursor after mention
-            range.collapse(false);
+            // Move cursor after space
+            const newRange = document.createRange();
+            newRange.setStartAfter(spaceNode);
+            newRange.collapse(true);
             selection.removeAllRanges();
-            selection.addRange(range);
+            selection.addRange(newRange);
         }
 
         // Reset mention state
@@ -104,7 +108,23 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         setSelectedMentionIndex(0);
 
         // Update value
-        onChange(editorRef.current.innerHTML);
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+    };
+
+    const getCaretCoordinates = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return { top: 0, left: 0 };
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const editorRect = editorRef.current.getBoundingClientRect();
+
+        return {
+            top: rect.top - editorRect.top - 10, // Position above cursor
+            left: rect.left - editorRect.left
+        };
     };
 
     const handleInput = (e) => {
@@ -142,6 +162,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     setMentionType(foundTrigger);
                     setMentionQuery(query);
                     setShowMentions(true);
+                    setDropdownPosition(getCaretCoordinates());
                     searchMentions(query, foundTrigger);
                 } else {
                     setShowMentions(false);
@@ -168,6 +189,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 e.preventDefault();
                 insertMention(mentionResults[selectedMentionIndex]);
             } else if (e.key === 'Escape') {
+                e.preventDefault();
                 setShowMentions(false);
             }
         } else if (e.key === 'Enter' && !e.shiftKey) {
@@ -217,57 +239,68 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             </div>
 
             {/* Editor */}
-            <div
-                ref={editorRef}
-                contentEditable
-                onInput={handleInput}
-                onKeyDown={handleKeyDown}
-                dir="ltr"
-                className="w-full p-3 min-h-[80px] max-h-[200px] overflow-y-auto bg-transparent text-gray-200 focus:outline-none"
-                data-placeholder={placeholder}
-                suppressContentEditableWarning
-            />
+            <div className="relative">
+                <div
+                    ref={editorRef}
+                    contentEditable
+                    onInput={handleInput}
+                    onKeyDown={handleKeyDown}
+                    dir="ltr"
+                    className="w-full p-3 min-h-[80px] max-h-[200px] overflow-y-auto bg-transparent text-gray-200 focus:outline-none"
+                    data-placeholder={placeholder}
+                    suppressContentEditableWarning
+                />
 
-            {/* Mention Autocomplete Dropdown */}
-            {showMentions && mentionResults.length > 0 && (
-                <div className="absolute bottom-full left-0 mb-2 w-64 bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50">
-                    <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-700">
-                        {mentionType === '@' ? 'Mention User' : 'Mention Channel'}
-                    </div>
-                    {mentionResults.map((item, index) => (
-                        <div
-                            key={item.id}
-                            className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${index === selectedMentionIndex
-                                    ? 'bg-blue-600/30 text-blue-400'
-                                    : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
-                                }`}
-                            onClick={() => insertMention(item)}
-                            onMouseEnter={() => setSelectedMentionIndex(index)}
-                        >
-                            {mentionType === '@' ? (
-                                <>
-                                    <img
-                                        src={item.avatar_url || `https://ui-avatars.com/api/?name=${item.username}&background=random`}
-                                        alt={item.username}
-                                        className="w-6 h-6 rounded bg-gray-700"
-                                    />
-                                    <span className="text-sm font-medium">@{item.username}</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Hash size={16} className="text-gray-400" />
-                                    <div className="flex-1">
-                                        <div className="text-sm font-medium">#{item.name}</div>
-                                        {item.description && (
-                                            <div className="text-xs text-gray-500">{item.description}</div>
-                                        )}
-                                    </div>
-                                </>
-                            )}
+                {/* Mention Autocomplete Dropdown */}
+                {showMentions && mentionResults.length > 0 && (
+                    <div
+                        className="absolute w-64 bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50"
+                        style={{
+                            bottom: `calc(100% - ${dropdownPosition.top}px)`,
+                            left: `${dropdownPosition.left}px`
+                        }}
+                    >
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-700">
+                            {mentionType === '@' ? 'Mention User' : 'Mention Channel'}
                         </div>
-                    ))}
-                </div>
-            )}
+                        {mentionResults.map((item, index) => (
+                            <div
+                                key={item.id}
+                                className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${index === selectedMentionIndex
+                                        ? 'bg-blue-600/30 text-blue-400'
+                                        : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
+                                    }`}
+                                onMouseDown={(e) => {
+                                    e.preventDefault(); // Prevent blur
+                                    insertMention(item);
+                                }}
+                                onMouseEnter={() => setSelectedMentionIndex(index)}
+                            >
+                                {mentionType === '@' ? (
+                                    <>
+                                        <img
+                                            src={item.avatar_url || `https://ui-avatars.com/api/?name=${item.username}&background=random`}
+                                            alt={item.username}
+                                            className="w-6 h-6 rounded bg-gray-700"
+                                        />
+                                        <span className="text-sm font-medium">@{item.username}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Hash size={16} className="text-gray-400" />
+                                        <div className="flex-1">
+                                            <div className="text-sm font-medium">#{item.name}</div>
+                                            {item.description && (
+                                                <div className="text-xs text-gray-500">{item.description}</div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Action Bar */}
             <div className="flex items-center justify-between p-2 border-t border-gray-700">

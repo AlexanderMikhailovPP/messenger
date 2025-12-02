@@ -39,6 +39,53 @@ export default function ChatArea({ currentChannel }) {
         scrollToBottom();
     }, [messages]);
 
+    // Handle clicks on mentions
+    useEffect(() => {
+        const handleMentionClick = async (e) => {
+            const target = e.target;
+            if (target.classList.contains('mention-user')) {
+                e.preventDefault();
+                const userId = target.getAttribute('data-id');
+                if (userId) {
+                    try {
+                        const res = await axios.post('/api/channels/dm', {
+                            currentUserId: user.id,
+                            targetUserId: parseInt(userId)
+                        });
+                        const dmChannel = res.data;
+                        // Get username from mention text
+                        const username = target.textContent.substring(1); // Remove @
+                        dmChannel.displayName = username;
+                        window.location.reload(); // Simple way to navigate to DM
+                    } catch (error) {
+                        console.error('Failed to open DM', error);
+                    }
+                }
+            } else if (target.classList.contains('mention-channel')) {
+                e.preventDefault();
+                const channelId = target.getAttribute('data-id');
+                if (channelId) {
+                    try {
+                        const res = await axios.get('/api/channels');
+                        const channel = res.data.find(c => c.id === parseInt(channelId));
+                        if (channel) {
+                            window.location.reload(); // Simple way to navigate to channel
+                        }
+                    } catch (error) {
+                        console.error('Failed to open channel', error);
+                    }
+                }
+            }
+        };
+
+        const messagesContainer = document.querySelector('.custom-scrollbar');
+        if (messagesContainer) {
+            messagesContainer.addEventListener('click', handleMentionClick);
+            return () => messagesContainer.removeEventListener('click', handleMentionClick);
+        }
+    }, [user]);
+
+
     const fetchMessages = async (channelId) => {
         try {
             const res = await axios.get(`/api/messages/${channelId}`);
