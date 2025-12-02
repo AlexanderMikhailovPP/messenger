@@ -112,6 +112,22 @@ router.post('/login', async (req, res) => {
     }
 });
 
+// Verify endpoint - check if user has valid token
+router.get('/verify', (req, res) => {
+    const token = req.cookies.accessToken;
+
+    if (!token) {
+        return res.status(401).json({ error: 'No token' });
+    }
+
+    try {
+        jwt.verify(token, JWT_SECRET);
+        res.json({ valid: true });
+    } catch (err) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+});
+
 // Refresh token endpoint
 router.post('/refresh', (req, res) => {
     const refreshToken = req.cookies.refreshToken;

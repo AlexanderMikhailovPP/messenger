@@ -12,11 +12,26 @@ export const AuthProvider = ({ children }) => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             const userData = JSON.parse(storedUser);
-            setUser(userData);
-            // Reconnect socket if user session exists
-            connectSocket();
+
+            // Check if we have valid cookies by making a test request
+            axios.get('/api/auth/verify', { withCredentials: true })
+                .then(() => {
+                    // Token valid, set user and reconnect socket
+                    setUser(userData);
+                    connectSocket();
+                })
+                .catch(() => {
+                    // No valid token in cookies, auto-logout
+                    console.log('No valid auth token found, logging out...');
+                    localStorage.removeItem('user');
+                    setUser(null);
+                })
+                .finally(() => {
+                    setLoading(false);
+                });
+        } else {
+            setLoading(false);
         }
-        setLoading(false);
     }, []);
 
     // Axios interceptor for auto-refresh on 401
