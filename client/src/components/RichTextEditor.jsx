@@ -162,6 +162,17 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             return;
         }
 
+        // Check if cursor is right after a mention span (don't trigger in this case)
+        const range = selection.getRangeAt(0);
+        const prevSibling = range.startContainer.previousSibling ||
+            range.startContainer.parentNode?.previousSibling;
+        if (prevSibling && prevSibling.classList &&
+            (prevSibling.classList.contains('mention-user') ||
+                prevSibling.classList.contains('mention-channel'))) {
+            setShowMentions(false);
+            return;
+        }
+
         // Look for @ or # before cursor
         let foundTrigger = null;
         let triggerPos = -1;
