@@ -2,7 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CallProvider } from './context/CallContext';
 import { Toaster } from 'react-hot-toast';
-import LoginPage from './pages/LoginPage';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import ChatLayout from './components/ChatLayout';
 
 function PrivateRoute({ children }) {
@@ -45,7 +46,8 @@ function App() {
             }}
           />
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/" element={
               <PrivateRoute>
                 <ChatLayout />
