@@ -4,7 +4,11 @@ import { Hash, Plus, ChevronDown, Search, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUnreadCounts } from '../utils/unreadCounter';
 
-export default function NavigationSidebar({ currentChannel, setCurrentChannel }) {
+import { Hash, Plus, ChevronDown, Search, MessageSquare, Home } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { getUnreadCounts } from '../utils/unreadCounter';
+
+export default function NavigationSidebar({ currentChannel, setCurrentChannel, isMobile }) {
     const [channels, setChannels] = useState([]);
     const [dms, setDms] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -80,9 +84,18 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
     };
 
     return (
-        <div className="w-full md:w-[260px] bg-[#1f2225] text-[#9ca3af] flex flex-col h-full border-r border-gray-700/50">
+        <div className={`w-full ${isMobile ? 'bg-[#1a1d21]' : 'md:w-[260px] bg-[#1f2225] border-r border-gray-700/50'} text-[#9ca3af] flex flex-col h-full`}>
             {/* Header */}
-            <div className="h-12 px-4 flex items-center border-b border-gray-700/50">
+            {isMobile && (
+                <div className="h-14 px-4 flex items-center gap-3 border-b border-gray-800 bg-[#1a1d21]">
+                    <div className="w-8 h-8 rounded-md bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold">
+                        {user?.username[0]?.toUpperCase()}
+                    </div>
+                    <span className="text-white font-bold text-lg">Home</span>
+                </div>
+            )}
+
+            <div className={`${isMobile ? 'p-4' : 'h-12 px-4 flex items-center border-b border-gray-700/50'}`}>
                 <div className="relative w-full">
                     <input
                         type="text"

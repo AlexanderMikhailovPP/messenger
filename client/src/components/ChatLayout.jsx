@@ -6,7 +6,7 @@ import ChatArea from './ChatArea';
 
 export default function ChatLayout() {
     const [currentChannel, setCurrentChannel] = useState(null);
-    const [showSidebar, setShowSidebar] = useState(false);
+    const [mobileView, setMobileView] = useState('home'); // 'home' | 'chat'
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
 
@@ -29,69 +29,84 @@ export default function ChatLayout() {
         const isLeftSwipe = distance > minSwipeDistance;
         const isRightSwipe = distance < -minSwipeDistance;
 
-        if (isLeftSwipe) {
-            // Swipe Left: Close Sidebar
-            setShowSidebar(false);
-        }
-
-        if (isRightSwipe) {
-            // Swipe Right: Open Sidebar
-            // Only allow opening if we started near the left edge (drag handle logic)
-            // or if we are just toggling
-            if (touchStart < 50) {
-                setShowSidebar(true);
-            }
+        if (isRightSwipe && mobileView === 'chat') {
+            // Swipe Right in Chat: Go Back to Home
+            setMobileView('home');
         }
     };
 
     const handleChannelSelect = (channel) => {
         setCurrentChannel(channel);
-        // Auto-close sidebar on mobile after selecting channel
-        setShowSidebar(false);
+        setMobileView('chat');
     };
 
     return (
         <div
-            className="h-screen flex bg-[#2f3136] relative"
+            className="h-screen flex bg-[#1a1d21] relative overflow-hidden"
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
         >
-            {/* Drag Handle (Left Edge) - Invisible touch target for opening sidebar */}
-            <div className="absolute left-0 top-0 bottom-0 w-4 z-40 md:hidden" />
-            {/* Workspace Sidebar (Left) */}
-            <WorkspaceSidebar />
+            {/* Desktop: Sidebar always visible */}
+            <div className="hidden md:block h-full">
+                <WorkspaceSidebar />
+            </div>
 
-            {/* Navigation Sidebar (Channels/DMs) */}
-            <div className={`${showSidebar ? 'fixed left-[70px] top-14 bottom-0 right-0' : 'hidden'} md:block md:static z-30 h-full`}>
+            {/* Desktop: Navigation Sidebar */}
+            <div className="hidden md:block h-full z-30">
                 <NavigationSidebar
                     currentChannel={currentChannel}
                     setCurrentChannel={handleChannelSelect}
                 />
             </div>
 
-            {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                {/* Mobile Header */}
-                <div className="md:hidden h-14 bg-[#2f3136] border-b border-gray-700/50 flex items-center px-4">
-                    <button
-                        onClick={() => setShowSidebar(!showSidebar)}
-                        className="p-2 hover:bg-gray-700 rounded transition-colors"
-                    >
-                        <Menu className="text-gray-400" size={24} />
-                    </button>
-                    {currentChannel && (
-                        <span className="ml-4 font-semibold text-white">
-                            {currentChannel.type === 'dm' ? currentChannel.displayName || currentChannel.name : `#${currentChannel.name}`}
-                        </span>
-                    )}
-                </div>
-
-                {/* Chat Area */}
+            {/* Desktop: Chat Area */}
+            <div className="hidden md:flex flex-1 flex-col min-w-0 overflow-hidden">
                 <ChatArea
                     currentChannel={currentChannel}
                     setCurrentChannel={setCurrentChannel}
                 />
+            </div>
+
+            {/* Mobile: View Switching */}
+            <div className="md:hidden w-full h-full flex flex-col">
+                {mobileView === 'home' ? (
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <NavigationSidebar
+                            currentChannel={currentChannel}
+                            setCurrentChannel={handleChannelSelect}
+                            isMobile={true}
+                        />
+                        {/* Bottom Navigation Bar */}
+                        <div className="h-16 bg-[#1a1d21] border-t border-gray-800 flex items-center justify-around px-2 pb-safe">
+                            <div className="flex flex-col items-center gap-1 text-white">
+                                <div className="p-1 rounded-lg bg-gray-800">
+                                    <Menu size={20} />
+                                </div>
+                                <span className="text-[10px] font-medium">Home</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 text-gray-500">
+                                <div className="p-1">
+                                    <MessageSquare size={20} />
+                                </div>
+                                <span className="text-[10px] font-medium">DMs</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 text-gray-500">
+                                <div className="p-1">
+                                    <div className="w-5 h-5 rounded-full bg-gray-600" />
+                                </div>
+                                <span className="text-[10px] font-medium">You</span>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <ChatArea
+                        currentChannel={currentChannel}
+                        setCurrentChannel={setCurrentChannel}
+                        onBack={() => setMobileView('home')}
+                        isMobile={true}
+                    />
+                )}
             </div>
         </div>
     );
