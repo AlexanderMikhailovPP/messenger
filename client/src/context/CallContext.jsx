@@ -40,26 +40,38 @@ export const CallProvider = ({ children }) => {
         });
 
         socket.on('offer', async (payload) => {
-            console.log('Received offer from:', payload.caller);
-            const pc = createPeerConnection(payload.caller, false, null); // userId unknown initially
-            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('answer', { target: payload.caller, caller: socket.id, sdp: answer });
+            try {
+                console.log('Received offer from:', payload.caller);
+                const pc = createPeerConnection(payload.caller, false, null);
+                await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                socket.emit('answer', { target: payload.caller, caller: socket.id, sdp: answer });
+            } catch (err) {
+                console.error('Error handling offer:', err);
+            }
         });
 
         socket.on('answer', async (payload) => {
-            console.log('Received answer from:', payload.caller);
-            const pc = peersRef.current[payload.caller]?.peerConnection;
-            if (pc) {
-                await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            try {
+                console.log('Received answer from:', payload.caller);
+                const pc = peersRef.current[payload.caller]?.peerConnection;
+                if (pc) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                }
+            } catch (err) {
+                console.error('Error handling answer:', err);
             }
         });
 
         socket.on('ice-candidate', async (payload) => {
-            const pc = peersRef.current[payload.caller]?.peerConnection;
-            if (pc) {
-                await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            try {
+                const pc = peersRef.current[payload.caller]?.peerConnection;
+                if (pc && payload.candidate) {
+                    await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                }
+            } catch (err) {
+                console.error('Error handling ICE candidate:', err);
             }
         });
 
@@ -69,6 +81,7 @@ export const CallProvider = ({ children }) => {
             socket.off('offer');
             socket.off('answer');
             socket.off('ice-candidate');
+            socket.off('incoming_call');
         };
     }, []);
 

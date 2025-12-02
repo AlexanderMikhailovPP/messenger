@@ -18,8 +18,14 @@ export const AuthProvider = ({ children }) => {
     const login = async (username, password) => {
         try {
             const res = await axios.post('/api/auth/login', { username, password });
-            setUser(res.data);
-            localStorage.setItem('user', JSON.stringify(res.data));
+            const userData = {
+                id: res.data.id,
+                username: res.data.username,
+                avatar_url: res.data.avatar_url,
+                token: res.data.token // Store JWT token
+            };
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
             return { success: true };
         } catch (error) {
             return { success: false, error: error.response?.data?.error || 'Login failed' };
@@ -29,8 +35,15 @@ export const AuthProvider = ({ children }) => {
     const register = async (username, password) => {
         try {
             const res = await axios.post('/api/auth/register', { username, password });
-            // Auto login after register? Or just redirect. Let's auto login or return success.
-            // For now just return success.
+            // Auto-login after successful registration
+            const userData = {
+                id: res.data.id,
+                username: res.data.username,
+                avatar_url: res.data.avatar_url,
+                token: res.data.token
+            };
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
             return { success: true };
         } catch (error) {
             return { success: false, error: error.response?.data?.error || 'Registration failed' };

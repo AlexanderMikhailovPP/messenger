@@ -7,12 +7,13 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const path = require('path');
+const socketAuth = require('./middleware/socketAuth');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5173", "http://localhost:5174"], // Keep for dev
+        origin: process.env.CORS_ORIGIN || ["http://localhost:5173", "http://localhost:5174"],
         methods: ["GET", "POST"]
     }
 });
@@ -49,21 +50,28 @@ app.get(/(.*)/, (req, res) => {
 // Initialize WebRTC signaling
 require('./socket/signaling')(io);
 
+// Apply Socket.IO authentication middleware
+io.use(socketAuth);
+
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+    const userId = socket.data.userId;
+    const username = socket.data.username;
+    console.log(`User ${username} (${userId}) connected:`, socket.id);
 
     socket.on('join_channel', (channelId) => {
         socket.join(channelId);
-        console.log(`User ${socket.id} joined channel ${channelId}`);
+        console.log(`User ${userId} joined channel ${channelId}`);
     });
 
     socket.on('send_message', async (data) => {
         console.log('Server received send_message:', data);
-        const { content, userId, channelId } = data;
+        // Use authenticated userId from socket, NOT from client data
+        const { content, channelId } = data;
+        const authenticatedUserId = socket.data.userId;
 
         // Save to DB
         try {
-            const result = await db.insertReturning('INSERT INTO messages (content, user_id, channel_id) VALUES (?, ?, ?) RETURNING id', [content, userId, channelId]);
+            const result = await db.insertReturning('INSERT INTO messages (content, user_id, channel_id) VALUES (?, ?, ?) RETURNING id', [content, authenticatedUserId, channelId]);
             const messageId = result.id || result.lastID;
 
             // Fetch full message with user info to broadcast
@@ -85,7 +93,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
+        console.log(`User ${username} (${userId}) disconnected:`, socket.id);
     });
 });
 

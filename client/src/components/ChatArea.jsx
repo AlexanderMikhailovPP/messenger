@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { socket } from '../socket';
-import { Hash, Send, Info, Smile, Plus, AtSign, Headphones } from 'lucide-react';
+import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import EmojiPicker from 'emoji-picker-react';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
 import ActiveCallBar from './ActiveCallBar';
+import { sanitizeHTML } from '../utils/sanitize';
 
 export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [messages, setMessages] = useState([]);
@@ -22,8 +23,14 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
     useEffect(() => {
         if (currentChannel) {
-            fetchMessages(currentChannel.id);
+            const controller = new AbortController();
+
+            fetchMessages(currentChannel.id, controller.signal);
             socket.emit('join_channel', currentChannel.id);
+
+            return () => {
+                controller.abort(); // Cancel pending fetch if channel changes
+            };
         }
     }, [currentChannel]);
 
@@ -71,29 +78,21 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             }
         };
 
+        const handleTouch = (e) => {
+            const target = e.target.closest('.mention-user');
+            if (target) {
+                handleMentionClick(e);
+            }
+        };
+
         const messagesContainer = document.querySelector('.custom-scrollbar');
         if (messagesContainer) {
             messagesContainer.addEventListener('click', handleMentionClick);
-            // Add touchstart for better mobile response
-            messagesContainer.addEventListener('touchstart', (e) => {
-                const target = e.target.closest('.mention-user');
-                if (target) {
-                    // Prevent default to avoid ghost clicks and ensure immediate response
-                    // e.preventDefault(); 
-                    // Actually, let's just let click handle it if possible, or handle it here.
-                    // If we handle here, we might double fire if we don't preventDefault.
-                    // But preventDefault might block scrolling if not careful.
-                    // Let's just rely on click for now, but ensure the container has touch-action manipulation?
-                    // Or just add it as a backup if click fails?
-                    // Let's try handling it and preventing default if it is a mention.
-                    handleMentionClick(e);
-                }
-            }, { passive: true }); // Passive true to allow scrolling
+            messagesContainer.addEventListener('touchstart', handleTouch, { passive: true });
 
             return () => {
                 messagesContainer.removeEventListener('click', handleMentionClick);
-                // messagesContainer.removeEventListener('touchstart', ...); // Anonymous function hard to remove.
-                // Better to define handler outside.
+                messagesContainer.removeEventListener('touchstart', handleTouch);
             };
         }
     }, [user, setCurrentChannel]);
@@ -148,9 +147,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     }, []); // Run once on mount (event delegation handles dynamic content)
 
 
-    const fetchMessages = async (channelId) => {
+    const fetchMessages = async (channelId, signal) => {
         try {
-            const res = await axios.get(`/api/messages/${channelId}`);
+            const res = await axios.get(`/api/messages/${channelId}`, { signal });
             setMessages(res.data);
 
             // Fetch reactions for all messages
@@ -187,20 +186,21 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         }
     };
 
-    const sendMessage = (e) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !currentChannel) return;
+    const handleSubmit = () => {
+        const trimmed = newMessage.trim();
+        if (!trimmed || trimmed.length === 0 || !currentChannel) return;
 
-        const messageData = {
-            content: newMessage,
-            userId: user.id,
-            channelId: currentChannel.id,
-        };
+        // Send message via socket - userId is authenticated on server
+        socket.emit('send_message', {
+            content: trimmed,
+            channelId: currentChannel.id
+        });
 
-        socket.emit('send_message', messageData);
         setNewMessage('');
+        if (editorRef.current) {
+            editorRef.current.innerHTML = '';
+        }
     };
-
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -231,16 +231,14 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const handleStartHuddle = () => {
         joinCall(currentChannel.id);
 
-        // Notify other users in the channel about the call
+        // Notify other users - userId authenticated on server
         socket.emit('start_call', {
-            channelId: currentChannel.id,
-            userId: user.id
+            channelId: currentChannel.id
         });
 
         // Send system message
         socket.emit('send_message', {
             content: '📞 Started a huddle',
-            userId: user.id,
             channelId: currentChannel.id,
             type: 'system'
         });
@@ -367,7 +365,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                                         )}
                                         <div
                                             className="text-[15px] text-gray-300 leading-relaxed break-words"
-                                            dangerouslySetInnerHTML={{ __html: msg.content }}
+                                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
                                         />
                                     </div>
 
