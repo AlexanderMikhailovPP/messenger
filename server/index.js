@@ -46,6 +46,9 @@ app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
+// Initialize WebRTC signaling
+require('./socket/signaling')(io);
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
