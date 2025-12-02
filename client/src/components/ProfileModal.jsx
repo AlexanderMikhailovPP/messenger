@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProfileModal({ isOpen, onClose }) {
-    const { user, setUser } = useAuth();
+    const { user, updateUser } = useAuth();
     const [username, setUsername] = useState(user?.username || '');
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
     const [isSaving, setIsSaving] = useState(false);
@@ -20,9 +20,8 @@ export default function ProfileModal({ isOpen, onClose }) {
                 avatar_url: avatarUrl
             });
 
-            // Update local user state
-            setUser({
-                ...user,
+            // Update local user state and persist to localStorage
+            updateUser({
                 username,
                 avatar_url: avatarUrl
             });

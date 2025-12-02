@@ -112,7 +112,14 @@ router.put('/profile', async (req, res) => {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
             return res.status(400).json({ error: 'Username already taken' });
         }
-        console.error(err);
+        console.error('Profile update error:', err);
+        console.error('Error details:', {
+            message: err.message,
+            code: err.code,
+            userId,
+            username,
+            avatar_url
+        });
         res.status(500).json({ error: 'Failed to update profile' });
     }
 });
