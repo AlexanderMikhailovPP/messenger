@@ -119,9 +119,36 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         }
     };
 
-    const handleMentionMessage = (dmChannel) => {
-        setCurrentChannel(dmChannel);
-        setMentionPopup(null);
+    const handleMentionMessage = async (mentionedUser) => {
+        try {
+            // Create or find DM channel with this user
+            const res = await axios.post('/api/channels/dm', {
+                userId: user.id,
+                otherUserId: mentionedUser.id
+            });
+            setCurrentChannel(res.data);
+            setMentionPopup(null);
+        } catch (err) {
+            console.error('Failed to create DM:', err);
+            toast.error('Failed to start conversation');
+        }
+    };
+
+    const handleMentionCall = async (mentionedUser) => {
+        try {
+            // Create DM and start call
+            const res = await axios.post('/api/channels/dm', {
+                userId: user.id,
+                otherUserId: mentionedUser.id
+            });
+            const dmChannel = res.data;
+            setCurrentChannel(dmChannel);
+            joinCall(dmChannel.id);
+            toast.success(`Calling ${mentionedUser.username}...`);
+        } catch (err) {
+            console.error('Failed to start call:', err);
+            toast.error('Failed to start call');
+        }
     };
 
     const fetchMessages = async (channelId, signal) => {
@@ -412,6 +439,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     position={mentionPopup.position}
                     onClose={() => setMentionPopup(null)}
                     onMessage={handleMentionMessage}
+                    onCall={handleMentionCall}
                 />
             )}
         </div>
