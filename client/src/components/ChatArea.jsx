@@ -471,7 +471,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     value={newMessage}
                     onChange={setNewMessage}
                     placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
-                    onSubmit={sendMessage}
+                    onSubmit={handleSubmit}
                     disabled={!newMessage.trim()}
                 />
             </div>
