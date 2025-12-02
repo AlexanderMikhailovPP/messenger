@@ -113,6 +113,10 @@ export const CallProvider = ({ children }) => {
 
     const joinCall = async (channelId) => {
         try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert('Audio is not supported. Please ensure you are using HTTPS or localhost.');
+                return;
+            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             setLocalStream(stream);
             localStreamRef.current = stream;

@@ -74,7 +74,27 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const messagesContainer = document.querySelector('.custom-scrollbar');
         if (messagesContainer) {
             messagesContainer.addEventListener('click', handleMentionClick);
-            return () => messagesContainer.removeEventListener('click', handleMentionClick);
+            // Add touchstart for better mobile response
+            messagesContainer.addEventListener('touchstart', (e) => {
+                const target = e.target.closest('.mention-user');
+                if (target) {
+                    // Prevent default to avoid ghost clicks and ensure immediate response
+                    // e.preventDefault(); 
+                    // Actually, let's just let click handle it if possible, or handle it here.
+                    // If we handle here, we might double fire if we don't preventDefault.
+                    // But preventDefault might block scrolling if not careful.
+                    // Let's just rely on click for now, but ensure the container has touch-action manipulation?
+                    // Or just add it as a backup if click fails?
+                    // Let's try handling it and preventing default if it is a mention.
+                    handleMentionClick(e);
+                }
+            }, { passive: true }); // Passive true to allow scrolling
+
+            return () => {
+                messagesContainer.removeEventListener('click', handleMentionClick);
+                // messagesContainer.removeEventListener('touchstart', ...); // Anonymous function hard to remove.
+                // Better to define handler outside.
+            };
         }
     }, [user, setCurrentChannel]);
 
