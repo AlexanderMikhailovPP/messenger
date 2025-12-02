@@ -106,6 +106,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const handleMentionHover = (e) => {
             const target = e.currentTarget; // Use currentTarget as we attach listener directly
             const userId = target.getAttribute('data-id');
+            console.log('handleMentionHover triggered for userId:', userId);
 
             if (userId) {
                 // Clear any existing timeout
@@ -116,6 +117,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                 // Show popup after short delay
                 hoverTimeoutRef.current = setTimeout(() => {
                     const rect = target.getBoundingClientRect();
+                    console.log('Showing popup at position:', rect);
                     setMentionPopup({
                         userId: parseInt(userId),
                         position: {
@@ -128,6 +130,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         };
 
         const handleMentionLeave = () => {
+            console.log('handleMentionLeave triggered');
             if (hoverTimeoutRef.current) {
                 clearTimeout(hoverTimeoutRef.current);
             }
@@ -139,7 +142,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const attachListeners = () => {
             // Wait for render
             setTimeout(() => {
-                const mentions = document.querySelectorAll('.mention-user');
+                const messagesContainer = document.querySelector('.custom-scrollbar');
+                if (!messagesContainer) return;
+
+                const mentions = messagesContainer.querySelectorAll('.mention-user');
                 console.log(`Found ${mentions.length} mention elements to attach listeners to`);
 
                 mentions.forEach(mention => {
@@ -149,9 +155,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
                     mention.addEventListener('mouseenter', handleMentionHover);
                     mention.addEventListener('mouseleave', handleMentionLeave);
-                    console.log('Attached listeners to mention:', mention.getAttribute('data-id'));
                 });
-            }, 100);
+            }, 500); // Increased timeout to ensure render
         };
 
         // Attach listeners initially and whenever messages change
