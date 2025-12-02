@@ -1,18 +1,37 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Plus, Smile, Hash, AtSign } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Send, Plus, Smile, Hash, AtSign } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 export default function RichTextEditor({ value, onChange, placeholder, onSubmit, disabled }) {
-    const [textValue, setTextValue] = useState('');
+    const [showLinkInput, setShowLinkInput] = useState(false);
     const [mentionQuery, setMentionQuery] = useState('');
     const [mentionType, setMentionType] = useState(null);
     const [mentionResults, setMentionResults] = useState([]);
     const [showMentions, setShowMentions] = useState(false);
     const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
-    const [cursorPosition, setCursorPosition] = useState(0);
-    const textareaRef = useRef(null);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+    const editorRef = useRef(null);
     const { user } = useAuth();
+
+    useEffect(() => {
+        if (editorRef.current && editorRef.current.innerHTML !== value) {
+            editorRef.current.innerHTML = value;
+        }
+    }, [value]);
+
+    const applyFormat = (command, value = null) => {
+        document.execCommand(command, false, value);
+        editorRef.current?.focus();
+    };
+
+    const insertLink = () => {
+        const url = prompt('Enter URL:');
+        if (url) {
+            applyFormat('createLink', url);
+        }
+        setShowLinkInput(false);
+    };
 
     const searchMentions = async (query, type) => {
         try {
@@ -28,42 +47,27 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
     };
 
+    const getCaretCoordinates = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return { top: 0, left: 0 };
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const editorRect = editorRef.current.getBoundingClientRect();
+
+        // Position relative to editor
+        return {
+            top: rect.top - editorRect.top,
+            left: rect.left - editorRect.left
+        };
+    };
+
     const insertMention = (item) => {
-        if (!textareaRef.current) return;
+        if (!editorRef.current) return;
 
-        const textarea = textareaRef.current;
-        const text = textarea.value;
-        const cursorPos = textarea.selectionStart;
-
-        // Find the @ or # position before cursor
-        let triggerPos = -1;
-        for (let i = cursorPos - 1; i >= 0; i--) {
-            if (text[i] === mentionType) {
-                triggerPos = i;
-                break;
-            }
-        }
-
-        if (triggerPos === -1) return;
-
-        // Create mention text
+        // Insert as plain text @username or #channelname
         const mentionText = mentionType === '@' ? `@${item.username}` : `#${item.name}`;
-
-        // Build new text
-        const beforeText = text.substring(0, triggerPos);
-        const afterText = text.substring(cursorPos);
-        const newText = beforeText + mentionText + ' ' + afterText;
-
-        // Update textarea
-        setTextValue(newText);
-        onChange(newText);
-
-        // Position cursor after mention
-        const newCursorPos = triggerPos + mentionText.length + 1;
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(newCursorPos, newCursorPos);
-        }, 0);
+        document.execCommand('insertText', false, mentionText + ' ');
 
         // Reset mention state
         setShowMentions(false);
@@ -71,24 +75,47 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         setMentionType(null);
         setMentionResults([]);
         setSelectedMentionIndex(0);
+
+        // Update value
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+        editorRef.current.focus();
     };
 
     const handleInput = (e) => {
-        const text = e.target.value;
-        setTextValue(text);
-        onChange(text);
+        const content = e.currentTarget.innerHTML;
+        onChange(content);
 
-        const cursorPos = e.target.selectionStart;
-        setCursorPosition(cursorPos);
+        const plainText = e.currentTarget.textContent || '';
+        const selection = window.getSelection();
+
+        if (!selection.rangeCount) {
+            setShowMentions(false);
+            return;
+        }
+
+        // Get cursor position
+        let cursorPos = 0;
+        try {
+            const range = selection.getRangeAt(0);
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(editorRef.current);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            cursorPos = preCaretRange.toString().length;
+        } catch (e) {
+            setShowMentions(false);
+            return;
+        }
 
         // Look for @ or # before cursor
         let foundTrigger = null;
         let triggerPos = -1;
 
         for (let i = cursorPos - 1; i >= 0; i--) {
-            const char = text[i];
+            const char = plainText[i];
             if (char === '@' || char === '#') {
-                if (i === 0 || text[i - 1] === ' ' || text[i - 1] === '\n') {
+                if (i === 0 || plainText[i - 1] === ' ' || plainText[i - 1] === '\n') {
                     foundTrigger = char;
                     triggerPos = i;
                     break;
@@ -99,10 +126,12 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
 
         if (foundTrigger && triggerPos >= 0) {
-            const query = text.substring(triggerPos + 1, cursorPos);
+            const query = plainText.substring(triggerPos + 1, cursorPos);
+
             setMentionType(foundTrigger);
             setMentionQuery(query);
             setShowMentions(true);
+            setDropdownPosition(getCaretCoordinates());
             searchMentions(query, foundTrigger);
         } else {
             setShowMentions(false);
@@ -138,22 +167,65 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     return (
         <div className="border border-gray-600 rounded-xl bg-[#222529] focus-within:border-gray-400 transition-all relative">
+            {/* Toolbar */}
+            <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-700">
+                <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Bold" />
+                <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Italic" />
+                <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Underline" />
+                <ToolbarButton onClick={() => applyFormat('strikeThrough')} icon={<Strikethrough size={16} />} title="Strikethrough" />
+
+                <div className="w-px h-5 bg-gray-700 mx-1"></div>
+
+                <ToolbarButton onClick={insertLink} icon={<Link size={16} />} title="Insert Link" />
+                <ToolbarButton onClick={() => applyFormat('insertOrderedList')} icon={<ListOrdered size={16} />} title="Numbered List" />
+                <ToolbarButton onClick={() => applyFormat('insertUnorderedList')} icon={<List size={16} />} title="Bullet List" />
+
+                <div className="w-px h-5 bg-gray-700 mx-1"></div>
+
+                <ToolbarButton onClick={() => applyFormat('formatBlock', '<pre>')} icon={<Code size={16} />} title="Code Block" />
+                <ToolbarButton onClick={() => applyFormat('insertHTML', '<code></code>')} icon={<FileCode size={16} />} title="Inline Code" />
+
+                <div className="w-px h-5 bg-gray-700 mx-1"></div>
+
+                <ToolbarButton
+                    onClick={() => {
+                        document.execCommand('insertText', false, '@');
+                        editorRef.current?.focus();
+                    }}
+                    icon={<AtSign size={16} />}
+                    title="Mention User (@)"
+                />
+                <ToolbarButton
+                    onClick={() => {
+                        document.execCommand('insertText', false, '#');
+                        editorRef.current?.focus();
+                    }}
+                    icon={<Hash size={16} />}
+                    title="Mention Channel (#)"
+                />
+            </div>
+
             {/* Editor */}
             <div className="relative">
-                <textarea
-                    ref={textareaRef}
-                    value={textValue}
-                    onChange={handleInput}
+                <div
+                    ref={editorRef}
+                    contentEditable
+                    onInput={handleInput}
                     onKeyDown={handleKeyDown}
-                    placeholder={placeholder}
-                    className="w-full p-3 min-h-[80px] max-h-[200px] resize-none bg-transparent text-gray-200 focus:outline-none placeholder-gray-500"
                     dir="ltr"
+                    className="w-full p-3 min-h-[80px] max-h-[200px] overflow-y-auto bg-transparent text-gray-200 focus:outline-none"
+                    data-placeholder={placeholder}
+                    suppressContentEditableWarning
                 />
 
                 {/* Mention Autocomplete Dropdown */}
                 {showMentions && mentionResults.length > 0 && (
                     <div
-                        className="absolute bottom-full left-3 mb-2 w-64 bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50"
+                        className="absolute w-64 bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50"
+                        style={{
+                            bottom: `calc(100% - ${dropdownPosition.top}px - 10px)`,
+                            left: `${dropdownPosition.left}px`
+                        }}
                     >
                         <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-700">
                             {mentionType === '@' ? 'Mention User' : 'Mention Channel'}
@@ -202,38 +274,6 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 <div className="flex items-center gap-1">
                     <ActionBtn icon={<Plus size={16} />} />
                     <ActionBtn icon={<Smile size={16} />} />
-                    <ActionBtn
-                        icon={<AtSign size={16} />}
-                        onClick={() => {
-                            const textarea = textareaRef.current;
-                            if (textarea) {
-                                const pos = textarea.selectionStart;
-                                const newText = textValue.slice(0, pos) + '@' + textValue.slice(pos);
-                                setTextValue(newText);
-                                onChange(newText);
-                                setTimeout(() => {
-                                    textarea.focus();
-                                    textarea.setSelectionRange(pos + 1, pos + 1);
-                                }, 0);
-                            }
-                        }}
-                    />
-                    <ActionBtn
-                        icon={<Hash size={16} />}
-                        onClick={() => {
-                            const textarea = textareaRef.current;
-                            if (textarea) {
-                                const pos = textarea.selectionStart;
-                                const newText = textValue.slice(0, pos) + '#' + textValue.slice(pos);
-                                setTextValue(newText);
-                                onChange(newText);
-                                setTimeout(() => {
-                                    textarea.focus();
-                                    textarea.setSelectionRange(pos + 1, pos + 1);
-                                }, 0);
-                            }
-                        }}
-                    />
                 </div>
                 <button
                     type="submit"
@@ -244,15 +284,52 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     <Send size={16} />
                 </button>
             </div>
+
+            <style>{`
+                [contentEditable][data-placeholder]:empty:before {
+                    content: attr(data-placeholder);
+                    color: #6b7280;
+                    pointer-events: none;
+                }
+                [contentEditable] a {
+                    color: #3b82f6;
+                    text-decoration: underline;
+                }
+                [contentEditable] code {
+                    background: #374151;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-family: monospace;
+                }
+                [contentEditable] pre {
+                    background: #1f2937;
+                    padding: 12px;
+                    border-radius: 6px;
+                    overflow-x: auto;
+                    font-family: monospace;
+                }
+            `}</style>
         </div>
     );
 }
 
-function ActionBtn({ icon, onClick }) {
+function ToolbarButton({ onClick, icon, title }) {
     return (
         <button
             type="button"
             onClick={onClick}
+            className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
+            title={title}
+        >
+            {icon}
+        </button>
+    );
+}
+
+function ActionBtn({ icon }) {
+    return (
+        <button
+            type="button"
             className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded-full transition-colors"
         >
             {icon}
