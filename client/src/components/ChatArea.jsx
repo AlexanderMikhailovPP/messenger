@@ -178,9 +178,10 @@ export default function ChatArea({ currentChannel }) {
                                                 )}
                                             </div>
                                         )}
-                                        <div className="text-[15px] text-gray-300 leading-relaxed break-words">
-                                            {msg.content}
-                                        </div>
+                                        <div
+                                            className="text-[15px] text-gray-300 leading-relaxed break-words"
+                                            dangerouslySetInnerHTML={{ __html: msg.content }}
+                                        />
                                     </div>
 
                                     {/* Message Actions (visible on hover) - Edit/Delete only for own messages */}

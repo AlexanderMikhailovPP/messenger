@@ -25,3 +25,69 @@
 body {
     @apply bg-[#1a1d21] text-gray-200;
 }
+
+/* Rich text formatting in messages */
+.text-gray-300 b,
+.text-gray-300 strong {
+    font-weight: bold;
+    color: #fff;
+}
+
+.text-gray-300 i,
+.text-gray-300 em {
+    font-style: italic;
+}
+
+.text-gray-300 u {
+    text-decoration: underline;
+}
+
+.text-gray-300 strike,
+.text-gray-300 s {
+    text-decoration: line-through;
+}
+
+.text-gray-300 code {
+    background: #374151;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+.text-gray-300 pre {
+    background: #1f2937;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-family: 'Courier New', monospace;
+    margin: 8px 0;
+}
+
+.text-gray-300 a {
+    color: #60a5fa;
+    text-decoration: underline;
+}
+
+.text-gray-300 a:hover {
+    color: #93c5fd;
+}
+
+.text-gray-300 ul,
+.text-gray-300 ol {
+    margin-left: 20px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.text-gray-300 ul {
+    list-style-type: disc;
+}
+
+.text-gray-300 ol {
+    list-style-type: decimal;
+}
+
+.text-gray-300 li {
+    margin: 2px 0;
+}
