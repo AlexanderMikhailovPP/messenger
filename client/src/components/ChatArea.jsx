@@ -416,21 +416,12 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                 <UserMentionPopup
                     userId={mentionPopup.userId}
                     position={mentionPopup.position}
-                    onMessage={async (targetUser) => {
-                        try {
-                            const res = await axios.post('/api/channels/dm', {
-                                currentUserId: user.id,
-                                targetUserId: targetUser.id
-                            });
-                            const dmChannel = res.data;
-                            dmChannel.displayName = targetUser.username;
-                            dmChannel.avatarUrl = targetUser.avatar_url;
-                            setCurrentChannel(dmChannel);
+                    setCurrentChannel(dmChannel);
                         } catch (error) {
-                            console.error('Failed to open DM', error);
+                console.error('Failed to open DM', error);
                         }
                     }}
-                    onClose={() => setMentionPopup(null)}
+            onClose={() => setMentionPopup(null)}
                 />
             )}
         </div>
