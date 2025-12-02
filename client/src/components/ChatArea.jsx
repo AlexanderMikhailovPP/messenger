@@ -5,6 +5,7 @@ import { Hash, Send, Info, Smile, Plus, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import EmojiPicker from 'emoji-picker-react';
 import RichTextEditor from './RichTextEditor';
+import UserMentionPopup from './UserMentionPopup';
 
 const socket = io();
 
@@ -13,8 +14,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [newMessage, setNewMessage] = useState('');
     const [reactions, setReactions] = useState({});
     const [showEmojiPicker, setShowEmojiPicker] = useState(null);
+    const [mentionPopup, setMentionPopup] = useState(null); // { userId, position }
     const { user } = useAuth();
     const messagesEndRef = useRef(null);
+    const hoverTimeoutRef = useRef(null);
 
     useEffect(() => {
         if (currentChannel) {
@@ -97,6 +100,55 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             return () => messagesContainer.removeEventListener('click', handleMentionClick);
         }
     }, [user, setCurrentChannel]);
+
+    // Handle hover on user mentions for popup
+    useEffect(() => {
+        const handleMentionHover = (e) => {
+            const target = e.target;
+            if (target.classList.contains('mention-user')) {
+                const userId = target.getAttribute('data-id');
+                if (userId) {
+                    // Clear any existing timeout
+                    if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                    }
+
+                    // Show popup after short delay
+                    hoverTimeoutRef.current = setTimeout(() => {
+                        const rect = target.getBoundingClientRect();
+                        setMentionPopup({
+                            userId: parseInt(userId),
+                            position: {
+                                top: rect.bottom + 8,
+                                left: rect.left
+                            }
+                        });
+                    }, 500); // 500ms delay before showing
+                }
+            }
+        };
+
+        const handleMentionLeave = (e) => {
+            const target = e.target;
+            if (target.classList.contains('mention-user')) {
+                if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                }
+                // Delay closing to allow moving mouse to popup
+                setTimeout(() => setMentionPopup(null), 200);
+            }
+        };
+
+        const messagesContainer = document.querySelector('.custom-scrollbar');
+        if (messagesContainer) {
+            messagesContainer.addEventListener('mouseenter', handleMentionHover, true);
+            messagesContainer.addEventListener('mouseleave', handleMentionLeave, true);
+            return () => {
+                messagesContainer.removeEventListener('mouseenter', handleMentionHover, true);
+                messagesContainer.removeEventListener('mouseleave', handleMentionLeave, true);
+            };
+        }
+    }, []);
 
 
     const fetchMessages = async (channelId) => {
@@ -358,6 +410,29 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     disabled={!newMessage.trim()}
                 />
             </div>
+
+            {/* User Mention Popup */}
+            {mentionPopup && (
+                <UserMentionPopup
+                    userId={mentionPopup.userId}
+                    position={mentionPopup.position}
+                    onMessage={async (targetUser) => {
+                        try {
+                            const res = await axios.post('/api/channels/dm', {
+                                currentUserId: user.id,
+                                targetUserId: targetUser.id
+                            });
+                            const dmChannel = res.data;
+                            dmChannel.displayName = targetUser.username;
+                            dmChannel.avatarUrl = targetUser.avatar_url;
+                            setCurrentChannel(dmChannel);
+                        } catch (error) {
+                            console.error('Failed to open DM', error);
+                        }
+                    }}
+                    onClose={() => setMentionPopup(null)}
+                />
+            )}
         </div>
     );
 }
