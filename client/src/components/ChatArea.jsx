@@ -32,6 +32,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const socket = getSocket();
     const { sendTyping, stopTyping } = useTypingIndicator(socket, currentChannel?.id, user?.username);
     const typingUsers = useTypingUsers(socket, currentChannel?.id);
+    const hoverTimeoutRef = useRef(null);
 
     useEffect(() => {
         if (currentChannel) {
@@ -90,48 +91,59 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         return () => container.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Handle mention clicks
+    // Handle mention hover
     useEffect(() => {
-        const handleMentionClick = (e) => {
+        const handleMouseOver = (e) => {
             const target = e.target.closest('.mention-user');
             if (target) {
                 const userId = target.getAttribute('data-id');
                 if (userId) {
-                    fetchUserInfo(userId);
+                    // Clear any pending close timer
+                    if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                        hoverTimeoutRef.current = null;
+                    }
+
+                    // Only fetch if we don't have this user or it's a different user
+                    fetchUserInfo(userId, { x: e.clientX, y: e.clientY });
                 }
             }
         };
 
-        const handleTouch = (e) => {
+        const handleMouseOut = (e) => {
             const target = e.target.closest('.mention-user');
             if (target) {
-                handleMentionClick(e);
+                // Delay closing to allow moving to popup
+                hoverTimeoutRef.current = setTimeout(() => {
+                    setMentionPopup(null);
+                }, 500);
             }
         };
 
         const messagesContainer = document.querySelector('.custom-scrollbar');
         if (messagesContainer) {
-            messagesContainer.addEventListener('click', handleMentionClick);
-            messagesContainer.addEventListener('touchstart', handleTouch, { passive: true });
+            messagesContainer.addEventListener('mouseover', handleMouseOver);
+            messagesContainer.addEventListener('mouseout', handleMouseOut);
 
             return () => {
-                messagesContainer.removeEventListener('click', handleMentionClick);
-                messagesContainer.removeEventListener('touchstart', handleTouch);
+                messagesContainer.removeEventListener('mouseover', handleMouseOver);
+                messagesContainer.removeEventListener('mouseout', handleMouseOut);
+                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
             };
         }
     }, [user, setCurrentChannel]);
 
 
-    const fetchUserInfo = async (userId) => {
+    const fetchUserInfo = async (userId, position) => {
         try {
             const res = await axios.get(`/api/users/${userId}`);
             setMentionPopup({
                 user: res.data,
-                position: { x: event.clientX, y: event.clientY }
+                position: position || { x: 0, y: 0 } // Fallback
             });
         } catch (err) {
             console.error('Failed to fetch user info', err);
-            toast.error('Failed to load user info');
+            // Don't toast on hover error to avoid spam
         }
     };
 
@@ -273,7 +285,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     }
 
     return (
-        <div className="flex-1 flex flex-col bg-[#36393f] relative">
+        <div className="flex-1 flex flex-col bg-[#2f3136] relative">
             {/* Channel Header */}
             <div className="h-12 px-4 flex items-center justify-between border-b border-gray-700/50 bg-[#2f3136] shadow-sm">
                 <div className="flex items-center gap-2">
@@ -353,9 +365,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     messages.map((msg) => (
                         <div key={msg.id} className="flex gap-3 group hover:bg-[#32353b] px-3 py-1 rounded">
                             {/* Avatar */}
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
                                 {msg.avatar_url ? (
-                                    <img src={msg.avatar_url} alt={msg.username} className="w-full h-full rounded-full object-cover" />
+                                    <img src={msg.avatar_url} alt={msg.username} className="w-full h-full object-cover" />
                                 ) : (
                                     msg.username[0]?.toUpperCase()
                                 )}
@@ -466,6 +478,17 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     onClose={() => setMentionPopup(null)}
                     onMessage={handleMentionMessage}
                     onCall={handleMentionCall}
+                    onMouseEnter={() => {
+                        if (hoverTimeoutRef.current) {
+                            clearTimeout(hoverTimeoutRef.current);
+                            hoverTimeoutRef.current = null;
+                        }
+                    }}
+                    onMouseLeave={() => {
+                        hoverTimeoutRef.current = setTimeout(() => {
+                            setMentionPopup(null);
+                        }, 500);
+                    }}
                 />
             )}
         </div>

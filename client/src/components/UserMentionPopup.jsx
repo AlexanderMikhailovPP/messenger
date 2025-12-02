@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { X, MessageCircle, Phone } from 'lucide-react';
 import { useCall } from '../context/CallContext';
 
-export default function UserMentionPopup({ user, position, onClose, onMessage, onCall }) {
+export default function UserMentionPopup({ user, position, onClose, onMessage, onCall, onMouseEnter, onMouseLeave }) {
     const popupRef = useRef(null);
     const { joinCall } = useCall();
 
@@ -70,6 +70,8 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
             ref={popupRef}
             className="fixed z-50 bg-[#18191c] rounded-lg shadow-2xl border border-gray-700 w-80 overflow-hidden"
             style={{ left: position.x, top: position.y }}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
         >
             {/* Header with close button */}
             <div className="relative">
