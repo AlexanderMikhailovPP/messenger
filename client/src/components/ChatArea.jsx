@@ -94,7 +94,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     // Handle mention hover
     useEffect(() => {
         const handleGlobalMouseOver = (e) => {
-            const target = e.target.closest('.mention-user');
+            const target = e.target.closest('.mention-user, .message-username');
             if (target) {
                 const userId = target.getAttribute('data-id');
                 if (userId) {
@@ -120,7 +120,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         };
 
         const handleGlobalMouseOut = (e) => {
-            const target = e.target.closest('.mention-user');
+            const target = e.target.closest('.mention-user, .message-username');
             if (target) {
                 // Delay closing to allow moving to popup
                 hoverTimeoutRef.current = setTimeout(() => {
@@ -396,7 +396,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                                 {/* Header */}
                                 <div className="flex items-baseline gap-2 mb-1">
                                     <span
-                                        className="font-semibold text-white hover:underline cursor-pointer mention-user relative"
+                                        className="font-semibold text-white hover:underline cursor-pointer message-username relative"
                                         data-id={msg.user_id}
                                     >
                                         {msg.username}
