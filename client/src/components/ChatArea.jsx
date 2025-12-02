@@ -199,8 +199,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             setReactions(reactionsMap);
         } catch (error) {
             if (error.name !== 'CanceledError') {
-                console.error('Failed to fetch messages', error);
-                toast.error('Failed to load messages');
+                console.error('Failed to fetch messages:', error.response?.data || error.message);
+                // Only show toast for actual errors, not cancellations or 404s (empty channel)
+                if (error.response?.status !== 404) {
+                    toast.error('Failed to load messages');
+                }
             }
         } finally {
             setLoading(false);
@@ -285,9 +288,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     }
 
     return (
-        <div className="flex-1 h-full flex flex-col bg-[#36393f] relative min-h-0">
+        <div className="flex-1 h-full flex flex-col bg-[#1a1d21] relative min-h-0">
             {/* Channel Header */}
-            <div className="h-12 px-4 flex items-center justify-between border-b border-gray-700/50 bg-[#2f3136] shadow-sm">
+            <div className="h-12 px-4 flex items-center justify-between border-b border-gray-700/50 bg-[#1a1d21] shadow-sm">
                 <div className="flex items-center gap-2">
                     {currentChannel.type === 'dm' ? (
                         <div className="flex items-center gap-2">
@@ -453,21 +456,23 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
 
             {/* Input Area */}
-            <div className="p-5 pt-0">
-                <RichTextEditor
-                    value={newMessage}
-                    onChange={(value) => {
-                        setNewMessage(value);
-                        if (value.trim().length > 0) {
-                            sendTyping();
-                        } else {
-                            stopTyping();
-                        }
-                    }}
-                    placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
-                    onSubmit={handleSubmit}
-                    disabled={!newMessage.trim()}
-                />
+            <div className="p-5 pt-0 pb-6">
+                <div className="border border-gray-600 rounded-xl bg-[#222529] focus-within:border-gray-400 transition-all relative">
+                    <RichTextEditor
+                        value={newMessage}
+                        onChange={(value) => {
+                            setNewMessage(value);
+                            if (value.trim().length > 0) {
+                                sendTyping();
+                            } else {
+                                stopTyping();
+                            }
+                        }}
+                        placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
+                        onSubmit={handleSubmit}
+                        disabled={!newMessage.trim()}
+                    />
+                </div>
             </div>
 
             {/* User Mention Popup */}

@@ -244,7 +244,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     };
 
     return (
-        <div className="border border-gray-600 rounded-xl bg-[#222529] focus-within:border-gray-400 transition-all relative">
+        <div className="relative">
             {/* Toolbar */}
             <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-700">
                 <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Bold" />
