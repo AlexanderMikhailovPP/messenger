@@ -133,48 +133,54 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         const content = e.currentTarget.innerHTML;
         onChange(content);
 
+        // Get plain text from contentEditable
+        const plainText = e.currentTarget.textContent || '';
+
         // Check for mention triggers
         const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-        const textNode = range.startContainer;
-
-        // Handle both text nodes and element nodes
-        let text = '';
-        let cursorPos = 0;
-
-        if (textNode.nodeType === Node.TEXT_NODE) {
-            text = textNode.textContent;
-            cursorPos = range.startOffset;
-        } else if (textNode.nodeType === Node.ELEMENT_NODE) {
-            // If typing in empty contentEditable
-            text = textNode.textContent || '';
-            cursorPos = text.length;
-        } else {
+        if (!selection.rangeCount) {
+            setShowMentions(false);
             return;
         }
 
-        // Look backwards for @ or #
-        let i = cursorPos - 1;
-        let query = '';
-        let foundTrigger = null;
+        // Get cursor position in plain text
+        const range = selection.getRangeAt(0);
+        let cursorPos = 0;
 
-        while (i >= 0) {
-            const char = text[i];
-            if (char === '@' || char === '#') {
-                foundTrigger = char;
-                break;
-            } else if (char === ' ' || char === '\n') {
-                break;
-            }
-            query = char + query;
-            i--;
+        try {
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(editorRef.current);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            cursorPos = preCaretRange.toString().length;
+        } catch (e) {
+            console.error('Error getting cursor position:', e);
+            setShowMentions(false);
+            return;
         }
 
-        // Check if we found a trigger and it's at start or after space
-        if (foundTrigger && (i === 0 || (i > 0 && (text[i - 1] === ' ' || text[i - 1] === '\n')))) {
-            console.log('Mention trigger detected:', foundTrigger, 'query:', query);
+        // Look backwards from cursor for @ or #
+        let foundTrigger = null;
+        let triggerPos = -1;
+
+        for (let i = cursorPos - 1; i >= 0; i--) {
+            const char = plainText[i];
+            if (char === '@' || char === '#') {
+                // Check if it's at start or after space/newline
+                if (i === 0 || plainText[i - 1] === ' ' || plainText[i - 1] === '\n') {
+                    foundTrigger = char;
+                    triggerPos = i;
+                    break;
+                }
+            } else if (char === ' ' || char === '\n') {
+                // Stop if we hit a space before finding trigger
+                break;
+            }
+        }
+
+        if (foundTrigger && triggerPos >= 0) {
+            const query = plainText.substring(triggerPos + 1, cursorPos);
+            console.log('Mention detected:', foundTrigger, 'query:', `"${query}"`);
+
             setMentionType(foundTrigger);
             setMentionQuery(query);
             setShowMentions(true);
