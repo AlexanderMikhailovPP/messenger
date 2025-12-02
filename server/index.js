@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const cookieParser = require('cookie-parser');
 
 dotenv.config();
 
@@ -14,11 +15,16 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: process.env.CORS_ORIGIN || ["http://localhost:5173", "http://localhost:5174"],
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
+        credentials: true // Allow cookies
     }
 });
 
-app.use(cors());
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || ["http://localhost:5173", "http://localhost:5174"],
+    credentials: true // Allow cookies
+}));
+app.use(cookieParser());
 app.use(express.json());
 
 const authRoutes = require('./routes/auth');

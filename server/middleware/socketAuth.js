@@ -2,18 +2,24 @@ const jwt = require('jsonwebtoken');
 
 /**
  * Socket.IO authentication middleware
- * Verifies JWT token and attaches user data to socket
- * Falls back to allowing connection without auth for backward compatibility
+ * Verifies JWT token from HTTP-only cookie
+ * STRICT: Rejects connection without valid token
  */
 module.exports = (socket, next) => {
-    const token = socket.handshake.auth.token;
+    // Extract accessToken from cookie header
+    const cookies = socket.handshake.headers.cookie;
+
+    if (!cookies) {
+        return next(new Error('Authentication required'));
+    }
+
+    const token = cookies
+        .split('; ')
+        .find(c => c.startsWith('accessToken='))
+        ?.split('=')[1];
 
     if (!token) {
-        console.warn('Socket connected without token:', socket.id);
-        // Allow connection but mark as unauthenticated
-        socket.data.userId = null;
-        socket.data.username = 'anonymous';
-        return next();
+        return next(new Error('Authentication required'));
     }
 
     try {
@@ -24,9 +30,6 @@ module.exports = (socket, next) => {
         next();
     } catch (err) {
         console.error('Socket auth failed:', err.message);
-        // Still allow connection but mark as unauthenticated
-        socket.data.userId = null;
-        socket.data.username = 'anonymous';
-        next();
+        next(new Error('Invalid or expired token'));
     }
 };

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { socket } from '../socket';
+import { getSocket } from '../socket';
 import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
@@ -24,9 +24,12 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     useEffect(() => {
         if (currentChannel) {
             const controller = new AbortController();
+            const socket = getSocket();
 
             fetchMessages(currentChannel.id, controller.signal);
-            socket.emit('join_channel', currentChannel.id);
+            if (socket) {
+                socket.emit('join_channel', currentChannel.id);
+            }
 
             return () => {
                 controller.abort(); // Cancel pending fetch if channel changes
@@ -35,16 +38,22 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     }, [currentChannel]);
 
     useEffect(() => {
-        socket.on('receive_message', (message) => {
+        const socket = getSocket();
+        if (!socket) return;
+
+        const handleNewMessage = (message) => {
+            // Only add message if it belongs to the currently active channel
+            // currentChannel is a ref here to avoid re-running this effect
+            // when currentChannel changes, but still access its latest value.
+            // This ensures the listener is set up once.
             if (currentChannel && message.channel_id === currentChannel.id) {
                 setMessages((prev) => [...prev, message]);
             }
-        });
-
-        return () => {
-            socket.off('receive_message');
         };
-    }, [currentChannel]);
+
+        socket.on('receive_message', handleNewMessage);
+        return () => socket.off('receive_message', handleNewMessage);
+    }, [currentChannel]); // Keep currentChannel as a dependency to ensure the closure has the latest value
 
     useEffect(() => {
         scrollToBottom();
@@ -190,6 +199,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const trimmed = newMessage.trim();
         if (!trimmed || trimmed.length === 0 || !currentChannel) return;
 
+        const socket = getSocket();
+        if (!socket) return;
+
         // Send message via socket - include userId for backward compatibility
         socket.emit('send_message', {
             content: trimmed,
@@ -230,6 +242,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     };
 
     const handleStartHuddle = () => {
+        const socket = getSocket();
+        if (!socket) return;
+
         joinCall(currentChannel.id);
 
         // Notify other users - userId authenticated on server
@@ -240,8 +255,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         // Send system message
         socket.emit('send_message', {
             content: '📞 Started a huddle',
-            channelId: currentChannel.id,
-            type: 'system'
+            channelId: currentChannel.id
         });
     };
 

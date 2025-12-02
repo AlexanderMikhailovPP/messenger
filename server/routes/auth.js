@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret-change-in-production';
 
 router.post('/register', async (req, res) => {
     const { username, password } = req.body;
@@ -14,20 +15,39 @@ router.post('/register', async (req, res) => {
     }
 
     try {
-        // Hash the password
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
         const result = await db.insertReturning('INSERT INTO users (username, password) VALUES (?, ?) RETURNING id, username', [username, hashedPassword]);
         const id = result.id || result.lastID;
 
-        // Generate JWT for auto-login after registration
-        const token = jwt.sign(
+        // Generate tokens
+        const accessToken = jwt.sign(
             { userId: id, username },
             JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        const refreshToken = jwt.sign(
+            { userId: id, username },
+            JWT_REFRESH_SECRET,
             { expiresIn: '7d' }
         );
 
-        res.json({ id, username, token });
+        // Set HTTP-only cookies
+        res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 15 * 60 * 1000 // 15 min
+        });
+
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        res.json({ id, username });
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
             return res.status(400).json({ error: 'Username already taken' });
@@ -40,7 +60,6 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        // Get user by username only
         const result = await db.query('SELECT * FROM users WHERE username = ?', [username]);
         const user = result.rows[0];
 
@@ -48,22 +67,41 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Verify password
         const isValidPassword = await bcrypt.compare(password, user.password);
 
         if (isValidPassword) {
-            // Generate JWT token
-            const token = jwt.sign(
+            // Generate tokens
+            const accessToken = jwt.sign(
                 { userId: user.id, username: user.username },
                 JWT_SECRET,
+                { expiresIn: '15m' }
+            );
+
+            const refreshToken = jwt.sign(
+                { userId: user.id, username: user.username },
+                JWT_REFRESH_SECRET,
                 { expiresIn: '7d' }
             );
+
+            // Set HTTP-only cookies
+            res.cookie('accessToken', accessToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 15 * 60 * 1000 // 15 min
+            });
+
+            res.cookie('refreshToken', refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            });
 
             res.json({
                 id: user.id,
                 username: user.username,
-                avatar_url: user.avatar_url,
-                token
+                avatar_url: user.avatar_url
             });
         } else {
             res.status(401).json({ error: 'Invalid credentials' });
@@ -72,6 +110,44 @@ router.post('/login', async (req, res) => {
         console.error(err);
         res.status(500).json({ error: 'Database error' });
     }
+});
+
+// Refresh token endpoint
+router.post('/refresh', (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+        return res.status(401).json({ error: 'No refresh token' });
+    }
+
+    try {
+        const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+
+        // Generate new access token
+        const newAccessToken = jwt.sign(
+            { userId: decoded.userId, username: decoded.username },
+            JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        res.cookie('accessToken', newAccessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 15 * 60 * 1000
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(401).json({ error: 'Invalid refresh token' });
+    }
+});
+
+// Logout endpoint
+router.post('/logout', (req, res) => {
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    res.json({ success: true });
 });
 
 module.exports = router;

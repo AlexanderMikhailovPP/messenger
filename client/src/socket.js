@@ -1,23 +1,47 @@
 import { io } from 'socket.io-client';
 
-// Get token from localStorage
-const getToken = () => {
-    try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        return user.token || '';
-    } catch {
-        return '';
+let socket = null;
+
+/**
+ * Connect Socket.IO with credentials (HTTP-only cookies)
+ * Only call this AFTER successful login
+ */
+export const connectSocket = () => {
+    if (socket) return socket;
+
+    socket = io({
+        withCredentials: true, // Send HTTP-only cookies
+        autoConnect: false
+    });
+
+    socket.connect();
+
+    socket.on('connect_error', (err) => {
+        console.error('Socket connection error:', err.message);
+        // Token might be expired, attempt will be made via axios interceptor
+    });
+
+    socket.on('connect', () => {
+        console.log('Socket connected:', socket.id);
+    });
+
+    return socket;
+};
+
+/**
+ * Disconnect and cleanup Socket.IO
+ * Call this on logout
+ */
+export const disconnectSocket = () => {
+    if (socket) {
+        socket.disconnect();
+        socket = null;
+        console.log('Socket disconnected');
     }
 };
 
-export const socket = io({
-    auth: {
-        token: getToken()
-    },
-    autoConnect: true
-});
-
-// Reconnect with token on reconnection
-socket.on('connect', () => {
-    socket.auth.token = getToken();
-});
+/**
+ * Get current socket instance
+ * Returns null if not connected
+ */
+export const getSocket = () => socket;

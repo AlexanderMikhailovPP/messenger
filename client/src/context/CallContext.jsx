@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { socket } from '../socket';
+import { getSocket } from '../socket';
 import { useAuth } from './AuthContext';
 
 const CallContext = createContext(null);
@@ -17,6 +17,9 @@ export const CallProvider = ({ children }) => {
     const localStreamRef = useRef(null);
 
     useEffect(() => {
+        const socket = getSocket();
+        if (!socket) return;
+
         // Handle signaling events
         socket.on('user-connected', (userId, socketId) => {
             console.log('User connected to call:', userId, socketId);
@@ -126,6 +129,12 @@ export const CallProvider = ({ children }) => {
 
     const joinCall = async (channelId) => {
         try {
+            const socket = getSocket();
+            if (!socket) {
+                alert('Please login first to join a call');
+                return;
+            }
+
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 alert('Audio is not supported. Please ensure you are using HTTPS or localhost.');
                 return;
@@ -144,6 +153,8 @@ export const CallProvider = ({ children }) => {
     };
 
     const leaveCall = () => {
+        const socket = getSocket();
+
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach(track => track.stop());
         }
@@ -157,7 +168,9 @@ export const CallProvider = ({ children }) => {
         peersRef.current = {};
         setPeers({});
 
-        socket.emit('leave-room');
+        if (socket) {
+            socket.emit('leave-room');
+        }
     };
 
     const toggleMute = () => {

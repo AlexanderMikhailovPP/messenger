@@ -1,5 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
+import { connectSocket, disconnectSocket } from '../socket';
 
 const AuthContext = createContext(null);
 
@@ -10,22 +11,58 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
-            setUser(JSON.parse(storedUser));
+            const userData = JSON.parse(storedUser);
+            setUser(userData);
+            // Reconnect socket if user session exists
+            connectSocket();
         }
         setLoading(false);
     }, []);
 
+    // Axios interceptor for auto-refresh on 401
+    useEffect(() => {
+        const interceptor = axios.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                const originalRequest = error.config;
+
+                if (error.response?.status === 401 && !originalRequest._retry) {
+                    originalRequest._retry = true;
+
+                    try {
+                        await axios.post('/api/auth/refresh', {}, { withCredentials: true });
+                        return axios(originalRequest);
+                    } catch (refreshError) {
+                        // Refresh failed, force logout
+                        logout();
+                        return Promise.reject(refreshError);
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        return () => axios.interceptors.response.eject(interceptor);
+    }, []);
+
     const login = async (username, password) => {
         try {
-            const res = await axios.post('/api/auth/login', { username, password });
+            const res = await axios.post('/api/auth/login', { username, password }, {
+                withCredentials: true // Send and receive cookies
+            });
+
             const userData = {
                 id: res.data.id,
                 username: res.data.username,
-                avatar_url: res.data.avatar_url,
-                token: res.data.token // Store JWT token
+                avatar_url: res.data.avatar_url
             };
+
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
+
+            // Connect Socket.IO AFTER successful login
+            connectSocket();
+
             return { success: true };
         } catch (error) {
             return { success: false, error: error.response?.data?.error || 'Login failed' };
@@ -34,16 +71,22 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (username, password) => {
         try {
-            const res = await axios.post('/api/auth/register', { username, password });
-            // Auto-login after successful registration
+            const res = await axios.post('/api/auth/register', { username, password }, {
+                withCredentials: true // Send and receive cookies
+            });
+
             const userData = {
                 id: res.data.id,
                 username: res.data.username,
-                avatar_url: res.data.avatar_url,
-                token: res.data.token
+                avatar_url: res.data.avatar_url
             };
+
             setUser(userData);
             localStorage.setItem('user', JSON.stringify(userData));
+
+            // Connect Socket.IO AFTER successful registration
+            connectSocket();
+
             return { success: true };
         } catch (error) {
             return { success: false, error: error.response?.data?.error || 'Registration failed' };
@@ -51,8 +94,12 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        axios.post('/api/auth/logout', {}, { withCredentials: true }).catch(console.error);
         setUser(null);
         localStorage.removeItem('user');
+
+        // Disconnect Socket.IO on logout
+        disconnectSocket();
     };
 
     const updateUser = (updatedUserData) => {
