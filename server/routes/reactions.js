@@ -26,6 +26,9 @@ router.post('/:messageId/reactions', async (req, res) => {
                 console.error(deleteErr);
                 res.status(500).json({ error: 'Failed to toggle reaction' });
             }
+        } else if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || err.code === '23503') {
+            // This handles cases where message_id or user_id might not exist
+            res.status(404).json({ error: 'Message or user not found' });
         } else {
             console.error(err);
             res.status(500).json({ error: 'Failed to add reaction' });
