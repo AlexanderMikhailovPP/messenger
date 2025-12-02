@@ -10,7 +10,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const [mentionResults, setMentionResults] = useState([]);
     const [showMentions, setShowMentions] = useState(false);
     const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
-    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+    const [cursorPosition, setCursorPosition] = useState(0);
     const editorRef = useRef(null);
     const { user } = useAuth();
 
@@ -35,9 +35,9 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     const searchMentions = async (query, type) => {
         try {
-            // Use space as query if empty to get all results
-            const searchQuery = query.length === 0 ? ' ' : query;
-            const res = await axios.get(`/api/users/search?q=${searchQuery}`);
+            // Always search, even with empty query
+            const searchQuery = query.length === 0 ? '' : query;
+            const res = await axios.get(`/api/users/search?q=${encodeURIComponent(searchQuery || ' ')}`);
             if (type === '@') {
                 setMentionResults(res.data.users || []);
             } else if (type === '#') {
@@ -50,56 +50,75 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     };
 
     const insertMention = (item) => {
+        if (!editorRef.current) return;
+
         const selection = window.getSelection();
         if (!selection.rangeCount) return;
 
         const range = selection.getRangeAt(0);
-        const textNode = range.startContainer;
 
-        if (textNode.nodeType !== Node.TEXT_NODE) return;
+        // Get all text content
+        const fullText = editorRef.current.textContent || '';
 
-        const text = textNode.textContent;
-        const cursorPos = range.startOffset;
-
-        // Find the position of @ or #
-        let triggerPos = cursorPos - 1;
-        while (triggerPos >= 0 && text[triggerPos] !== mentionType) {
-            triggerPos--;
+        // Find the @ or # position before cursor
+        let cursorOffset = 0;
+        try {
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(editorRef.current);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            cursorOffset = preCaretRange.toString().length;
+        } catch (e) {
+            console.error('Error getting cursor position:', e);
+            return;
         }
 
-        if (triggerPos >= 0) {
-            // Create mention element
-            const mentionClass = mentionType === '@' ? 'mention-user' : 'mention-channel';
-            const mentionText = mentionType === '@' ? `@${item.username}` : `#${item.name}`;
-            const mentionSpan = document.createElement('span');
-            mentionSpan.className = mentionClass;
-            mentionSpan.setAttribute('data-id', item.id);
-            mentionSpan.setAttribute('data-type', mentionType === '@' ? 'user' : 'channel');
-            mentionSpan.textContent = mentionText;
-
-            // Split text node
-            const beforeText = text.substring(0, triggerPos);
-            const afterText = text.substring(cursorPos);
-
-            textNode.textContent = beforeText;
-
-            // Insert mention and space
-            const spaceNode = document.createTextNode('\u00A0');
-            textNode.parentNode.insertBefore(mentionSpan, textNode.nextSibling);
-            textNode.parentNode.insertBefore(spaceNode, mentionSpan.nextSibling);
-
-            // Insert remaining text
-            if (afterText) {
-                const afterNode = document.createTextNode(afterText);
-                textNode.parentNode.insertBefore(afterNode, spaceNode.nextSibling);
+        // Find trigger position
+        let triggerPos = -1;
+        for (let i = cursorOffset - 1; i >= 0; i--) {
+            if (fullText[i] === mentionType) {
+                triggerPos = i;
+                break;
             }
+        }
 
-            // Move cursor after space
-            const newRange = document.createRange();
-            newRange.setStartAfter(spaceNode);
+        if (triggerPos === -1) return;
+
+        // Create mention HTML
+        const mentionClass = mentionType === '@' ? 'mention-user' : 'mention-channel';
+        const mentionText = mentionType === '@' ? `@${item.username}` : `#${item.name}`;
+        const mentionId = item.id;
+
+        // Build new HTML
+        const beforeText = fullText.substring(0, triggerPos);
+        const afterText = fullText.substring(cursorOffset);
+
+        const mentionHTML = `<span class="${mentionClass}" data-id="${mentionId}" data-type="${mentionType === '@' ? 'user' : 'channel'}" contenteditable="false">${mentionText}</span>`;
+
+        // Set new content
+        editorRef.current.innerHTML = beforeText + mentionHTML + '&nbsp;' + afterText;
+
+        // Move cursor after mention
+        const newRange = document.createRange();
+        const newSelection = window.getSelection();
+
+        // Find the text node after the mention
+        const walker = document.createTreeWalker(
+            editorRef.current,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let lastNode = walker.nextNode();
+        while (walker.nextNode()) {
+            lastNode = walker.currentNode;
+        }
+
+        if (lastNode) {
+            newRange.setStart(lastNode, 0);
             newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
+            newSelection.removeAllRanges();
+            newSelection.addRange(newRange);
         }
 
         // Reset mention state
@@ -110,69 +129,50 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         setSelectedMentionIndex(0);
 
         // Update value
-        if (editorRef.current) {
-            onChange(editorRef.current.innerHTML);
-        }
-    };
-
-    const getCaretCoordinates = () => {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return { top: 0, left: 0 };
-
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        const editorRect = editorRef.current.getBoundingClientRect();
-
-        return {
-            top: rect.top - editorRect.top - 10, // Position above cursor
-            left: rect.left - editorRect.left
-        };
+        onChange(editorRef.current.innerHTML);
+        editorRef.current.focus();
     };
 
     const handleInput = (e) => {
         const content = e.currentTarget.innerHTML;
         onChange(content);
 
-        // Get plain text from contentEditable
         const plainText = e.currentTarget.textContent || '';
-
-        // Check for mention triggers
         const selection = window.getSelection();
+
         if (!selection.rangeCount) {
             setShowMentions(false);
             return;
         }
 
-        // Get cursor position in plain text
-        const range = selection.getRangeAt(0);
+        // Get cursor position
         let cursorPos = 0;
-
         try {
+            const range = selection.getRangeAt(0);
             const preCaretRange = range.cloneRange();
             preCaretRange.selectNodeContents(editorRef.current);
             preCaretRange.setEnd(range.endContainer, range.endOffset);
             cursorPos = preCaretRange.toString().length;
         } catch (e) {
-            console.error('Error getting cursor position:', e);
             setShowMentions(false);
             return;
         }
 
-        // Look backwards from cursor for @ or #
+        setCursorPosition(cursorPos);
+
+        // Look for @ or # before cursor
         let foundTrigger = null;
         let triggerPos = -1;
 
         for (let i = cursorPos - 1; i >= 0; i--) {
             const char = plainText[i];
             if (char === '@' || char === '#') {
-                // Check if it's at start or after space/newline
                 if (i === 0 || plainText[i - 1] === ' ' || plainText[i - 1] === '\n') {
                     foundTrigger = char;
                     triggerPos = i;
                     break;
                 }
             } else if (char === ' ' || char === '\n') {
-                // Stop if we hit a space before finding trigger
                 break;
             }
         }
@@ -184,7 +184,6 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             setMentionType(foundTrigger);
             setMentionQuery(query);
             setShowMentions(true);
-            setDropdownPosition(getCaretCoordinates());
             searchMentions(query, foundTrigger);
         } else {
             setShowMentions(false);
@@ -274,11 +273,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 {/* Mention Autocomplete Dropdown */}
                 {showMentions && mentionResults.length > 0 && (
                     <div
-                        className="absolute w-64 bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50"
-                        style={{
-                            bottom: `calc(100% - ${dropdownPosition.top}px)`,
-                            left: `${dropdownPosition.left}px`
-                        }}
+                        className="absolute bottom-full left-3 mb-2 w-64 bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50"
                     >
                         <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-700">
                             {mentionType === '@' ? 'Mention User' : 'Mention Channel'}
@@ -287,11 +282,11 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                             <div
                                 key={item.id}
                                 className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${index === selectedMentionIndex
-                                    ? 'bg-blue-600/30 text-blue-400'
-                                    : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
+                                        ? 'bg-blue-600/30 text-blue-400'
+                                        : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
                                     }`}
                                 onMouseDown={(e) => {
-                                    e.preventDefault(); // Prevent blur
+                                    e.preventDefault();
                                     insertMention(item);
                                 }}
                                 onMouseEnter={() => setSelectedMentionIndex(index)}
@@ -360,6 +355,11 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     border-radius: 6px;
                     overflow-x: auto;
                     font-family: monospace;
+                }
+                [contentEditable] .mention-user,
+                [contentEditable] .mention-channel {
+                    display: inline-block;
+                    margin: 0 1px;
                 }
             `}</style>
         </div>
