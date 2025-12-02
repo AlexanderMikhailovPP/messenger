@@ -10,6 +10,8 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
     const [newChannelName, setNewChannelName] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState({ users: [], channels: [] });
+    const [showChannels, setShowChannels] = useState(true);
+    const [showDMs, setShowDMs] = useState(true);
     const { user } = useAuth();
 
     useEffect(() => {
@@ -159,8 +161,14 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
             <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {/* Channels */}
                 <div className="px-4 mb-2 flex items-center justify-between group mt-4">
-                    <div className="flex items-center gap-1 text-gray-500 hover:text-gray-300 cursor-pointer">
-                        <ChevronDown size={12} />
+                    <div
+                        className="flex items-center gap-1 text-gray-500 hover:text-gray-300 cursor-pointer"
+                        onClick={() => setShowChannels(!showChannels)}
+                    >
+                        <ChevronDown
+                            size={12}
+                            className={`transition-transform ${showChannels ? '' : '-rotate-90'}`}
+                        />
                         <span className="text-sm font-medium uppercase tracking-wide">Channels</span>
                     </div>
                     <button onClick={() => setShowCreateModal(true)} className="text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
@@ -168,51 +176,61 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
                     </button>
                 </div>
 
-                <div className="space-y-[1px] mb-2">
-                    {channels.map(channel => (
-                        <button
-                            key={channel.id}
-                            onClick={() => setCurrentChannel(channel)}
-                            className={`w-full text-left px-6 py-1.5 flex items-center gap-2 transition-colors ${currentChannel?.id === channel.id
-                                ? 'bg-[#1164A3] text-white'
-                                : 'hover:bg-gray-800 text-gray-400 hover:text-gray-200'
-                                }`}
-                        >
-                            <Hash size={16} className="opacity-70" />
-                            <span className="truncate text-[15px]">{channel.name}</span>
-                        </button>
-                    ))}
-                </div>
+                {showChannels && (
+                    <div className="space-y-[1px] mb-2">
+                        {channels.map(channel => (
+                            <button
+                                key={channel.id}
+                                onClick={() => setCurrentChannel(channel)}
+                                className={`w-full text-left px-6 py-1.5 flex items-center gap-2 transition-colors ${currentChannel?.id === channel.id
+                                    ? 'bg-[#1164A3] text-white'
+                                    : 'hover:bg-gray-800 text-gray-400 hover:text-gray-200'
+                                    }`}
+                            >
+                                <Hash size={16} className="opacity-70" />
+                                <span className="truncate text-[15px]">{channel.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 <div className="px-4 mb-2 flex items-center justify-between group mt-2">
-                    <div className="flex items-center gap-1 text-gray-500 hover:text-gray-300 cursor-pointer">
-                        <ChevronDown size={12} />
+                    <div
+                        className="flex items-center gap-1 text-gray-500 hover:text-gray-300 cursor-pointer"
+                        onClick={() => setShowDMs(!showDMs)}
+                    >
+                        <ChevronDown
+                            size={12}
+                            className={`transition-transform ${showDMs ? '' : '-rotate-90'}`}
+                        />
                         <span className="text-sm font-medium uppercase tracking-wide">Direct Messages</span>
                     </div>
                 </div>
 
-                <div className="space-y-[1px] mb-6">
-                    {dms.map(dm => (
-                        <button
-                            key={dm.id}
-                            onClick={() => setCurrentChannel(dm)}
-                            className={`w-full text-left px-6 py-1.5 flex items-center gap-2 transition-colors ${currentChannel?.id === dm.id
-                                ? 'bg-[#1164A3] text-white'
-                                : 'hover:bg-gray-800 text-gray-400 hover:text-gray-200'
-                                }`}
-                        >
-                            <div className="relative">
-                                <img
-                                    src={dm.avatarUrl || `https://ui-avatars.com/api/?name=${dm.displayName}&background=random`}
-                                    alt={dm.displayName}
-                                    className="w-4 h-4 rounded bg-gray-700"
-                                />
-                                <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-[#1f2225]"></div>
-                            </div>
-                            <span className="truncate text-[15px]">{dm.displayName}</span>
-                        </button>
-                    ))}
-                </div>
+                {showDMs && (
+                    <div className="space-y-[1px] mb-6">
+                        {dms.map(dm => (
+                            <button
+                                key={dm.id}
+                                onClick={() => setCurrentChannel(dm)}
+                                className={`w-full text-left px-6 py-1.5 flex items-center gap-2 transition-colors ${currentChannel?.id === dm.id
+                                    ? 'bg-[#1164A3] text-white'
+                                    : 'hover:bg-gray-800 text-gray-400 hover:text-gray-200'
+                                    }`}
+                            >
+                                <div className="relative">
+                                    <img
+                                        src={dm.avatarUrl || `https://ui-avatars.com/api/?name=${dm.displayName}&background=random`}
+                                        alt={dm.displayName}
+                                        className="w-4 h-4 rounded bg-gray-700"
+                                    />
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-[#1f2225]"></div>
+                                </div>
+                                <span className="truncate text-[15px]">{dm.displayName}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
 
