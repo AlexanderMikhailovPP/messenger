@@ -1,19 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { getSocket } from '../socket';
-import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useCall } from '../context/CallContext';
-import toast from 'react-hot-toast';
-import EmojiPicker from 'emoji-picker-react';
-import RichTextEditor from './RichTextEditor';
-import UserMentionPopup from './UserMentionPopup';
-import ActiveCallBar from './ActiveCallBar';
-import TypingIndicator from './TypingIndicator';
-import { sanitizeHTML } from '../utils/sanitize';
-import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator';
-import { markAsRead, incrementUnread } from '../utils/unreadCounter';
-
 import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown, ChevronLeft } from 'lucide-react';
 
 export default function ChatArea({ currentChannel, setCurrentChannel, onBack, isMobile }) {

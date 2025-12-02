@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Hash, Plus, ChevronDown, Search, MessageSquare } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { getUnreadCounts } from '../utils/unreadCounter';
-
 import { Hash, Plus, ChevronDown, Search, MessageSquare, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUnreadCounts } from '../utils/unreadCounter';
