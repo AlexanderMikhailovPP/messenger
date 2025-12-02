@@ -105,11 +105,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     useEffect(() => {
         const handleMentionHover = (e) => {
             const target = e.target.closest('.mention-user');
-            console.log('Mouseover event target:', e.target, 'Closest mention:', target);
 
             if (target) {
                 const userId = target.getAttribute('data-id');
-                console.log('Hovering over user mention, userId:', userId);
                 if (userId) {
                     // Clear any existing timeout
                     if (hoverTimeoutRef.current) {
@@ -119,7 +117,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     // Show popup after short delay
                     hoverTimeoutRef.current = setTimeout(() => {
                         const rect = target.getBoundingClientRect();
-                        console.log('Showing popup at position:', rect);
                         setMentionPopup({
                             userId: parseInt(userId),
                             position: {
@@ -135,7 +132,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const handleMentionLeave = (e) => {
             const target = e.target.closest('.mention-user');
             if (target) {
-                console.log('Leaving user mention');
                 if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
                 }
@@ -146,7 +142,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
         const messagesContainer = document.querySelector('.custom-scrollbar');
         if (messagesContainer) {
-            console.log('Adding hover listeners to messages container');
             messagesContainer.addEventListener('mouseover', handleMentionHover);
             messagesContainer.addEventListener('mouseout', handleMentionLeave);
             return () => {
