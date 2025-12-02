@@ -40,6 +40,7 @@ export default function ActiveCallBar() {
                             {/* Audio element for peer */}
                             <audio
                                 autoPlay
+                                playsInline
                                 ref={audio => {
                                     if (audio && peer.stream) {
                                         audio.srcObject = peer.stream;
