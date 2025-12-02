@@ -234,7 +234,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#313338]">
+        <div className="flex-1 flex flex-col h-full bg-[#222529] text-gray-200">
             {/* Header */}
             <header className="h-16 border-b border-gray-700/50 flex items-center justify-between px-5 bg-[#222529]">
                 <div className="flex items-center gap-2">
