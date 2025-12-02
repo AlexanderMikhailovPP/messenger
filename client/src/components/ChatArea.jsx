@@ -118,11 +118,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     setMentionPopup({
                         userId: parseInt(userId),
                         position: {
-                            top: rect.bottom + 8,
+                            top: rect.bottom, // Removed gap
                             left: rect.left
                         }
                     });
-                }, 500);
+                }, 300); // Reduced open delay
             }
         };
 
@@ -133,7 +133,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             if (hoverTimeoutRef.current) {
                 clearTimeout(hoverTimeoutRef.current);
             }
-            hoverTimeoutRef.current = setTimeout(() => setMentionPopup(null), 200);
+            hoverTimeoutRef.current = setTimeout(() => setMentionPopup(null), 500); // Increased close delay
         };
 
         const messagesContainer = document.querySelector('.custom-scrollbar');
