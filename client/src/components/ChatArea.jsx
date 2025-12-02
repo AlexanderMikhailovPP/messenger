@@ -162,7 +162,11 @@ export default function ChatArea({ currentChannel }) {
                                         />
                                     ) : (
                                         <div className="w-9 flex-shrink-0 text-[10px] text-gray-500 opacity-0 group-hover:opacity-100 text-right pt-1">
-                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(msg.created_at).toLocaleTimeString('en-US', {
+                                                hour: 'numeric',
+                                                minute: '2-digit',
+                                                hour12: true
+                                            })}
                                         </div>
                                     )}
 
@@ -171,27 +175,11 @@ export default function ChatArea({ currentChannel }) {
                                             <div className="flex items-baseline gap-2 mb-0.5">
                                                 <span className="font-bold text-[15px] text-white hover:underline cursor-pointer">{msg.username}</span>
                                                 <span className="text-xs text-gray-500">
-                                                    {(() => {
-                                                        const msgDate = new Date(msg.created_at);
-                                                        const today = new Date();
-                                                        const yesterday = new Date(today);
-                                                        yesterday.setDate(yesterday.getDate() - 1);
-
-                                                        const timeStr = msgDate.toLocaleTimeString('en-US', {
-                                                            hour: '2-digit',
-                                                            minute: '2-digit',
-                                                            second: '2-digit',
-                                                            hour12: true
-                                                        });
-
-                                                        if (msgDate.toDateString() === today.toDateString()) {
-                                                            return `Today at ${timeStr}`;
-                                                        } else if (msgDate.toDateString() === yesterday.toDateString()) {
-                                                            return `Yesterday at ${timeStr}`;
-                                                        } else {
-                                                            return `${msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${timeStr}`;
-                                                        }
-                                                    })()}
+                                                    {new Date(msg.created_at).toLocaleTimeString('en-US', {
+                                                        hour: 'numeric',
+                                                        minute: '2-digit',
+                                                        hour12: true
+                                                    })}
                                                 </span>
                                                 {msg.edited_at && (
                                                     <span className="text-xs text-gray-500">(edited)</span>
