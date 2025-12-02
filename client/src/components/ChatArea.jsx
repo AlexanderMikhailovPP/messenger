@@ -105,7 +105,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     useEffect(() => {
         const handleMentionHover = (e) => {
             const target = e.target;
-            if (target.classList.contains('mention-user')) {
+            if (target.classList && target.classList.contains('mention-user')) {
                 const userId = target.getAttribute('data-id');
                 if (userId) {
                     // Clear any existing timeout
@@ -130,7 +130,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
         const handleMentionLeave = (e) => {
             const target = e.target;
-            if (target.classList.contains('mention-user')) {
+            if (target.classList && target.classList.contains('mention-user')) {
                 if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
                 }
@@ -141,11 +141,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
         const messagesContainer = document.querySelector('.custom-scrollbar');
         if (messagesContainer) {
-            messagesContainer.addEventListener('mouseenter', handleMentionHover, true);
-            messagesContainer.addEventListener('mouseleave', handleMentionLeave, true);
+            messagesContainer.addEventListener('mouseover', handleMentionHover);
+            messagesContainer.addEventListener('mouseout', handleMentionLeave);
             return () => {
-                messagesContainer.removeEventListener('mouseenter', handleMentionHover, true);
-                messagesContainer.removeEventListener('mouseleave', handleMentionLeave, true);
+                messagesContainer.removeEventListener('mouseover', handleMentionHover);
+                messagesContainer.removeEventListener('mouseout', handleMentionLeave);
             };
         }
     }, []);
