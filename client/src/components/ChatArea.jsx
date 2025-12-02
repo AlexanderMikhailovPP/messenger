@@ -217,7 +217,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     }
 
     const handleMentionMessage = async (targetUser) => {
-        console.log('handleMentionMessage called with:', targetUser);
         try {
             const res = await axios.post('/api/channels/dm', {
                 currentUserId: user.id,
@@ -226,7 +225,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             const dmChannel = res.data;
             dmChannel.displayName = targetUser.username;
             dmChannel.avatarUrl = targetUser.avatar_url;
-            console.log('Setting current channel to DM:', dmChannel);
             setCurrentChannel(dmChannel);
         } catch (error) {
             console.error('Failed to open DM', error);
