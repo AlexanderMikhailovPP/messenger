@@ -65,9 +65,14 @@ io.on('connection', (socket) => {
 
     socket.on('send_message', async (data) => {
         console.log('Server received send_message:', data);
-        // Use authenticated userId from socket, NOT from client data
-        const { content, channelId } = data;
-        const authenticatedUserId = socket.data.userId;
+        // Use authenticated userId from socket, but fallback to data.userId for backward compatibility
+        const { content, channelId, userId: clientUserId } = data;
+        const authenticatedUserId = socket.data.userId || clientUserId;
+
+        if (!authenticatedUserId) {
+            console.error('Cannot send message: userId not found');
+            return;
+        }
 
         // Save to DB
         try {

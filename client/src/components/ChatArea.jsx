@@ -190,9 +190,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const trimmed = newMessage.trim();
         if (!trimmed || trimmed.length === 0 || !currentChannel) return;
 
-        // Send message via socket - userId is authenticated on server
+        // Send message via socket - include userId for backward compatibility
         socket.emit('send_message', {
             content: trimmed,
+            userId: user.id,
             channelId: currentChannel.id
         });
 
