@@ -133,7 +133,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             if (hoverTimeoutRef.current) {
                 clearTimeout(hoverTimeoutRef.current);
             }
-            setTimeout(() => setMentionPopup(null), 200);
+            hoverTimeoutRef.current = setTimeout(() => setMentionPopup(null), 200);
         };
 
         const messagesContainer = document.querySelector('.custom-scrollbar');
