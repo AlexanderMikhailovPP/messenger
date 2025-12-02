@@ -8,7 +8,7 @@ import RichTextEditor from './RichTextEditor';
 
 const socket = io();
 
-export default function ChatArea({ currentChannel }) {
+export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [reactions, setReactions] = useState({});
@@ -46,7 +46,7 @@ export default function ChatArea({ currentChannel }) {
             if (target.classList.contains('mention-user')) {
                 e.preventDefault();
                 const userId = target.getAttribute('data-id');
-                if (userId) {
+                if (userId && setCurrentChannel) {
                     try {
                         const res = await axios.post('/api/channels/dm', {
                             currentUserId: user.id,
@@ -56,7 +56,8 @@ export default function ChatArea({ currentChannel }) {
                         // Get username from mention text
                         const username = target.textContent.substring(1); // Remove @
                         dmChannel.displayName = username;
-                        window.location.reload(); // Simple way to navigate to DM
+                        dmChannel.avatarUrl = null; // Will be fetched
+                        setCurrentChannel(dmChannel);
                     } catch (error) {
                         console.error('Failed to open DM', error);
                     }
@@ -64,12 +65,12 @@ export default function ChatArea({ currentChannel }) {
             } else if (target.classList.contains('mention-channel')) {
                 e.preventDefault();
                 const channelId = target.getAttribute('data-id');
-                if (channelId) {
+                if (channelId && setCurrentChannel) {
                     try {
                         const res = await axios.get('/api/channels');
                         const channel = res.data.find(c => c.id === parseInt(channelId));
                         if (channel) {
-                            window.location.reload(); // Simple way to navigate to channel
+                            setCurrentChannel(channel);
                         }
                     } catch (error) {
                         console.error('Failed to open channel', error);
@@ -83,7 +84,7 @@ export default function ChatArea({ currentChannel }) {
             messagesContainer.addEventListener('click', handleMentionClick);
             return () => messagesContainer.removeEventListener('click', handleMentionClick);
         }
-    }, [user]);
+    }, [user, setCurrentChannel]);
 
 
     const fetchMessages = async (channelId) => {

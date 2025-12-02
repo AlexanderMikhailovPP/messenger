@@ -41,7 +41,7 @@ export default function ChatLayout() {
 
             {/* Chat Area - Full width on mobile, adjusted on desktop */}
             <div className="flex-1 md:mt-0 pt-14 md:pt-0">
-                <ChatArea currentChannel={currentChannel} />
+                <ChatArea currentChannel={currentChannel} setCurrentChannel={setCurrentChannel} />
             </div>
         </div>
     );

@@ -35,7 +35,9 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     const searchMentions = async (query, type) => {
         try {
-            const res = await axios.get(`/api/users/search?q=${query}`);
+            // Use space as query if empty to get all results
+            const searchQuery = query.length === 0 ? ' ' : query;
+            const res = await axios.get(`/api/users/search?q=${searchQuery}`);
             if (type === '@') {
                 setMentionResults(res.data.users || []);
             } else if (type === '#') {
@@ -267,8 +269,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                             <div
                                 key={item.id}
                                 className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${index === selectedMentionIndex
-                                        ? 'bg-blue-600/30 text-blue-400'
-                                        : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
+                                    ? 'bg-blue-600/30 text-blue-400'
+                                    : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
                                     }`}
                                 onMouseDown={(e) => {
                                     e.preventDefault(); // Prevent blur
