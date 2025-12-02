@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { socket } from '../socket';
-import { Hash, Send, Info, Smile, Plus, AtSign } from 'lucide-react';
+import { Hash, Send, Info, Smile, Plus, AtSign, Headphones } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useCall } from '../context/CallContext';
 import EmojiPicker from 'emoji-picker-react';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
+import ActiveCallBar from './ActiveCallBar';
 
 export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [messages, setMessages] = useState([]);
@@ -14,6 +16,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [showEmojiPicker, setShowEmojiPicker] = useState(null);
     const [mentionPopup, setMentionPopup] = useState(null); // { userId, position }
     const { user } = useAuth();
+    const { joinCall, isInCall, activeChannelId } = useCall();
     const messagesEndRef = useRef(null);
     const hoverTimeoutRef = useRef(null);
 
@@ -244,9 +247,19 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                 </div>
 
                 <div className="flex items-center gap-4 text-gray-400">
-                    <Info size={18} className="hover:text-white cursor-pointer" />
+                    <button
+                        onClick={() => joinCall(currentChannel.id)}
+                        className={`p-2 rounded-full transition-colors ${isInCall && activeChannelId === currentChannel.id ? 'bg-green-500/20 text-green-500' : 'hover:bg-gray-700 hover:text-white'}`}
+                        title="Start Huddle"
+                    >
+                        <Headphones size={20} />
+                    </button>
+                    <ActionBtn icon={<Info size={20} />} />
                 </div>
             </header>
+
+            {/* Active Call Bar */}
+            <ActiveCallBar />
 
             {/* Messages */}
             <div className="flex-1 p-6 overflow-y-auto custom-scrollbar relative">
