@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu } from 'lucide-react';
+import { Menu, MessageSquare } from 'lucide-react';
 import WorkspaceSidebar from './WorkspaceSidebar';
 import NavigationSidebar from './NavigationSidebar';
 import ChatArea from './ChatArea';
