@@ -57,7 +57,27 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                 const userId = target.getAttribute('data-id');
                 if (userId && setCurrentChannel) {
                     try {
-                        console.log('Opening DM with user:', userId);
+                        const handleMentionMessage = async (targetUser) => {
+                            console.log('handleMentionMessage called with:', targetUser);
+                            try {
+                                console.log('Sending request to /api/channels/dm with:', {
+                                    currentUserId: user.id,
+                                    targetUserId: targetUser.id
+                                });
+                                const res = await axios.post('/api/channels/dm', {
+                                    currentUserId: user.id,
+                                    targetUserId: targetUser.id
+                                });
+                                console.log('DM created/fetched:', res.data);
+                                const dmChannel = res.data;
+                                dmChannel.displayName = targetUser.username;
+                                dmChannel.avatarUrl = targetUser.avatar_url;
+                                console.log('Setting current channel to:', dmChannel);
+                                setCurrentChannel(dmChannel);
+                            } catch (error) {
+                                console.error('Failed to open DM', error);
+                            }
+                        }; const username = target.textContent.substring(1); // Remove @
                         const res = await axios.post('/api/channels/dm', {
                             currentUserId: user.id,
                             targetUserId: parseInt(userId)
