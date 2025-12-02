@@ -43,11 +43,18 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     useEffect(() => {
         const handleMentionClick = async (e) => {
             const target = e.target;
+            console.log('Click detected on:', target);
+            console.log('Classes:', target.classList);
+            console.log('data-id:', target.getAttribute('data-id'));
+            console.log('data-type:', target.getAttribute('data-type'));
+
             if (target.classList.contains('mention-user')) {
                 e.preventDefault();
+                console.log('User mention clicked');
                 const userId = target.getAttribute('data-id');
                 if (userId && setCurrentChannel) {
                     try {
+                        console.log('Opening DM with user:', userId);
                         const res = await axios.post('/api/channels/dm', {
                             currentUserId: user.id,
                             targetUserId: parseInt(userId)
@@ -57,6 +64,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                         const username = target.textContent.substring(1); // Remove @
                         dmChannel.displayName = username;
                         dmChannel.avatarUrl = null; // Will be fetched
+                        console.log('Setting current channel to DM:', dmChannel);
                         setCurrentChannel(dmChannel);
                     } catch (error) {
                         console.error('Failed to open DM', error);
@@ -64,12 +72,15 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                 }
             } else if (target.classList.contains('mention-channel')) {
                 e.preventDefault();
+                console.log('Channel mention clicked');
                 const channelId = target.getAttribute('data-id');
                 if (channelId && setCurrentChannel) {
                     try {
+                        console.log('Opening channel:', channelId);
                         const res = await axios.get('/api/channels');
                         const channel = res.data.find(c => c.id === parseInt(channelId));
                         if (channel) {
+                            console.log('Setting current channel to:', channel);
                             setCurrentChannel(channel);
                         }
                     } catch (error) {
@@ -81,6 +92,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
         const messagesContainer = document.querySelector('.custom-scrollbar');
         if (messagesContainer) {
+            console.log('Adding click listener to messages container');
             messagesContainer.addEventListener('click', handleMentionClick);
             return () => messagesContainer.removeEventListener('click', handleMentionClick);
         }
