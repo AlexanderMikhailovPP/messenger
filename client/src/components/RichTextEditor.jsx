@@ -111,13 +111,13 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
         // Insert mention span and space
         range.insertNode(mentionSpan);
-        const space = document.createTextNode('\u00A0'); // Non-breaking space
+        const space = document.createTextNode(' '); // Regular space
         mentionSpan.parentNode.insertBefore(space, mentionSpan.nextSibling);
 
-        // Position cursor after the space
+        // Position cursor at the end of the editor (simple and reliable)
         const newRange = document.createRange();
-        newRange.setStart(space, 1); // After the space character
-        newRange.collapse(true);
+        newRange.selectNodeContents(editorRef.current);
+        newRange.collapse(false); // Collapse to end
 
         const newSelection = window.getSelection();
         newSelection.removeAllRanges();
