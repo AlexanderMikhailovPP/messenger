@@ -103,10 +103,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
     // Handle hover on user mentions for popup
     useEffect(() => {
-        const handleMentionHover = (e) => {
-            const target = e.currentTarget;
-            const userId = target.getAttribute('data-id');
+        const handleMouseOver = (e) => {
+            const target = e.target.closest('.mention-user');
+            if (!target) return;
 
+            const userId = target.getAttribute('data-id');
             if (userId) {
                 if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
@@ -125,41 +126,29 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             }
         };
 
-        const handleMentionLeave = () => {
+        const handleMouseOut = (e) => {
+            const target = e.target.closest('.mention-user');
+            if (!target) return;
+
             if (hoverTimeoutRef.current) {
                 clearTimeout(hoverTimeoutRef.current);
             }
             setTimeout(() => setMentionPopup(null), 200);
         };
 
-        const attachListeners = () => {
-            setTimeout(() => {
-                const messagesContainer = document.querySelector('.custom-scrollbar');
-                if (!messagesContainer) return;
+        const messagesContainer = document.querySelector('.custom-scrollbar');
+        if (messagesContainer) {
+            messagesContainer.addEventListener('mouseover', handleMouseOver);
+            messagesContainer.addEventListener('mouseout', handleMouseOut);
+        }
 
-                const mentions = messagesContainer.querySelectorAll('.mention-user');
-
-                mentions.forEach(mention => {
-                    mention.removeEventListener('mouseenter', handleMentionHover);
-                    mention.removeEventListener('mouseleave', handleMentionLeave);
-
-                    mention.addEventListener('mouseenter', handleMentionHover);
-                    mention.addEventListener('mouseleave', handleMentionLeave);
-                });
-            }, 700); // Wait for render
-        };
-
-        attachListeners();
-
-        // Cleanup function
         return () => {
-            const mentions = document.querySelectorAll('.mention-user');
-            mentions.forEach(mention => {
-                mention.removeEventListener('mouseenter', handleMentionHover);
-                mention.removeEventListener('mouseleave', handleMentionLeave);
-            });
+            if (messagesContainer) {
+                messagesContainer.removeEventListener('mouseover', handleMouseOver);
+                messagesContainer.removeEventListener('mouseout', handleMouseOut);
+            }
         };
-    }, [messages]);
+    }, []); // Run once on mount (event delegation handles dynamic content)
 
 
     const fetchMessages = async (channelId) => {

@@ -110,15 +110,24 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         range.setStart(range.startContainer, range.startOffset - (cursorPos - triggerPos));
         range.deleteContents();
 
-        // Insert mention span and space
+        // Insert mention span
         range.insertNode(mentionSpan);
-        const space = document.createTextNode(' '); // Regular space
-        mentionSpan.parentNode.insertBefore(space, mentionSpan.nextSibling);
 
-        // Position cursor at the end of the editor (simple and reliable)
+        // Create and insert space AFTER the mention span
+        const space = document.createTextNode('\u00A0'); // Non-breaking space to ensure it's treated as content
+
+        // We need to insert the space after the mentionSpan. 
+        // Since insertNode inserts at the start of the range, we can just insert the space after the span.
+        if (mentionSpan.nextSibling) {
+            mentionSpan.parentNode.insertBefore(space, mentionSpan.nextSibling);
+        } else {
+            mentionSpan.parentNode.appendChild(space);
+        }
+
+        // Position cursor AFTER the space
         const newRange = document.createRange();
-        newRange.selectNodeContents(editorRef.current);
-        newRange.collapse(false); // Collapse to end
+        newRange.setStartAfter(space);
+        newRange.collapse(true);
 
         const newSelection = window.getSelection();
         newSelection.removeAllRanges();
