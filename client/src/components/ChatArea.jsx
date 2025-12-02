@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { io } from 'socket.io-client';
+import { socket } from '../socket';
 import { Hash, Send, Info, Smile, Plus, AtSign } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import EmojiPicker from 'emoji-picker-react';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
-
-const socket = io();
 
 export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [messages, setMessages] = useState([]);
