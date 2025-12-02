@@ -24,6 +24,7 @@ function App() {
               }
             />
           </Routes>
+        </CallProvider>
       </AuthProvider>
     </Router>
   );
