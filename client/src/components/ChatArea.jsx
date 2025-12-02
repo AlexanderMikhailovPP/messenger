@@ -9,7 +9,10 @@ import EmojiPicker from 'emoji-picker-react';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
 import ActiveCallBar from './ActiveCallBar';
+import TypingIndicator from './TypingIndicator';
 import { sanitizeHTML } from '../utils/sanitize';
+import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator';
+import { markAsRead, incrementUnread } from '../utils/unreadCounter';
 
 export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [messages, setMessages] = useState([]);
@@ -25,12 +28,21 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesContainerRef = useRef(null);
 
+    // Typing indicator
+    const socket = getSocket();
+    const { sendTyping, stopTyping } = useTypingIndicator(socket, currentChannel?.id, user?.username);
+    const typingUsers = useTypingUsers(socket, currentChannel?.id);
+
     useEffect(() => {
         if (currentChannel) {
             const controller = new AbortController();
             const socket = getSocket();
 
             fetchMessages(currentChannel.id, controller.signal);
+
+            // Mark current channel as read
+            markAsRead(currentChannel.id);
+
             if (socket) {
                 socket.emit('join_channel', currentChannel.id);
             }
@@ -48,6 +60,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const handleNewMessage = (message) => {
             if (currentChannel && message.channel_id === currentChannel.id) {
                 setMessages((prev) => [...prev, message]);
+                // Message in current channel - already marked as read
+            } else {
+                // Message in different channel - increment unread
+                incrementUnread(message.channel_id);
             }
         };
 
@@ -421,11 +437,21 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                 </button>
             )}
 
+            {/* Typing Indicator */}
+            <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
+
             {/* Input Area */}
             <div className="p-5 pt-0">
                 <RichTextEditor
                     value={newMessage}
-                    onChange={setNewMessage}
+                    onChange={(value) => {
+                        setNewMessage(value);
+                        if (value.trim().length > 0) {
+                            sendTyping();
+                        } else {
+                            stopTyping();
+                        }
+                    }}
                     placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
                     onSubmit={handleSubmit}
                     disabled={!newMessage.trim()}

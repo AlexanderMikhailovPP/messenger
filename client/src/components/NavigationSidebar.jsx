@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Hash, Plus, ChevronDown, Search, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getUnreadCounts } from '../utils/unreadCounter';
 
 export default function NavigationSidebar({ currentChannel, setCurrentChannel }) {
     const [channels, setChannels] = useState([]);
@@ -13,11 +14,19 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
     const [showChannels, setShowChannels] = useState(true);
     const [showDMs, setShowDMs] = useState(true);
     const { user } = useAuth();
+    const [unreadCounts, setUnreadCounts] = useState({});
 
     useEffect(() => {
         if (user) {
             fetchChannels();
             fetchDMs();
+
+            // Update unread counts periodically
+            const updateUnread = () => setUnreadCounts(getUnreadCounts());
+            updateUnread();
+            const interval = setInterval(updateUnread, 1000); // Every second
+
+            return () => clearInterval(interval);
         }
     }, [user]);
 
@@ -178,19 +187,27 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
 
                 {showChannels && (
                     <div className="space-y-[1px] mb-2">
-                        {channels.map(channel => (
-                            <button
-                                key={channel.id}
-                                onClick={() => setCurrentChannel(channel)}
-                                className={`w-full text-left px-6 py-1.5 flex items-center gap-2 transition-colors ${currentChannel?.id === channel.id
-                                    ? 'bg-[#1164A3] text-white'
-                                    : 'hover:bg-gray-800 text-gray-400 hover:text-gray-200'
-                                    }`}
-                            >
-                                <Hash size={16} className="opacity-70" />
-                                <span className="truncate text-[15px]">{channel.name}</span>
-                            </button>
-                        ))}
+                        {channels.map((ch) => {
+                            const unread = unreadCounts[ch.id] || 0;
+                            return (
+                                <button
+                                    key={ch.id}
+                                    onClick={() => setCurrentChannel(ch)}
+                                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === ch.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
+                                        }`}
+                                >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <Hash size={16} className="flex-shrink-0 text-gray-400" />
+                                        <span className="text-sm truncate">{ch.name}</span>
+                                    </div>
+                                    {unread > 0 && (
+                                        <div className="flex-shrink-0 min-w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold px-1">
+                                            {unread > 99 ? '99+' : unread}
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -209,71 +226,53 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
 
                 {showDMs && (
                     <div className="space-y-[1px] mb-6">
-                        {dms.map(dm => (
-                            <button
-                                key={dm.id}
-                                onClick={() => setCurrentChannel(dm)}
-                                className={`w-full text-left px-6 py-1.5 flex items-center gap-2 transition-colors ${currentChannel?.id === dm.id
-                                    ? 'bg-[#1164A3] text-white'
-                                    : 'hover:bg-gray-800 text-gray-400 hover:text-gray-200'
-                                    }`}
-                            >
-                                <div className="relative">
-                                    <img
-                                        src={dm.avatarUrl || `https://ui-avatars.com/api/?name=${dm.displayName}&background=random`}
-                                        alt={dm.displayName}
-                                        className="w-4 h-4 rounded bg-gray-700"
-                                    />
-                                    <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-[#1f2225]"></div>
-                                </div>
-                                <span className="truncate text-[15px]">{dm.displayName}</span>
-                            </button>
-                        ))}
-                    </div>
-                )}
+                    </button>
+                ))}
             </div>
+                )}
+        </div>
 
 
             {
-                showCreateModal && (
-                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                        <div className="bg-[#1f2225] text-white p-6 rounded-lg w-96 border border-gray-700 shadow-xl">
-                            <h3 className="text-xl font-bold mb-6">Create Channel</h3>
-                            <form onSubmit={createChannel}>
-                                <div className="mb-4">
-                                    <label className="block text-gray-400 text-sm font-medium mb-2">Name</label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-2.5 text-gray-500">#</span>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g. plan-budget"
-                                            className="w-full pl-7 p-2 bg-[#1a1d21] border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-white"
-                                            value={newChannelName}
-                                            onChange={(e) => setNewChannelName(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex justify-end gap-3 mt-6">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCreateModal(false)}
-                                        className="px-4 py-2 text-gray-300 hover:bg-gray-800 rounded font-medium"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-6 py-2 bg-[#007a5a] text-white rounded font-medium hover:bg-[#148567]"
-                                    >
-                                        Create
-                                    </button>
-                                </div>
-                            </form>
+        showCreateModal && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+                <div className="bg-[#1f2225] text-white p-6 rounded-lg w-96 border border-gray-700 shadow-xl">
+                    <h3 className="text-xl font-bold mb-6">Create Channel</h3>
+                    <form onSubmit={createChannel}>
+                        <div className="mb-4">
+                            <label className="block text-gray-400 text-sm font-medium mb-2">Name</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-2.5 text-gray-500">#</span>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. plan-budget"
+                                    className="w-full pl-7 p-2 bg-[#1a1d21] border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-white"
+                                    value={newChannelName}
+                                    onChange={(e) => setNewChannelName(e.target.value)}
+                                    required
+                                />
+                            </div>
                         </div>
-                    </div>
-                )
-            }
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                type="button"
+                                onClick={() => setShowCreateModal(false)}
+                                className="px-4 py-2 text-gray-300 hover:bg-gray-800 rounded font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-6 py-2 bg-[#007a5a] text-white rounded font-medium hover:bg-[#148567]"
+                            >
+                                Create
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )
+    }
         </div >
     );
 }

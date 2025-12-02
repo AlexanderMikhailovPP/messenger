@@ -103,6 +103,17 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Typing indicator
+    socket.on('typing', (data) => {
+        const { channelId, username } = data;
+        socket.to(channelId).emit('user_typing', { username, channelId });
+    });
+
+    socket.on('stop_typing', (data) => {
+        const { channelId, username } = data;
+        socket.to(channelId).emit('user_stop_typing', { username, channelId });
+    });
+
     socket.on('disconnect', () => {
         console.log(`User ${username} (${userId}) disconnected:`, socket.id);
     });
