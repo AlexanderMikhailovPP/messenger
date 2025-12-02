@@ -2,47 +2,35 @@ import { useState } from 'react';
 import WorkspaceSidebar from './WorkspaceSidebar';
 import NavigationSidebar from './NavigationSidebar';
 import ChatArea from './ChatArea';
-import { Menu, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 export default function ChatLayout() {
     const [currentChannel, setCurrentChannel] = useState(null);
     const [showSidebar, setShowSidebar] = useState(false);
 
+    const handleChannelSelect = (channel) => {
+        setCurrentChannel(channel);
+        // Auto-close sidebar on mobile after selecting channel
+        setShowSidebar(false);
+    };
+
     return (
-        <div className="flex h-screen bg-[#222529] overflow-hidden">
-            {/* Mobile Header with Hamburger */}
-            <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-[#1a1d21] border-b border-gray-700 flex items-center px-4 z-40">
-                <button
-                    onClick={() => setShowSidebar(!showSidebar)}
-                    className="p-2 text-gray-400 hover:text-white"
-                >
-                    {showSidebar ? <X size={24} /> : <Menu size={24} />}
-                </button>
-                <span className="ml-3 text-white font-bold">Touch</span>
-            </div>
+        <div className="h-screen flex bg-[#2f3136] relative">
+            {/* Workspace Sidebar (Left) */}
+            <WorkspaceSidebar />
 
-            {/* Workspace Sidebar */}
-            <div className={`${showSidebar ? 'fixed left-0 top-14 bottom-0' : 'hidden'} md:block md:static z-30 h-full`}>
-                <WorkspaceSidebar />
-            </div>
-
-            {/* Navigation Sidebar */}
+            {/* Navigation Sidebar (Channels/DMs) */}
             <div className={`${showSidebar ? 'fixed left-[70px] top-14 bottom-0 right-0' : 'hidden'} md:block md:static z-30 h-full`}>
-                <NavigationSidebar currentChannel={currentChannel} setCurrentChannel={setCurrentChannel} />
-            </div>
-
-            {/* Overlay for mobile when sidebar is open */}
-            {showSidebar && (
                 <div
                     className="md:hidden fixed inset-0 bg-black/50 z-20"
                     onClick={() => setShowSidebar(false)}
                 />
             )}
 
-            {/* Chat Area - Full width on mobile, adjusted on desktop */}
-            <div className="flex-1 md:mt-0 pt-14 md:pt-0">
-                <ChatArea currentChannel={currentChannel} setCurrentChannel={setCurrentChannel} />
+                {/* Chat Area - Full width on mobile, adjusted on desktop */}
+                <div className="flex-1 md:mt-0 pt-14 md:pt-0">
+                    <ChatArea currentChannel={currentChannel} setCurrentChannel={setCurrentChannel} />
+                </div>
             </div>
-        </div>
-    );
+            );
 }

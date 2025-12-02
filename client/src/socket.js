@@ -25,6 +25,12 @@ export const connectSocket = () => {
         console.log('Socket connected:', socket.id);
     });
 
+    // Reconnect handler - rejoin channels on reconnect
+    socket.on('reconnect', (attemptNumber) => {
+        console.log(`Socket reconnected after ${attemptNumber} attempts`);
+        // Note: Components should handle re-joining their channels via useEffect
+    });
+
     return socket;
 };
 

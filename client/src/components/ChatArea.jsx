@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { getSocket } from '../socket';
-import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X } from 'lucide-react';
+import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
+import toast from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
@@ -15,11 +16,14 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [newMessage, setNewMessage] = useState('');
     const [reactions, setReactions] = useState({});
     const [showEmojiPicker, setShowEmojiPicker] = useState(null);
-    const [mentionPopup, setMentionPopup] = useState(null); // { userId, position }
-    const { user } = useAuth();
-    const { isInCall, activeChannelId, joinCall, incomingCall, clearIncomingCall } = useCall();
+    const [mentionPopup, setMentionPopup] = useState(null);
     const messagesEndRef = useRef(null);
-    const hoverTimeoutRef = useRef(null);
+    const editorRef = useRef(null);
+    const { user } = useAuth();
+    const { isInCall, joinCall, incomingCall, clearIncomingCall } = useCall();
+    const [loading, setLoading] = useState(false);
+    const [showScrollButton, setShowScrollButton] = useState(false);
+    const messagesContainerRef = useRef(null);
 
     useEffect(() => {
         if (currentChannel) {
@@ -32,7 +36,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             }
 
             return () => {
-                controller.abort(); // Cancel pending fetch if channel changes
+                controller.abort();
             };
         }
     }, [currentChannel]);
@@ -42,10 +46,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         if (!socket) return;
 
         const handleNewMessage = (message) => {
-            // Only add message if it belongs to the currently active channel
-            // currentChannel is a ref here to avoid re-running this effect
-            // when currentChannel changes, but still access its latest value.
-            // This ensures the listener is set up once.
             if (currentChannel && message.channel_id === currentChannel.id) {
                 setMessages((prev) => [...prev, message]);
             }
@@ -53,36 +53,35 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
         socket.on('receive_message', handleNewMessage);
         return () => socket.off('receive_message', handleNewMessage);
-    }, [currentChannel]); // Keep currentChannel as a dependency to ensure the closure has the latest value
+    }, [currentChannel]);
 
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
 
-    // Handle mention click
+    // Scroll button visibility
+    useEffect(() => {
+        const container = messagesContainerRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            const { scrollTop, scrollHeight, clientHeight } = container;
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+            setShowScrollButton(!isNearBottom);
+        };
+
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    // Handle mention clicks
     useEffect(() => {
         const handleMentionClick = (e) => {
             const target = e.target.closest('.mention-user');
-            if (!target) return;
-
-            const userId = target.getAttribute('data-id');
-            if (userId) {
-                // Check if mobile (simple check)
-                const isMobile = window.innerWidth < 768;
-
-                if (isMobile) {
-                    // On mobile, open popup instead of navigating immediately
-                    const rect = target.getBoundingClientRect();
-                    setMentionPopup({
-                        userId: parseInt(userId),
-                        position: {
-                            top: rect.bottom,
-                            left: rect.left
-                        }
-                    });
-                } else {
-                    // Desktop: Navigate to DM
-                    handleMentionMessage({ id: parseInt(userId) });
+            if (target) {
+                const userId = target.getAttribute('data-id');
+                if (userId) {
+                    fetchUserInfo(userId);
                 }
             }
         };
@@ -106,82 +105,58 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         }
     }, [user, setCurrentChannel]);
 
-    // Handle hover on user mentions for popup
-    useEffect(() => {
-        const handleMouseOver = (e) => {
-            const target = e.target.closest('.mention-user');
-            if (!target) return;
 
-            const userId = target.getAttribute('data-id');
-            if (userId) {
-                if (hoverTimeoutRef.current) {
-                    clearTimeout(hoverTimeoutRef.current);
-                }
-
-                hoverTimeoutRef.current = setTimeout(() => {
-                    const rect = target.getBoundingClientRect();
-                    setMentionPopup({
-                        userId: parseInt(userId),
-                        position: {
-                            top: rect.bottom, // Removed gap
-                            left: rect.left
-                        }
-                    });
-                }, 300); // Reduced open delay
-            }
-        };
-
-        const handleMouseOut = (e) => {
-            const target = e.target.closest('.mention-user');
-            if (!target) return;
-
-            if (hoverTimeoutRef.current) {
-                clearTimeout(hoverTimeoutRef.current);
-            }
-            hoverTimeoutRef.current = setTimeout(() => setMentionPopup(null), 500); // Increased close delay
-        };
-
-        const messagesContainer = document.querySelector('.custom-scrollbar');
-        if (messagesContainer) {
-            messagesContainer.addEventListener('mouseover', handleMouseOver);
-            messagesContainer.addEventListener('mouseout', handleMouseOut);
+    const fetchUserInfo = async (userId) => {
+        try {
+            const res = await axios.get(`/api/users/${userId}`);
+            setMentionPopup({
+                user: res.data,
+                position: { x: event.clientX, y: event.clientY }
+            });
+        } catch (err) {
+            console.error('Failed to fetch user info', err);
+            toast.error('Failed to load user info');
         }
+    };
 
-        return () => {
-            if (messagesContainer) {
-                messagesContainer.removeEventListener('mouseover', handleMouseOver);
-                messagesContainer.removeEventListener('mouseout', handleMouseOut);
-            }
-        };
-    }, []); // Run once on mount (event delegation handles dynamic content)
-
+    const handleMentionMessage = (dmChannel) => {
+        setCurrentChannel(dmChannel);
+        setMentionPopup(null);
+    };
 
     const fetchMessages = async (channelId, signal) => {
+        setLoading(true);
         try {
             const res = await axios.get(`/api/messages/${channelId}`, { signal });
             setMessages(res.data);
 
             // Fetch reactions for all messages
-            const reactionsData = {};
-            await Promise.all(res.data.map(async (msg) => {
-                try {
-                    const reactionsRes = await axios.get(`/api/reactions/${msg.id}/reactions`);
-                    reactionsData[msg.id] = reactionsRes.data;
-                } catch (err) {
-                    console.error(`Failed to fetch reactions for message ${msg.id}`, err);
-                }
-            }));
-            setReactions(reactionsData);
+            const reactionsPromises = res.data.map(async (msg) => {
+                const reactionsRes = await axios.get(`/api/reactions/${msg.id}/reactions`);
+                return { messageId: msg.id, reactions: reactionsRes.data };
+            });
+
+            const allReactions = await Promise.all(reactionsPromises);
+            const reactionsMap = {};
+            allReactions.forEach(({ messageId, reactions }) => {
+                reactionsMap[messageId] = reactions;
+            });
+            setReactions(reactionsMap);
         } catch (error) {
-            console.error('Failed to fetch messages', error);
+            if (error.name !== 'CanceledError') {
+                console.error('Failed to fetch messages', error);
+                toast.error('Failed to load messages');
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
     const addReaction = async (messageId, emoji) => {
         try {
-            await axios.post(`/api/reactions/${messageId}/reactions`, {
+            await axios.post(`/api/reactions/${messageId}/react`, {
                 userId: user.id,
-                emoji: emoji
+                emoji
             });
             // Refresh reactions for this message
             const reactionsRes = await axios.get(`/api/reactions/${messageId}/reactions`);
@@ -192,6 +167,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             setShowEmojiPicker(null);
         } catch (err) {
             console.error('Failed to add reaction', err);
+            toast.error('Failed to add reaction');
         }
     };
 
@@ -200,9 +176,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         if (!trimmed || trimmed.length === 0 || !currentChannel) return;
 
         const socket = getSocket();
-        if (!socket) return;
+        if (!socket) {
+            toast.error('Not connected. Please try logging in again.');
+            return;
+        }
 
-        // Send message via socket - include userId for backward compatibility
         socket.emit('send_message', {
             content: trimmed,
             userId: user.id,
@@ -214,76 +192,79 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             editorRef.current.innerHTML = '';
         }
     };
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    if (!currentChannel) {
-        return (
-            <div className="flex-1 flex items-center justify-center text-gray-500 bg-[#222529]">
-                Select a channel to start messaging
-            </div>
-        );
-    }
-
-    const handleMentionMessage = async (targetUser) => {
-        try {
-            const res = await axios.post('/api/channels/dm', {
-                currentUserId: user.id,
-                targetUserId: targetUser.id
-            });
-            const dmChannel = res.data;
-            dmChannel.displayName = targetUser.username;
-            dmChannel.avatarUrl = targetUser.avatar_url;
-            setCurrentChannel(dmChannel);
-        } catch (error) {
-            console.error('Failed to open DM', error);
-        }
-    };
-
     const handleStartHuddle = () => {
         const socket = getSocket();
-        if (!socket) return;
+        if (!socket) {
+            toast.error('Not connected. Please try logging in again.');
+            return;
+        }
 
         joinCall(currentChannel.id);
 
-        // Notify other users - userId authenticated on server
         socket.emit('start_call', {
             channelId: currentChannel.id
         });
 
-        // Send system message
         socket.emit('send_message', {
             content: '📞 Started a huddle',
             channelId: currentChannel.id
         });
+
+        toast.success('Huddle started!');
     };
 
+    if (!currentChannel) {
+        return (
+            <div className="flex-1 flex items-center justify-center bg-[#2f3136] text-gray-400">
+                <div className="text-center">
+                    <Hash className="mx-auto mb-4" size={48} />
+                    <p className="text-xl">Select a channel to start messaging</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#222529] text-gray-200">
-            {/* Header */}
-            <header className="h-16 border-b border-gray-700/50 flex items-center justify-between px-5 bg-[#222529]">
+        <div className="flex-1 flex flex-col bg-[#36393f] relative">
+            {/* Channel Header */}
+            <div className="h-12 px-4 flex items-center justify-between border-b border-gray-700/50 bg-[#2f3136] shadow-sm">
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 font-bold text-white text-lg">
-                        {currentChannel.type === 'dm' ? <AtSign size={20} className="text-gray-400" /> : <Hash size={20} className="text-gray-400" />}
-                        {currentChannel.displayName || currentChannel.name}
-                    </div>
-                    {currentChannel.description && (
-                        <span className="text-gray-500 text-sm ml-2 hidden md:block">{currentChannel.description}</span>
+                    {currentChannel.type === 'dm' ? (
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                                {(currentChannel.displayName || currentChannel.name)[0]?.toUpperCase()}
+                            </div>
+                            <span className="font-semibold text-white">
+                                {currentChannel.displayName || currentChannel.name}
+                            </span>
+                        </div>
+                    ) : (
+                        <>
+                            <Hash className="text-gray-400" size={20} />
+                            <span className="font-semibold text-white">{currentChannel.name}</span>
+                        </>
                     )}
                 </div>
-
-                <div className="flex items-center gap-4 text-gray-400">
-                    <button
-                        onClick={handleStartHuddle}
-                        className={`p-2 rounded-full transition-colors ${isInCall && activeChannelId === currentChannel.id ? 'bg-green-500/20 text-green-500' : 'hover:bg-gray-700 hover:text-white'}`}
-                        title="Start Huddle"
-                    >
-                        <Headphones size={20} />
+                <div className="flex items-center gap-2">
+                    {!isInCall && currentChannel.type !== 'dm' && (
+                        <button
+                            onClick={handleStartHuddle}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded transition-colors text-sm font-medium"
+                        >
+                            <Headphones size={16} />
+                            Start Huddle
+                        </button>
+                    )}
+                    <button className="p-2 hover:bg-gray-700 rounded transition-colors">
+                        <Info className="text-gray-400" size={20} />
                     </button>
-                    <ActionBtn icon={<Info size={20} />} />
                 </div>
-            </header>
+            </div>
 
             {/* Incoming Call Banner */}
             {incomingCall && !isInCall && (
@@ -297,6 +278,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                             onClick={() => {
                                 joinCall(incomingCall.channelId);
                                 clearIncomingCall();
+                                toast.success('Joined huddle!');
                             }}
                             className="bg-white text-blue-600 px-4 py-1.5 rounded-full text-sm font-bold hover:bg-gray-100 transition-colors"
                         >
@@ -315,170 +297,102 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             {/* Active Call Bar */}
             <ActiveCallBar />
 
-            {/* Messages */}
-            <div className="flex-1 p-6 overflow-y-auto custom-scrollbar relative">
-                <div className="space-y-1">
-                    {messages.map((msg, index) => {
-                        const isSameUser = index > 0 && messages[index - 1].user_id === msg.user_id;
-                        const showDateSeparator = index === 0 ||
-                            new Date(messages[index - 1].created_at).toDateString() !== new Date(msg.created_at).toDateString();
-
-                        const formatDate = (dateString) => {
-                            const date = new Date(dateString);
-                            const today = new Date();
-                            const yesterday = new Date(today);
-                            yesterday.setDate(yesterday.getDate() - 1);
-
-                            if (date.toDateString() === today.toDateString()) return 'Today';
-                            if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-                            return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                        };
-
-                        return (
-                            <div key={msg.id}>
-                                {showDateSeparator && (
-                                    <div className="relative flex items-center justify-center my-6">
-                                        <div className="bg-[#222529] border border-gray-700 rounded-full px-4 py-1 text-xs font-bold text-gray-400 z-10">
-                                            {formatDate(msg.created_at)}
-                                        </div>
-                                        <div className="absolute w-full border-t border-gray-700/50 left-0 top-1/2 -translate-y-1/2 z-0"></div>
-                                    </div>
+            {/* Messages Container */}
+            <div
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative"
+            >
+                {loading ? (
+                    <div className="flex items-center justify-center h-full">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    </div>
+                ) : (
+                    messages.map((msg) => (
+                        <div key={msg.id} className="flex gap-3 group hover:bg-[#32353b] px-3 py-1 rounded">
+                            {/* Avatar */}
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                                {msg.avatar_url ? (
+                                    <img src={msg.avatar_url} alt={msg.username} className="w-full h-full rounded-full object-cover" />
+                                ) : (
+                                    msg.username[0]?.toUpperCase()
                                 )}
+                            </div>
 
-                                <div className={`group flex gap-3 hover:bg-gray-800/30 px-4 py-1 -mx-4 rounded relative ${isSameUser ? 'mt-0.5' : 'mt-2'}`}>
-                                    {!isSameUser ? (
-                                        <img
-                                            src={msg.avatar_url || `https://ui-avatars.com/api/?name=${msg.username}&background=random&size=36`}
-                                            alt={msg.username}
-                                            className="w-9 h-9 rounded flex-shrink-0 cursor-pointer hover:opacity-90"
-                                        />
-                                    ) : (
-                                        <div className="w-9 flex-shrink-0 text-[10px] text-gray-500 opacity-0 group-hover:opacity-100 text-right pt-1">
-                                            {new Date(msg.created_at).toLocaleTimeString('en-US', {
-                                                hour: 'numeric',
-                                                minute: '2-digit',
-                                                hour12: true
-                                            })}
-                                        </div>
-                                    )}
-
-                                    <div className="flex-1 min-w-0">
-                                        {!isSameUser && (
-                                            <div className="flex items-baseline gap-2 mb-0.5">
-                                                <span className="font-bold text-[15px] text-white hover:underline cursor-pointer">{msg.username}</span>
-                                                <span className="text-xs text-gray-500">
-                                                    {new Date(msg.created_at).toLocaleTimeString('en-US', {
-                                                        hour: 'numeric',
-                                                        minute: '2-digit',
-                                                        hour12: true
-                                                    })}
-                                                </span>
-                                                {msg.edited_at && (
-                                                    <span className="text-xs text-gray-500">(edited)</span>
-                                                )}
-                                            </div>
-                                        )}
-                                        <div
-                                            className="text-[15px] text-gray-300 leading-relaxed break-words"
-                                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
-                                        />
-                                    </div>
-
-                                    {/* Message Actions (visible on hover) - Edit/Delete only for own messages */}
-                                    <div className="absolute -top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-[#1a1d21] border border-gray-700 rounded-lg shadow-xl flex items-center gap-1 p-1 z-20">
-                                        {msg.user_id === user.id && (
-                                            <>
-                                                <button
-                                                    onClick={() => {
-                                                        const newContent = prompt('Edit message:', msg.content);
-                                                        if (newContent && newContent !== msg.content) {
-                                                            axios.put(`/api/reactions/${msg.id}`, {
-                                                                content: newContent,
-                                                                userId: user.id
-                                                            }).then(() => {
-                                                                fetchMessages(currentChannel.id);
-                                                            });
-                                                        }
-                                                    }}
-                                                    className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        if (confirm('Delete this message?')) {
-                                                            axios.delete(`/api/reactions/${msg.id}`, {
-                                                                data: { userId: user.id }
-                                                            }).then(() => {
-                                                                fetchMessages(currentChannel.id);
-                                                            });
-                                                        }
-                                                    }}
-                                                    className="p-1.5 text-gray-400 hover:bg-red-600 hover:text-white rounded transition-colors"
-                                                    title="Delete"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                                <div className="w-px h-4 bg-gray-700"></div>
-                                            </>
-                                        )}
-                                        {/* Reaction button for ALL messages */}
-                                        <button
-                                            onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
-                                            className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
-                                            title="Add reaction"
-                                        >
-                                            <Smile size={16} />
-                                        </button>
-                                    </div>
-
-                                    {/* Emoji Picker */}
-                                    {showEmojiPicker === msg.id && (
-                                        <div className="absolute top-8 right-4 z-30">
-                                            <EmojiPicker
-                                                onEmojiClick={(emojiData) => addReaction(msg.id, emojiData.emoji)}
-                                                theme="dark"
-                                                searchPlaceholder="Search emoji..."
-                                                width={350}
-                                                height={400}
-                                            />
-                                        </div>
+                            <div className="flex-1 min-w-0">
+                                {/* Header */}
+                                <div className="flex items-baseline gap-2 mb-1">
+                                    <span className="font-semibold text-white hover:underline cursor-pointer">
+                                        {msg.username}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    {msg.edited_at && (
+                                        <span className="text-xs text-gray-500">(edited)</span>
                                     )}
                                 </div>
 
-                                {/* Reactions Display */}
+                                {/* Message Content */}
+                                <div
+                                    className="text-[15px] text-gray-300 leading-relaxed break-words"
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
+                                />
+
+                                {/* Reactions */}
                                 {reactions[msg.id] && reactions[msg.id].length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1 ml-12">
+                                    <div className="flex gap-1 mt-1">
                                         {reactions[msg.id].map((reaction, idx) => (
-                                            <button
+                                            <div
                                                 key={idx}
-                                                onClick={() => addReaction(msg.id, reaction.emoji)}
-                                                className="flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded-full text-sm transition-colors group relative"
-                                                title={reaction.users.map(u => u.username).join(', ')}
+                                                className="px-2 py-1 bg-[#2f3136] rounded-full text-xs flex items-center gap-1 hover:bg-[#36393f] transition-colors cursor-pointer"
                                             >
                                                 <span>{reaction.emoji}</span>
-                                                <span className="text-xs text-gray-300">{reaction.count}</span>
-
-                                                {/* Tooltip */}
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-black border border-gray-700 rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                                                    {reaction.users.map(u => u.username).join(', ')}
-                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black"></div>
-                                                </div>
-                                            </button>
+                                                <span className="text-gray-400">{reaction.count}</span>
+                                            </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
-                        );
-                    })}
-                    <div ref={messagesEndRef} />
-                </div>
+
+                            {/* Message Actions */}
+                            <div className="opacity-0 group-hover:opacity-100 flex items-start gap-1 transition-opacity">
+                                <button
+                                    onClick={() => setShowEmojiPicker(msg.id)}
+                                    className="p-1.5 hover:bg-gray-700 rounded transition-colors"
+                                    title="Add Reaction"
+                                >
+                                    <Smile className="text-gray-400" size={16} />
+                                </button>
+                            </div>
+
+                            {/* Emoji Picker Popup */}
+                            {showEmojiPicker === msg.id && (
+                                <div className="absolute z-50">
+                                    <div className="fixed inset-0" onClick={() => setShowEmojiPicker(null)} />
+                                    <div className="relative">
+                                        <EmojiPicker
+                                            onEmojiClick={(emojiData) => addReaction(msg.id, emojiData.emoji)}
+                                            theme="dark"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
+                <div ref={messagesEndRef} />
             </div>
+
+            {/* Scroll to Bottom Button */}
+            {showScrollButton && (
+                <button
+                    onClick={scrollToBottom}
+                    className="absolute bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all z-20"
+                    title="Scroll to bottom"
+                >
+                    <ChevronDown size={20} />
+                </button>
+            )}
 
             {/* Input Area */}
             <div className="p-5 pt-0">
@@ -494,23 +408,15 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             {/* User Mention Popup */}
             {mentionPopup && (
                 <UserMentionPopup
-                    userId={mentionPopup.userId}
+                    user={mentionPopup.user}
                     position={mentionPopup.position}
+                    onClose={() => setMentionPopup(null)}
                     onMessage={handleMentionMessage}
-                    onMouseEnter={() => {
-                        if (hoverTimeoutRef.current) {
-                            clearTimeout(hoverTimeoutRef.current);
-                        }
-                    }}
-                    onMouseLeave={() => {
-                        hoverTimeoutRef.current = setTimeout(() => setMentionPopup(null), 200);
-                    }}
                 />
             )}
         </div>
     );
 }
-
 
 
 function ActionBtn({ icon }) {
