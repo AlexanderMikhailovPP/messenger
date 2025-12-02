@@ -22,19 +22,33 @@ const upload = multer({
     }
 });
 
-// Search users
+// Search users and channels
 router.get('/search', async (req, res) => {
     const { q } = req.query;
     if (!q) {
-        return res.json([]);
+        return res.json({ users: [], channels: [] });
     }
 
     try {
-        const result = await db.query('SELECT id, username, avatar_url FROM users WHERE username LIKE ? LIMIT 10', [`%${q}%`]);
-        res.json(result.rows);
+        // Search users
+        const usersResult = await db.query(
+            'SELECT id, username, avatar_url FROM users WHERE username LIKE ? LIMIT 10',
+            [`%${q}%`]
+        );
+
+        // Search channels
+        const channelsResult = await db.query(
+            'SELECT id, name, description FROM channels WHERE name LIKE ? AND type = ? LIMIT 10',
+            [`%${q}%`, 'public']
+        );
+
+        res.json({
+            users: usersResult.rows,
+            channels: channelsResult.rows
+        });
     } catch (error) {
-        console.error('Error searching users:', error);
-        res.status(500).json({ error: 'Failed to search users' });
+        console.error('Error searching:', error);
+        res.status(500).json({ error: 'Failed to search' });
     }
 });
 

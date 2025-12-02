@@ -9,7 +9,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newChannelName, setNewChannelName] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
+    const [searchResults, setSearchResults] = useState({ users: [], channels: [] });
     const { user } = useAuth();
 
     useEffect(() => {
@@ -59,12 +59,12 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
         if (query.length > 0) {
             try {
                 const res = await axios.get(`/api/users/search?q=${query}`);
-                setSearchResults(res.data);
+                setSearchResults(res.data); // Now contains { users: [], channels: [] }
             } catch (error) {
-                console.error('Failed to search users', error);
+                console.error('Failed to search', error);
             }
         } else {
-            setSearchResults([]);
+            setSearchResults({ users: [], channels: [] });
         }
     };
 
@@ -75,7 +75,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
                 <div className="relative w-full">
                     <input
                         type="text"
-                        placeholder="Search users..."
+                        placeholder="Search users and channels..."
                         className="w-full bg-[#1a1d21] text-white text-sm rounded px-2 py-1.5 pl-8 border border-gray-700 focus:outline-none focus:border-blue-500 transition-colors placeholder-gray-500"
                         value={searchQuery}
                         onChange={handleSearch}
@@ -83,39 +83,74 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
                     <Search size={14} className="absolute left-2.5 top-2.5 text-gray-500" />
 
                     {/* Search Results Dropdown */}
-                    {searchResults.length > 0 && (
+                    {(searchResults.users?.length > 0 || searchResults.channels?.length > 0) && (
                         <div className="absolute top-full left-0 w-full bg-[#1f2225] border border-gray-700 rounded-b-lg shadow-xl mt-1 z-50 max-h-64 overflow-y-auto">
-                            {searchResults.map(u => (
-                                <div
-                                    key={u.id}
-                                    className="px-3 py-2 hover:bg-blue-600/20 hover:text-blue-400 cursor-pointer flex items-center gap-2 transition-colors"
-                                    onClick={async () => {
-                                        try {
-                                            const res = await axios.post('/api/channels/dm', {
-                                                currentUserId: user.id,
-                                                targetUserId: u.id
-                                            });
-                                            const dmChannel = res.data;
-                                            // Add display name for UI
-                                            dmChannel.displayName = u.username;
-                                            setCurrentChannel(dmChannel);
-                                            setSearchQuery('');
-                                            setSearchResults([]);
-                                            fetchDMs(); // Refresh DM list
-                                        } catch (error) {
-                                            console.error('Failed to open DM', error);
-                                            alert('Failed to open DM');
-                                        }
-                                    }}
-                                >
-                                    <img
-                                        src={u.avatar_url || `https://ui-avatars.com/api/?name=${u.username}&background=random`}
-                                        alt={u.username}
-                                        className="w-6 h-6 rounded bg-gray-700"
-                                    />
-                                    <span className="text-sm font-medium">{u.username}</span>
-                                </div>
-                            ))}
+                            {/* Channels Section */}
+                            {searchResults.channels?.length > 0 && (
+                                <>
+                                    <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                        Channels
+                                    </div>
+                                    {searchResults.channels.map(channel => (
+                                        <div
+                                            key={`channel-${channel.id}`}
+                                            className="px-3 py-2 hover:bg-blue-600/20 hover:text-blue-400 cursor-pointer flex items-center gap-2 transition-colors"
+                                            onClick={() => {
+                                                setCurrentChannel(channel);
+                                                setSearchQuery('');
+                                                setSearchResults({ users: [], channels: [] });
+                                            }}
+                                        >
+                                            <Hash size={16} className="text-gray-400" />
+                                            <div className="flex-1">
+                                                <div className="text-sm font-medium">{channel.name}</div>
+                                                {channel.description && (
+                                                    <div className="text-xs text-gray-500">{channel.description}</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </>
+                            )}
+
+                            {/* Users Section */}
+                            {searchResults.users?.length > 0 && (
+                                <>
+                                    <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                        Direct Messages
+                                    </div>
+                                    {searchResults.users.map(u => (
+                                        <div
+                                            key={`user-${u.id}`}
+                                            className="px-3 py-2 hover:bg-blue-600/20 hover:text-blue-400 cursor-pointer flex items-center gap-2 transition-colors"
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await axios.post('/api/channels/dm', {
+                                                        currentUserId: user.id,
+                                                        targetUserId: u.id
+                                                    });
+                                                    const dmChannel = res.data;
+                                                    dmChannel.displayName = u.username;
+                                                    setCurrentChannel(dmChannel);
+                                                    setSearchQuery('');
+                                                    setSearchResults({ users: [], channels: [] });
+                                                    fetchDMs();
+                                                } catch (error) {
+                                                    console.error('Failed to open DM', error);
+                                                    alert('Failed to open DM');
+                                                }
+                                            }}
+                                        >
+                                            <img
+                                                src={u.avatar_url || `https://ui-avatars.com/api/?name=${u.username}&background=random`}
+                                                alt={u.username}
+                                                className="w-6 h-6 rounded bg-gray-700"
+                                            />
+                                            <span className="text-sm font-medium">{u.username}</span>
+                                        </div>
+                                    ))}
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
