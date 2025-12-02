@@ -38,13 +38,16 @@ router.get('/:messageId/reactions', async (req, res) => {
     const { messageId } = req.params;
 
     try {
+        console.log(`Fetching reactions for message ${messageId}`);
         const result = await db.query(`
             SELECT r.emoji, r.user_id, u.username
             FROM reactions r
             JOIN users u ON r.user_id = u.id
             WHERE r.message_id = ?
-            ORDER BY r.created_at ASC
+            ORDER BY r.id ASC
         `, [messageId]);
+
+        console.log(`Found ${result.rows.length} reactions for message ${messageId}`);
 
         // Group by emoji and include user list
         const grouped = {};
@@ -65,8 +68,8 @@ router.get('/:messageId/reactions', async (req, res) => {
 
         res.json(Object.values(grouped));
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to fetch reactions' });
+        console.error(`Error fetching reactions for message ${messageId}:`, err);
+        res.status(500).json({ error: 'Failed to fetch reactions', details: err.message });
     }
 });
 
