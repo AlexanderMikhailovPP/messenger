@@ -65,9 +65,64 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const insertMention = (item) => {
         if (!editorRef.current) return;
 
-        // Insert as plain text @username or #channelname
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const plainText = editorRef.current.textContent || '';
+
+        // Get cursor position
+        let cursorPos = 0;
+        try {
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(editorRef.current);
+            preCaretRange.setEnd(range.endContainer, range.endOffset);
+            cursorPos = preCaretRange.toString().length;
+        } catch (e) {
+            console.error('Error getting cursor position:', e);
+            return;
+        }
+
+        // Find the @ or # position before cursor
+        let triggerPos = -1;
+        for (let i = cursorPos - 1; i >= 0; i--) {
+            if (plainText[i] === mentionType) {
+                triggerPos = i;
+                break;
+            }
+        }
+
+        if (triggerPos === -1) return;
+
+        // Create mention span element
+        const mentionClass = mentionType === '@' ? 'mention-user' : 'mention-channel';
         const mentionText = mentionType === '@' ? `@${item.username}` : `#${item.name}`;
-        document.execCommand('insertText', false, mentionText + ' ');
+
+        const mentionSpan = document.createElement('span');
+        mentionSpan.className = mentionClass;
+        mentionSpan.setAttribute('data-id', item.id);
+        mentionSpan.setAttribute('data-type', mentionType === '@' ? 'user' : 'channel');
+        mentionSpan.contentEditable = 'false';
+        mentionSpan.textContent = mentionText;
+
+        // Delete the trigger and query text
+        range.setStart(range.startContainer, range.startOffset - (cursorPos - triggerPos));
+        range.deleteContents();
+
+        // Insert mention span
+        range.insertNode(mentionSpan);
+
+        // Add space after mention
+        const space = document.createTextNode(' ');
+        mentionSpan.parentNode.insertBefore(space, mentionSpan.nextSibling);
+
+        // Move cursor after space
+        const newRange = document.createRange();
+        newRange.setStartAfter(space);
+        newRange.collapse(true);
+        const newSelection = window.getSelection();
+        newSelection.removeAllRanges();
+        newSelection.addRange(newRange);
 
         // Reset mention state
         setShowMentions(false);
@@ -234,8 +289,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                             <div
                                 key={item.id}
                                 className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${index === selectedMentionIndex
-                                        ? 'bg-blue-600/30 text-blue-400'
-                                        : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
+                                    ? 'bg-blue-600/30 text-blue-400'
+                                    : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
                                     }`}
                                 onMouseDown={(e) => {
                                     e.preventDefault();
@@ -307,6 +362,11 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     border-radius: 6px;
                     overflow-x: auto;
                     font-family: monospace;
+                }
+                [contentEditable] .mention-user,
+                [contentEditable] .mention-channel {
+                    display: inline-block;
+                    margin: 0 1px;
                 }
             `}</style>
         </div>
