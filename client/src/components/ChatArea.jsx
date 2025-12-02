@@ -104,9 +104,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     // Handle hover on user mentions for popup
     useEffect(() => {
         const handleMentionHover = (e) => {
-            const target = e.target;
-            console.log('Mouseover event:', target, 'has mention-user class:', target.classList?.contains('mention-user'));
-            if (target.classList && target.classList.contains('mention-user')) {
+            const target = e.target.closest('.mention-user');
+            console.log('Mouseover event target:', e.target, 'Closest mention:', target);
+
+            if (target) {
                 const userId = target.getAttribute('data-id');
                 console.log('Hovering over user mention, userId:', userId);
                 if (userId) {
@@ -132,8 +133,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         };
 
         const handleMentionLeave = (e) => {
-            const target = e.target;
-            if (target.classList && target.classList.contains('mention-user')) {
+            const target = e.target.closest('.mention-user');
+            if (target) {
                 console.log('Leaving user mention');
                 if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);

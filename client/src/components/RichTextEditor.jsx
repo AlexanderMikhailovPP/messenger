@@ -165,11 +165,17 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         // Check if cursor is right after a mention span WITHOUT space (don't trigger in this case)
         // But if there's a space after mention, allow new mentions
         const range = selection.getRangeAt(0);
+        console.log('Selection range:', range);
+        console.log('Start container:', range.startContainer);
+        console.log('Start offset:', range.startOffset);
+
         if (range.startOffset === 0) {
             const prevSibling = range.startContainer.previousSibling;
+            console.log('Previous sibling:', prevSibling);
             if (prevSibling && prevSibling.classList &&
                 (prevSibling.classList.contains('mention-user') ||
                     prevSibling.classList.contains('mention-channel'))) {
+                console.log('Cursor is right after mention span, not triggering');
                 setShowMentions(false);
                 return;
             }
@@ -179,18 +185,20 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         let foundTrigger = null;
         let triggerPos = -1;
 
+        console.log('Scanning text for trigger:', plainText);
         for (let i = cursorPos - 1; i >= 0; i--) {
             const char = plainText[i];
             if (char === '@' || char === '#') {
-                if (i === 0 || plainText[i - 1] === ' ' || plainText[i - 1] === '\n') {
+                if (i === 0 || plainText[i - 1] === ' ' || plainText[i - 1] === '\n' || plainText[i - 1] === '\u00A0') {
                     foundTrigger = char;
                     triggerPos = i;
                     break;
                 }
-            } else if (char === ' ' || char === '\n') {
+            } else if (char === ' ' || char === '\n' || char === '\u00A0') {
                 break;
             }
         }
+        console.log('Found trigger:', foundTrigger, 'at pos:', triggerPos);
 
         if (foundTrigger && triggerPos >= 0) {
             const query = plainText.substring(triggerPos + 1, cursorPos);
