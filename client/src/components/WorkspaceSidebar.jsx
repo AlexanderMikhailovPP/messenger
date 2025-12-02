@@ -8,7 +8,7 @@ export default function WorkspaceSidebar() {
     const [showProfile, setShowProfile] = useState(false);
 
     return (
-        <div className="w-[70px] bg-[#1a1d21] flex flex-col items-center py-4 border-r border-gray-700/50">
+        <div className="w-[70px] h-screen bg-[#1a1d21] flex flex-col items-center py-4 border-r border-gray-700/50">
 
 
             <nav className="flex-1 flex flex-col gap-4 w-full px-2">
