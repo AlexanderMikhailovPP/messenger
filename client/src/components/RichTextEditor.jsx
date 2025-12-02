@@ -103,38 +103,43 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         const mentionText = mentionType === '@' ? `@${item.username}` : `#${item.name}`;
         const mentionId = item.id;
 
-        // Build new HTML
+        // Build new HTML with space after mention
         const beforeText = fullText.substring(0, triggerPos);
         const afterText = fullText.substring(cursorOffset);
 
         const mentionHTML = `<span class="${mentionClass}" data-id="${mentionId}" data-type="${mentionType === '@' ? 'user' : 'channel'}" contenteditable="false">${mentionText}</span>`;
 
-        // Set new content
-        editorRef.current.innerHTML = beforeText + mentionHTML + '&nbsp;' + afterText;
+        // Set new content with a space after mention
+        editorRef.current.innerHTML = beforeText + mentionHTML + ' ' + afterText;
 
-        // Move cursor after mention
+        // Position cursor after the space
         const newRange = document.createRange();
         const newSelection = window.getSelection();
 
-        // Find the text node after the mention
-        const walker = document.createTreeWalker(
-            editorRef.current,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
+        // Find the text node with the space after mention
+        let targetNode = null;
+        const childNodes = editorRef.current.childNodes;
 
-        let lastNode = walker.nextNode();
-        while (walker.nextNode()) {
-            lastNode = walker.currentNode;
+        for (let i = 0; i < childNodes.length; i++) {
+            const node = childNodes[i];
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.startsWith(' ')) {
+                targetNode = node;
+                break;
+            }
         }
 
-        if (lastNode) {
-            newRange.setStart(lastNode, 0);
+        if (targetNode) {
+            // Position cursor after the space
+            newRange.setStart(targetNode, 1);
             newRange.collapse(true);
-            newSelection.removeAllRanges();
-            newSelection.addRange(newRange);
+        } else {
+            // Fallback: position at end
+            newRange.selectNodeContents(editorRef.current);
+            newRange.collapse(false);
         }
+
+        newSelection.removeAllRanges();
+        newSelection.addRange(newRange);
 
         // Reset mention state
         setShowMentions(false);
