@@ -20,6 +20,16 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
     }, [value]);
 
+    // Debug logging
+    useEffect(() => {
+        console.log('State changed:', {
+            showMentions,
+            mentionType,
+            mentionQuery,
+            resultsCount: mentionResults.length
+        });
+    }, [showMentions, mentionType, mentionQuery, mentionResults]);
+
     const applyFormat = (command, value = null) => {
         document.execCommand(command, false, value);
         editorRef.current?.focus();
@@ -35,12 +45,17 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     const searchMentions = async (query, type) => {
         try {
+            console.log('searchMentions called:', { query, type });
             // Always search, even with empty query
             const searchQuery = query.length === 0 ? '' : query;
             const res = await axios.get(`/api/users/search?q=${encodeURIComponent(searchQuery || ' ')}`);
+            console.log('Search response:', res.data);
+
             if (type === '@') {
+                console.log('Setting user results:', res.data.users);
                 setMentionResults(res.data.users || []);
             } else if (type === '#') {
+                console.log('Setting channel results:', res.data.channels);
                 setMentionResults(res.data.channels || []);
             }
         } catch (error) {
@@ -184,8 +199,12 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             setMentionType(foundTrigger);
             setMentionQuery(query);
             setShowMentions(true);
+            console.log('Setting showMentions to true');
             searchMentions(query, foundTrigger);
         } else {
+            if (showMentions) {
+                console.log('Hiding mentions');
+            }
             setShowMentions(false);
             setMentionQuery('');
             setMentionType(null);
@@ -282,8 +301,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                             <div
                                 key={item.id}
                                 className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${index === selectedMentionIndex
-                                        ? 'bg-blue-600/30 text-blue-400'
-                                        : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
+                                    ? 'bg-blue-600/30 text-blue-400'
+                                    : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
                                     }`}
                                 onMouseDown={(e) => {
                                     e.preventDefault();
