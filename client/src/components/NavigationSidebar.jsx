@@ -71,7 +71,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel })
     };
 
     return (
-        <div className="w-[260px] bg-[#1f2225] text-[#9ca3af] flex flex-col h-full border-r border-gray-700/50">
+        <div className="w-full md:w-[260px] bg-[#1f2225] text-[#9ca3af] flex flex-col h-full border-r border-gray-700/50">
             {/* Header */}
             <div className="h-12 px-4 flex items-center border-b border-gray-700/50">
                 <div className="relative w-full">

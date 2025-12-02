@@ -27,7 +27,7 @@ export default function ChatLayout() {
             </div>
 
             {/* Navigation Sidebar */}
-            <div className={`${showSidebar ? 'fixed left-[70px] top-14 bottom-0' : 'hidden'} md:block md:static z-30 h-full`}>
+            <div className={`${showSidebar ? 'fixed left-[70px] top-14 bottom-0 right-0' : 'hidden'} md:block md:static z-30 h-full`}>
                 <NavigationSidebar currentChannel={currentChannel} setCurrentChannel={setCurrentChannel} />
             </div>
 

@@ -38,5 +38,13 @@ module.exports = (io) => {
             // payload: { target: socketId, candidate: RTCIceCandidate }
             io.to(payload.target).emit('ice-candidate', payload);
         });
+
+        socket.on('start_call', ({ channelId, userId }) => {
+            // Broadcast to all users in the channel (assuming they are in a room named channelId or similar)
+            // Since we don't have explicit channel rooms in this file, we rely on the client to join them.
+            // But wait, index.js handles channel joining.
+            // Let's assume users are in room `channel_${channelId}`.
+            socket.to(`channel_${channelId}`).emit('incoming_call', { channelId, callerId: userId });
+        });
     });
 };
