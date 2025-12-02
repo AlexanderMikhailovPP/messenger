@@ -105,8 +105,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     useEffect(() => {
         const handleMentionHover = (e) => {
             const target = e.target;
+            console.log('Mouseover event:', target, 'has mention-user class:', target.classList?.contains('mention-user'));
             if (target.classList && target.classList.contains('mention-user')) {
                 const userId = target.getAttribute('data-id');
+                console.log('Hovering over user mention, userId:', userId);
                 if (userId) {
                     // Clear any existing timeout
                     if (hoverTimeoutRef.current) {
@@ -116,6 +118,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     // Show popup after short delay
                     hoverTimeoutRef.current = setTimeout(() => {
                         const rect = target.getBoundingClientRect();
+                        console.log('Showing popup at position:', rect);
                         setMentionPopup({
                             userId: parseInt(userId),
                             position: {
@@ -131,6 +134,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const handleMentionLeave = (e) => {
             const target = e.target;
             if (target.classList && target.classList.contains('mention-user')) {
+                console.log('Leaving user mention');
                 if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
                 }
@@ -141,6 +145,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
         const messagesContainer = document.querySelector('.custom-scrollbar');
         if (messagesContainer) {
+            console.log('Adding hover listeners to messages container');
             messagesContainer.addEventListener('mouseover', handleMentionHover);
             messagesContainer.addEventListener('mouseout', handleMentionLeave);
             return () => {

@@ -162,15 +162,17 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             return;
         }
 
-        // Check if cursor is right after a mention span (don't trigger in this case)
+        // Check if cursor is right after a mention span WITHOUT space (don't trigger in this case)
+        // But if there's a space after mention, allow new mentions
         const range = selection.getRangeAt(0);
-        const prevSibling = range.startContainer.previousSibling ||
-            range.startContainer.parentNode?.previousSibling;
-        if (prevSibling && prevSibling.classList &&
-            (prevSibling.classList.contains('mention-user') ||
-                prevSibling.classList.contains('mention-channel'))) {
-            setShowMentions(false);
-            return;
+        if (range.startOffset === 0) {
+            const prevSibling = range.startContainer.previousSibling;
+            if (prevSibling && prevSibling.classList &&
+                (prevSibling.classList.contains('mention-user') ||
+                    prevSibling.classList.contains('mention-channel'))) {
+                setShowMentions(false);
+                return;
+            }
         }
 
         // Look for @ or # before cursor
