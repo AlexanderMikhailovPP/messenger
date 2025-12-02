@@ -104,20 +104,16 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     // Handle hover on user mentions for popup
     useEffect(() => {
         const handleMentionHover = (e) => {
-            const target = e.currentTarget; // Use currentTarget as we attach listener directly
+            const target = e.currentTarget;
             const userId = target.getAttribute('data-id');
-            console.log('handleMentionHover triggered for userId:', userId);
 
             if (userId) {
-                // Clear any existing timeout
                 if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
                 }
 
-                // Show popup after short delay
                 hoverTimeoutRef.current = setTimeout(() => {
                     const rect = target.getBoundingClientRect();
-                    console.log('Showing popup at position:', rect);
                     setMentionPopup({
                         userId: parseInt(userId),
                         position: {
@@ -125,66 +121,45 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                             left: rect.left
                         }
                     });
-                }, 500); // 500ms delay before showing
+                }, 500);
             }
         };
 
         const handleMentionLeave = () => {
-            console.log('handleMentionLeave triggered');
             if (hoverTimeoutRef.current) {
                 clearTimeout(hoverTimeoutRef.current);
             }
-            // Delay closing to allow moving mouse to popup
             setTimeout(() => setMentionPopup(null), 200);
         };
 
-        // Function to attach listeners to all mention elements
         const attachListeners = () => {
-            // Wait for render
             setTimeout(() => {
                 const messagesContainer = document.querySelector('.custom-scrollbar');
                 if (!messagesContainer) return;
 
                 const mentions = messagesContainer.querySelectorAll('.mention-user');
-                console.log(`Found ${mentions.length} mention elements to attach listeners to`);
 
                 mentions.forEach(mention => {
-                    // Remove old listeners to avoid duplicates
                     mention.removeEventListener('mouseenter', handleMentionHover);
                     mention.removeEventListener('mouseleave', handleMentionLeave);
 
                     mention.addEventListener('mouseenter', handleMentionHover);
                     mention.addEventListener('mouseleave', handleMentionLeave);
                 });
-            }, 500); // Increased timeout to ensure render
+            }, 700); // Wait for render
         };
 
-        // Attach listeners initially and whenever messages change
         attachListeners();
 
-        // Also set up a mutation observer to handle new messages appearing
-        const messagesContainer = document.querySelector('.custom-scrollbar');
-        if (messagesContainer) {
-            const observer = new MutationObserver(() => {
-                console.log('Mutation observed, re-attaching listeners');
-                attachListeners();
+        // Cleanup function
+        return () => {
+            const mentions = document.querySelectorAll('.mention-user');
+            mentions.forEach(mention => {
+                mention.removeEventListener('mouseenter', handleMentionHover);
+                mention.removeEventListener('mouseleave', handleMentionLeave);
             });
-
-            observer.observe(messagesContainer, {
-                childList: true,
-                subtree: true
-            });
-
-            return () => {
-                observer.disconnect();
-                const mentions = document.querySelectorAll('.mention-user');
-                mentions.forEach(mention => {
-                    mention.removeEventListener('mouseenter', handleMentionHover);
-                    mention.removeEventListener('mouseleave', handleMentionLeave);
-                });
-            };
-        }
-    }, [messages]); // Re-run when messages change
+        };
+    }, [messages]);
 
 
     const fetchMessages = async (channelId) => {

@@ -104,6 +104,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         mentionSpan.setAttribute('data-type', mentionType === '@' ? 'user' : 'channel');
         mentionSpan.contentEditable = 'false';
         mentionSpan.textContent = mentionText;
+        mentionSpan.style.pointerEvents = 'auto'; // Ensure it captures events
 
         // Delete the trigger and query text
         range.setStart(range.startContainer, range.startOffset - (cursorPos - triggerPos));
