@@ -4,7 +4,7 @@ import { Hash, Plus, ChevronDown, Search, MessageSquare, Home } from 'lucide-rea
 import { useAuth } from '../context/AuthContext';
 import { getUnreadCounts } from '../utils/unreadCounter';
 
-export default function NavigationSidebar({ currentChannel, setCurrentChannel, isMobile }) {
+export default function NavigationSidebar({ currentChannel, setCurrentChannel, isMobile, activeTab = 'home' }) {
     const [channels, setChannels] = useState([]);
     const [dms, setDms] = useState([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -177,134 +177,129 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-                {/* Channels */}
-                <div className="px-4 mb-2 flex items-center justify-between group mt-4">
-                    <div
-                        className="flex items-center gap-1 text-gray-500 hover:text-gray-300 cursor-pointer"
-                        onClick={() => setShowChannels(!showChannels)}
-                    >
-                        <ChevronDown
-                            size={12}
-                            className={`transition-transform ${showChannels ? '' : '-rotate-90'}`}
-                        />
-                        <span className="text-sm font-medium uppercase tracking-wide">Channels</span>
-                    </div>
-                    <button onClick={() => setShowCreateModal(true)} className="text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Plus size={16} />
-                    </button>
-                </div>
+                {(activeTab === 'home' || activeTab === 'channels') && (
+                    <>
+                        <div className="px-4 mb-2 flex items-center justify-between group mt-4">
+                            <div
+                                className="flex items-center gap-1 text-gray-500 hover:text-gray-300 cursor-pointer"
+                                onClick={() => setShowChannels(!showChannels)}
+                            >
+                                <ChevronDown
+                                    size={12}
+                                    className={`transition-transform ${showChannels ? '' : '-rotate-90'}`}
+                                />
+                                <span className="text-sm font-medium uppercase tracking-wide">Channels</span>
+                            </div>
+                            <button onClick={() => setShowCreateModal(true)} className="text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Plus size={16} />
+                            </button>
+                        </div>
 
-                {showChannels && (
-                    <div className="space-y-[1px] mb-2">
-                        {channels.map((ch) => {
-                            const unread = unreadCounts[ch.id] || 0;
-                            return (
-                                <button
-                                    key={ch.id}
-                                    onClick={() => setCurrentChannel(ch)}
-                                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === ch.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <Hash size={16} className="flex-shrink-0 text-gray-400" />
-                                        <span className="text-sm truncate">{ch.name}</span>
-                                    </div>
-                                    {unread > 0 && (
-                                        <div className="flex-shrink-0 min-w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold px-1">
-                                            {unread > 99 ? '99+' : unread}
-                                        </div>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
+                        {showChannels && (
+                            <div className="space-y-[1px] mb-2">
+                                {channels.map((ch) => {
+                                    const unread = unreadCounts[ch.id] || 0;
+                                    return (
+                                        <button
+                                            key={ch.id}
+                                            onClick={() => setCurrentChannel(ch)}
+                                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === ch.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <Hash size={16} className="flex-shrink-0 text-gray-400" />
+                                                <span className="text-sm truncate">{ch.name}</span>
+                                            </div>
+                                            {unread > 0 && (
+                                                <div className="flex-shrink-0 min-w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold px-1">
+                                                    {unread > 99 ? '99+' : unread}
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </>
                 )}
 
-                <div className="px-4 mb-2 flex items-center justify-between group mt-2">
-                    <div
-                        className="flex items-center gap-1 text-gray-500 hover:text-gray-300 cursor-pointer"
-                        onClick={() => setShowDMs(!showDMs)}
-                    >
-                        <ChevronDown
-                            size={12}
-                            className={`transition-transform ${showDMs ? '' : '-rotate-90'}`}
-                        />
-                        <span className="text-sm font-medium uppercase tracking-wide">Direct Messages</span>
-                    </div>
-                </div>
+                {(activeTab === 'home' || activeTab === 'dms') && (
+                    <>
+                        <div className="px-4 mb-2 flex items-center justify-between group mt-2">
+                            <div
+                                className="flex items-center gap-1 text-gray-500 hover:text-gray-300 cursor-pointer"
+                                onClick={() => setShowDMs(!showDMs)}
+                            >
+                                <ChevronDown
+                                    size={12}
+                                    className={`transition-transform ${showDMs ? '' : '-rotate-90'}`}
+                                />
+                                <span className="text-sm font-medium uppercase tracking-wide">Direct Messages</span>
+                            </div>
+                        </div>
 
-                {showDMs && (
-                    <div className="space-y-[1px] mb-6">
-                        {dms.map((dm) => {
-                            const unread = unreadCounts[dm.id] || 0;
-                            return (
-                                <button
-                                    key={dm.id}
-                                    onClick={() => setCurrentChannel(dm)}
-                                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === dm.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                            {dm.displayName?.[0]?.toUpperCase() || dm.name?.[0]?.toUpperCase()}
-                                        </div>
-                                        <span className="text-sm truncate">{dm.displayName || dm.name}</span>
-                                    </div>
-                                    {unread > 0 && (
-                                        <div className="flex-shrink-0 min-w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold px-1">
-                                            {unread > 99 ? '99+' : unread}
-                                        </div>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
-
-
-            {
-                showCreateModal && (
-                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                        <div className="bg-[#1f2225] text-white p-6 rounded-lg w-96 border border-gray-700 shadow-xl">
-                            <h3 className="text-xl font-bold mb-6">Create Channel</h3>
-                            <form onSubmit={createChannel}>
-                                <div className="mb-4">
-                                    <label className="block text-gray-400 text-sm font-medium mb-2">Name</label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-2.5 text-gray-500">#</span>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g. plan-budget"
-                                            className="w-full pl-7 p-2 bg-[#1a1d21] border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-white"
-                                            value={newChannelName}
-                                            onChange={(e) => setNewChannelName(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex justify-end gap-3 mt-6">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCreateModal(false)}
-                                        className="px-4 py-2 text-gray-300 hover:bg-gray-800 rounded font-medium"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-6 py-2 bg-[#007a5a] text-white rounded font-medium hover:bg-[#148567]"
-                                    >
-                                        Create
-                                    </button>
-                                </div>
-                            </form>
+                        {showDMs && (
+                            <div className="space-y-[1px] mb-6">
+                                {dms.map((dm) => {
+                                    const unread = unreadCounts[dm.id] || 0;
+                                    return (
+                                        <button
+                                            key={dm.id}
+                                            onClick={() => setCurrentChannel(dm)}
+                                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === dm.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
+                                                }`}
+                                        >
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                                    {dm.displayName?.[0]?.toUpperCase() || dm.name?.[0]?.toUpperCase()}
+                                                </div>
+                                                <span className="text-sm truncate">{dm.displayName || dm.name}</span>
+                                            </div>
+                                            {unread > 0 && (
+                                                <div className="flex-shrink-0 min-w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold px-1">
+                                                    {unread > 99 ? '99+' : unread}
+                                                </div>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        <label className="block text-gray-400 text-sm font-medium mb-2">Name</label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-gray-500">#</span>
+                            <input
+                                type="text"
+                                placeholder="e.g. plan-budget"
+                                className="w-full pl-7 p-2 bg-[#1a1d21] border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-white"
+                                value={newChannelName}
+                                onChange={(e) => setNewChannelName(e.target.value)}
+                                required
+                            />
                         </div>
                     </div>
-                )
-            }
-        </div >
-    );
+                <div className="flex justify-end gap-3 mt-6">
+                    <button
+                        type="button"
+                        onClick={() => setShowCreateModal(false)}
+                        className="px-4 py-2 text-gray-300 hover:bg-gray-800 rounded font-medium"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        className="px-6 py-2 bg-[#007a5a] text-white rounded font-medium hover:bg-[#148567]"
+                    >
+                        Create
+                    </button>
+                </div>
+            </form>
+        </div>
+                        </div >
+                    )
+}
+            </div >
+            );
 }
 
 

@@ -445,6 +445,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             <div
                                                 key={idx}
                                                 className="px-2 py-1 bg-[#2f3136] rounded-full text-xs flex items-center gap-1 hover:bg-[#36393f] transition-colors cursor-pointer"
+                                                title={`${reaction.count} users reacted with ${reaction.emoji}`}
                                             >
                                                 <span>{reaction.emoji}</span>
                                                 <span className="text-gray-400">{reaction.count}</span>
@@ -455,7 +456,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                             </div>
 
                             {/* Message Actions */}
-                            <div className="opacity-0 group-hover:opacity-100 flex items-start gap-1 transition-opacity">
+                            <div className={`${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-start gap-1 transition-opacity`}>
                                 <button
                                     onClick={() => setShowEmojiPicker(msg.id)}
                                     className="p-1.5 hover:bg-gray-700 rounded transition-colors"
@@ -467,12 +468,14 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
                             {/* Emoji Picker Popup */}
                             {showEmojiPicker === msg.id && (
-                                <div className="absolute z-50">
+                                <div className={`z-50 ${isMobile ? 'fixed inset-x-0 bottom-0 top-auto' : 'absolute top-full right-0'}`}>
                                     <div className="fixed inset-0" onClick={() => setShowEmojiPicker(null)} />
-                                    <div className="relative">
+                                    <div className={`relative ${isMobile ? 'w-full' : ''}`}>
                                         <EmojiPicker
                                             onEmojiClick={(emojiData) => addReaction(msg.id, emojiData.emoji)}
                                             theme="dark"
+                                            width={isMobile ? '100%' : 350}
+                                            height={isMobile ? 400 : 450}
                                         />
                                     </div>
                                 </div>

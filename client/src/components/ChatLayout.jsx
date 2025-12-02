@@ -7,6 +7,7 @@ import ChatArea from './ChatArea';
 export default function ChatLayout() {
     const [currentChannel, setCurrentChannel] = useState(null);
     const [mobileView, setMobileView] = useState('home'); // 'home' | 'chat'
+    const [activeTab, setActiveTab] = useState('home'); // 'home' | 'dms' | 'you'
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
 
@@ -76,27 +77,37 @@ export default function ChatLayout() {
                             currentChannel={currentChannel}
                             setCurrentChannel={handleChannelSelect}
                             isMobile={true}
+                            activeTab={activeTab}
                         />
                         {/* Bottom Navigation Bar */}
                         <div className="h-16 bg-[#1a1d21] border-t border-gray-800 flex items-center justify-around px-2 pb-safe">
-                            <div className="flex flex-col items-center gap-1 text-white">
-                                <div className="p-1 rounded-lg bg-gray-800">
+                            <button
+                                onClick={() => setActiveTab('home')}
+                                className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-white' : 'text-gray-500'}`}
+                            >
+                                <div className={`p-1 rounded-lg ${activeTab === 'home' ? 'bg-gray-800' : ''}`}>
                                     <Menu size={20} />
                                 </div>
                                 <span className="text-[10px] font-medium">Home</span>
-                            </div>
-                            <div className="flex flex-col items-center gap-1 text-gray-500">
-                                <div className="p-1">
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('dms')}
+                                className={`flex flex-col items-center gap-1 ${activeTab === 'dms' ? 'text-white' : 'text-gray-500'}`}
+                            >
+                                <div className={`p-1 rounded-lg ${activeTab === 'dms' ? 'bg-gray-800' : ''}`}>
                                     <MessageSquare size={20} />
                                 </div>
                                 <span className="text-[10px] font-medium">DMs</span>
-                            </div>
-                            <div className="flex flex-col items-center gap-1 text-gray-500">
-                                <div className="p-1">
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('you')}
+                                className={`flex flex-col items-center gap-1 ${activeTab === 'you' ? 'text-white' : 'text-gray-500'}`}
+                            >
+                                <div className={`p-1 rounded-lg ${activeTab === 'you' ? 'bg-gray-800' : ''}`}>
                                     <div className="w-5 h-5 rounded-full bg-gray-600" />
                                 </div>
                                 <span className="text-[10px] font-medium">You</span>
-                            </div>
+                            </button>
                         </div>
                     </div>
                 ) : (
