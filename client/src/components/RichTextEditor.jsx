@@ -135,43 +135,55 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
         // Check for mention triggers
         const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            const textNode = range.startContainer;
+        if (!selection.rangeCount) return;
 
-            if (textNode.nodeType === Node.TEXT_NODE) {
-                const text = textNode.textContent;
-                const cursorPos = range.startOffset;
+        const range = selection.getRangeAt(0);
+        const textNode = range.startContainer;
 
-                // Look backwards for @ or #
-                let i = cursorPos - 1;
-                let query = '';
-                let foundTrigger = null;
+        // Handle both text nodes and element nodes
+        let text = '';
+        let cursorPos = 0;
 
-                while (i >= 0) {
-                    const char = text[i];
-                    if (char === '@' || char === '#') {
-                        foundTrigger = char;
-                        break;
-                    } else if (char === ' ' || char === '\n') {
-                        break;
-                    }
-                    query = char + query;
-                    i--;
-                }
+        if (textNode.nodeType === Node.TEXT_NODE) {
+            text = textNode.textContent;
+            cursorPos = range.startOffset;
+        } else if (textNode.nodeType === Node.ELEMENT_NODE) {
+            // If typing in empty contentEditable
+            text = textNode.textContent || '';
+            cursorPos = text.length;
+        } else {
+            return;
+        }
 
-                if (foundTrigger && (i === 0 || text[i - 1] === ' ' || text[i - 1] === '\n')) {
-                    setMentionType(foundTrigger);
-                    setMentionQuery(query);
-                    setShowMentions(true);
-                    setDropdownPosition(getCaretCoordinates());
-                    searchMentions(query, foundTrigger);
-                } else {
-                    setShowMentions(false);
-                    setMentionQuery('');
-                    setMentionType(null);
-                }
+        // Look backwards for @ or #
+        let i = cursorPos - 1;
+        let query = '';
+        let foundTrigger = null;
+
+        while (i >= 0) {
+            const char = text[i];
+            if (char === '@' || char === '#') {
+                foundTrigger = char;
+                break;
+            } else if (char === ' ' || char === '\n') {
+                break;
             }
+            query = char + query;
+            i--;
+        }
+
+        // Check if we found a trigger and it's at start or after space
+        if (foundTrigger && (i === 0 || (i > 0 && (text[i - 1] === ' ' || text[i - 1] === '\n')))) {
+            console.log('Mention trigger detected:', foundTrigger, 'query:', query);
+            setMentionType(foundTrigger);
+            setMentionQuery(query);
+            setShowMentions(true);
+            setDropdownPosition(getCaretCoordinates());
+            searchMentions(query, foundTrigger);
+        } else {
+            setShowMentions(false);
+            setMentionQuery('');
+            setMentionType(null);
         }
     };
 
