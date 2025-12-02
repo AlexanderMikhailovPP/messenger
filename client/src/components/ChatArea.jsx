@@ -107,7 +107,13 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     // Only fetch if we don't have this user or it's a different user
                     // Check if we are already showing this user to avoid re-fetching
                     if (!mentionPopup || mentionPopup.user.id !== parseInt(userId)) {
-                        fetchUserInfo(userId, { x: e.clientX, y: e.clientY });
+                        const rect = target.getBoundingClientRect();
+                        // Position below the mention, centered horizontally
+                        const position = {
+                            x: rect.left + (rect.width / 2) - 160, // Center 320px popup (approx)
+                            y: rect.bottom + 5
+                        };
+                        fetchUserInfo(userId, position);
                     }
                 }
             }
@@ -151,8 +157,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         try {
             // Create or find DM channel with this user
             const res = await axios.post('/api/channels/dm', {
-                userId: user.id,
-                otherUserId: mentionedUser.id
+                currentUserId: user.id,
+                targetUserId: mentionedUser.id
             });
             setCurrentChannel(res.data);
             setMentionPopup(null);
@@ -166,8 +172,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         try {
             // Create DM and start call
             const res = await axios.post('/api/channels/dm', {
-                userId: user.id,
-                otherUserId: mentionedUser.id
+                currentUserId: user.id,
+                targetUserId: mentionedUser.id
             });
             const dmChannel = res.data;
             setCurrentChannel(dmChannel);
