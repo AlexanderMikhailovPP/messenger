@@ -137,16 +137,21 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
         // Function to attach listeners to all mention elements
         const attachListeners = () => {
-            const mentions = document.querySelectorAll('.mention-user');
-            mentions.forEach(mention => {
-                // Remove old listeners to avoid duplicates (though difficult without named reference, 
-                // but React re-renders might handle this if we depend on messages)
-                mention.removeEventListener('mouseenter', handleMentionHover);
-                mention.removeEventListener('mouseleave', handleMentionLeave);
+            // Wait for render
+            setTimeout(() => {
+                const mentions = document.querySelectorAll('.mention-user');
+                console.log(`Found ${mentions.length} mention elements to attach listeners to`);
 
-                mention.addEventListener('mouseenter', handleMentionHover);
-                mention.addEventListener('mouseleave', handleMentionLeave);
-            });
+                mentions.forEach(mention => {
+                    // Remove old listeners to avoid duplicates
+                    mention.removeEventListener('mouseenter', handleMentionHover);
+                    mention.removeEventListener('mouseleave', handleMentionLeave);
+
+                    mention.addEventListener('mouseenter', handleMentionHover);
+                    mention.addEventListener('mouseleave', handleMentionLeave);
+                    console.log('Attached listeners to mention:', mention.getAttribute('data-id'));
+                });
+            }, 100);
         };
 
         // Attach listeners initially and whenever messages change
@@ -156,6 +161,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
         const messagesContainer = document.querySelector('.custom-scrollbar');
         if (messagesContainer) {
             const observer = new MutationObserver(() => {
+                console.log('Mutation observed, re-attaching listeners');
                 attachListeners();
             });
 
