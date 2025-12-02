@@ -264,6 +264,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                     );
                                 })}
                             </div>
+                        )}
                     </>
                 )}
             </div>
