@@ -230,12 +230,19 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
     const handleStartHuddle = () => {
         joinCall(currentChannel.id);
+
+        // Notify other users in the channel about the call
+        socket.emit('start_call', {
+            channelId: currentChannel.id,
+            userId: user.id
+        });
+
         // Send system message
         socket.emit('send_message', {
             content: '📞 Started a huddle',
             userId: user.id,
             channelId: currentChannel.id,
-            type: 'system' // Optional: backend might treat this differently
+            type: 'system'
         });
     };
 
