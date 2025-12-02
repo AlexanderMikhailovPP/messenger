@@ -120,7 +120,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             }
         };
 
-        const messagesContainer = document.querySelector('.custom-scrollbar');
+        const messagesContainer = messagesContainerRef.current;
         if (messagesContainer) {
             messagesContainer.addEventListener('mouseover', handleMouseOver);
             messagesContainer.addEventListener('mouseout', handleMouseOut);
@@ -187,15 +187,25 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
             // Fetch reactions for all messages
             const reactionsPromises = res.data.map(async (msg) => {
-                const reactionsRes = await axios.get(`/api/reactions/${msg.id}/reactions`);
-                return { messageId: msg.id, reactions: reactionsRes.data };
+                try {
+                    const reactionsRes = await axios.get(`/api/reactions/${msg.id}/reactions`);
+                    return { messageId: msg.id, reactions: reactionsRes.data };
+                } catch (err) {
+                    console.warn(`Failed to fetch reactions for message ${msg.id}`, err);
+                    return { messageId: msg.id, reactions: [] };
+                }
             });
 
-            const allReactions = await Promise.all(reactionsPromises);
+            const allReactionsResults = await Promise.allSettled(reactionsPromises);
             const reactionsMap = {};
-            allReactions.forEach(({ messageId, reactions }) => {
-                reactionsMap[messageId] = reactions;
+
+            allReactionsResults.forEach((result) => {
+                if (result.status === 'fulfilled') {
+                    const { messageId, reactions } = result.value;
+                    reactionsMap[messageId] = reactions;
+                }
             });
+
             setReactions(reactionsMap);
         } catch (error) {
             if (error.name !== 'CanceledError') {
