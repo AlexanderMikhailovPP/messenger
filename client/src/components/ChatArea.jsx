@@ -416,12 +416,15 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                 <UserMentionPopup
                     userId={mentionPopup.userId}
                     position={mentionPopup.position}
-                    setCurrentChannel(dmChannel);
-                        } catch (error) {
-                console.error('Failed to open DM', error);
+                    onMessage={handleMentionMessage}
+                    onMouseEnter={() => {
+                        if (hoverTimeoutRef.current) {
+                            clearTimeout(hoverTimeoutRef.current);
                         }
                     }}
-            onClose={() => setMentionPopup(null)}
+                    onMouseLeave={() => {
+                        hoverTimeoutRef.current = setTimeout(() => setMentionPopup(null), 200);
+                    }}
                 />
             )}
         </div>
