@@ -91,3 +91,30 @@ body {
 .text-gray-300 li {
     margin: 2px 0;
 }
+
+/* Mention styles */
+.mention-user {
+    background: rgba(88, 166, 255, 0.2);
+    color: #58a6ff;
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.mention-user:hover {
+    background: rgba(88, 166, 255, 0.3);
+}
+
+.mention-channel {
+    background: rgba(255, 200, 88, 0.2);
+    color: #ffc858;
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.mention-channel:hover {
+    background: rgba(255, 200, 88, 0.3);
+}
