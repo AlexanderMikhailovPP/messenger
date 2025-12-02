@@ -28,7 +28,7 @@ export default function ChatLayout() {
             </div>
 
             {/* Main Chat Area */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Mobile Header */}
                 <div className="md:hidden h-14 bg-[#2f3136] border-b border-gray-700/50 flex items-center px-4">
                     <button

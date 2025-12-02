@@ -285,7 +285,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     }
 
     return (
-        <div className="flex-1 flex flex-col bg-[#2f3136] relative">
+        <div className="flex-1 h-full flex flex-col bg-[#36393f] relative min-h-0">
             {/* Channel Header */}
             <div className="h-12 px-4 flex items-center justify-between border-b border-gray-700/50 bg-[#2f3136] shadow-sm">
                 <div className="flex items-center gap-2">
