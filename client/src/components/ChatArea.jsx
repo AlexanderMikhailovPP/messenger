@@ -93,7 +93,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
 
     // Handle mention hover
     useEffect(() => {
-        const handleMouseOver = (e) => {
+        const handleGlobalMouseOver = (e) => {
             const target = e.target.closest('.mention-user');
             if (target) {
                 const userId = target.getAttribute('data-id');
@@ -105,12 +105,15 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     }
 
                     // Only fetch if we don't have this user or it's a different user
-                    fetchUserInfo(userId, { x: e.clientX, y: e.clientY });
+                    // Check if we are already showing this user to avoid re-fetching
+                    if (!mentionPopup || mentionPopup.user.id !== parseInt(userId)) {
+                        fetchUserInfo(userId, { x: e.clientX, y: e.clientY });
+                    }
                 }
             }
         };
 
-        const handleMouseOut = (e) => {
+        const handleGlobalMouseOut = (e) => {
             const target = e.target.closest('.mention-user');
             if (target) {
                 // Delay closing to allow moving to popup
@@ -120,18 +123,15 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
             }
         };
 
-        const messagesContainer = messagesContainerRef.current;
-        if (messagesContainer) {
-            messagesContainer.addEventListener('mouseover', handleMouseOver);
-            messagesContainer.addEventListener('mouseout', handleMouseOut);
+        document.addEventListener('mouseover', handleGlobalMouseOver);
+        document.addEventListener('mouseout', handleGlobalMouseOut);
 
-            return () => {
-                messagesContainer.removeEventListener('mouseover', handleMouseOver);
-                messagesContainer.removeEventListener('mouseout', handleMouseOut);
-                if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-            };
-        }
-    }, [user, setCurrentChannel]);
+        return () => {
+            document.removeEventListener('mouseover', handleGlobalMouseOver);
+            document.removeEventListener('mouseout', handleGlobalMouseOut);
+            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+        };
+    }, [user, setCurrentChannel, mentionPopup]);
 
 
     const fetchUserInfo = async (userId, position) => {
