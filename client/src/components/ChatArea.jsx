@@ -16,7 +16,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
     const [showEmojiPicker, setShowEmojiPicker] = useState(null);
     const [mentionPopup, setMentionPopup] = useState(null); // { userId, position }
     const { user } = useAuth();
-    const { joinCall, isInCall, activeChannelId } = useCall();
+    const { isInCall, activeChannelId, joinCall, incomingCall, clearIncomingCall } = useCall();
     const messagesEndRef = useRef(null);
     const hoverTimeoutRef = useRef(null);
 
@@ -244,6 +244,33 @@ export default function ChatArea({ currentChannel, setCurrentChannel }) {
                     <ActionBtn icon={<Info size={20} />} />
                 </div>
             </header>
+
+            {/* Incoming Call Banner */}
+            {incomingCall && !isInCall && (
+                <div className="bg-blue-600 text-white p-3 flex justify-between items-center px-6 shadow-md z-10">
+                    <div className="flex items-center gap-2">
+                        <Headphones size={20} className="animate-pulse" />
+                        <span className="font-medium">Incoming Huddle Invitation</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => {
+                                joinCall(incomingCall.channelId);
+                                clearIncomingCall();
+                            }}
+                            className="bg-white text-blue-600 px-4 py-1.5 rounded-full text-sm font-bold hover:bg-gray-100 transition-colors"
+                        >
+                            Join
+                        </button>
+                        <button
+                            onClick={clearIncomingCall}
+                            className="text-white/80 hover:text-white"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Active Call Bar */}
             <ActiveCallBar />

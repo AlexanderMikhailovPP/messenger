@@ -11,6 +11,7 @@ export const CallProvider = ({ children }) => {
     const [peers, setPeers] = useState({}); // { socketId: { stream, peerConnection, user } }
     const [isMuted, setIsMuted] = useState(false);
     const [activeChannelId, setActiveChannelId] = useState(null);
+    const [incomingCall, setIncomingCall] = useState(null);
 
     const peersRef = useRef({}); // Keep track of peers for callbacks
     const localStreamRef = useRef(null);
@@ -20,6 +21,11 @@ export const CallProvider = ({ children }) => {
         socket.on('user-connected', (userId, socketId) => {
             console.log('User connected to call:', userId, socketId);
             createPeerConnection(socketId, true, userId);
+        });
+
+        socket.on('incoming_call', (payload) => {
+            console.log('Incoming call:', payload);
+            setIncomingCall(payload);
         });
 
         socket.on('user-disconnected', (userId, socketId) => {
@@ -147,8 +153,10 @@ export const CallProvider = ({ children }) => {
         }
     };
 
+    const clearIncomingCall = () => setIncomingCall(null);
+
     return (
-        <CallContext.Provider value={{ isInCall, localStream, peers, joinCall, leaveCall, toggleMute, isMuted, activeChannelId }}>
+        <CallContext.Provider value={{ isInCall, localStream, peers, joinCall, leaveCall, toggleMute, isMuted, activeChannelId, incomingCall, clearIncomingCall }}>
             {children}
         </CallContext.Provider>
     );
