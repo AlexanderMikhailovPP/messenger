@@ -1,5 +1,6 @@
-import { Home, LogOut } from 'lucide-react';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Home, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ProfileModal from './ProfileModal';
 
@@ -8,33 +9,37 @@ export default function WorkspaceSidebar() {
     const [showProfile, setShowProfile] = useState(false);
 
     return (
-        <div className="w-[70px] h-screen bg-[#1a1d21] flex flex-col items-center py-4 border-r border-gray-700/50">
+        <>
+            <div className="w-[70px] h-screen bg-[#1a1d21] flex flex-col items-center py-4 border-r border-gray-700/50">
 
 
-            <nav className="flex-1 flex flex-col gap-4 w-full px-2">
-                <NavItem icon={<Home size={20} />} label="Home" active />
-            </nav>
+                <nav className="flex-1 flex flex-col gap-4 w-full px-2">
+                    <NavItem icon={<Home size={20} />} label="Home" active />
+                </nav>
 
-            <div className="mt-auto pb-4 flex flex-col items-center gap-4">
-                <button
-                    onClick={logout}
-                    className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
-                    title="Logout"
-                >
-                    <LogOut size={20} />
-                </button>
+                <div className="mt-auto pb-4 flex flex-col items-center gap-4">
+                    <button
+                        onClick={logout}
+                        className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
+                        title="Logout"
+                    >
+                        <LogOut size={20} />
+                    </button>
 
-                <button
-                    onClick={() => setShowProfile(true)}
-                    className="w-10 h-10 rounded-lg bg-gray-600 overflow-hidden cursor-pointer border-2 border-transparent hover:border-blue-400 transition-colors"
-                    title="Edit Profile"
-                >
-                    <img src={user?.avatar_url || `https://ui-avatars.com/api/?name=${user?.username || 'User'}&background=random`} alt="Profile" />
-                </button>
+                    <button
+                        onClick={() => setShowProfile(true)}
+                        className="w-10 h-10 rounded-lg bg-gray-600 overflow-hidden cursor-pointer border-2 border-transparent hover:border-blue-400 transition-colors"
+                        title="Edit Profile"
+                    >
+                        <img src={user?.avatar_url || `https://ui-avatars.com/api/?name=${user?.username || 'User'}&background=random`} alt="Profile" />
+                    </button>
+                </div>
             </div>
-
-            <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
-        </div>
+            {showProfile && createPortal(
+                <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />,
+                document.body
+            )}
+        </>
     );
 }
 
