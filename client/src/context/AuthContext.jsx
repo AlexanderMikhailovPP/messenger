@@ -16,7 +16,10 @@ export const AuthProvider = ({ children }) => {
             async (error) => {
                 const originalRequest = error.config;
 
-                if (error.response?.status === 401 && !originalRequest._retry) {
+                // Skip refresh for auth endpoints to avoid infinite loops
+                const isAuthEndpoint = originalRequest.url?.includes('/api/auth/');
+
+                if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
                     originalRequest._retry = true;
 
                     try {
