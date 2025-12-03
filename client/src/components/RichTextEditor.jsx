@@ -322,6 +322,70 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             e.preventDefault();
             onSubmit?.(e);
         }
+
+        // Handle arrow keys to escape from inline code/formatting elements
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+
+            const range = selection.getRangeAt(0);
+            const node = range.startContainer;
+
+            // Find if we're inside a code element
+            let codeElement = null;
+            let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+            while (current && current !== editorRef.current) {
+                if (current.tagName === 'CODE' && current.parentElement?.tagName !== 'PRE') {
+                    codeElement = current;
+                    break;
+                }
+                current = current.parentElement;
+            }
+
+            if (codeElement) {
+                const textContent = codeElement.textContent || '';
+                const isAtStart = range.startOffset === 0 && node === codeElement.firstChild;
+                const isAtEnd = range.startOffset === textContent.length ||
+                    (node === codeElement.lastChild && range.startOffset === node.textContent?.length);
+
+                // Arrow Right at end of code - move cursor after the element
+                if (e.key === 'ArrowRight' && isAtEnd) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+
+                    // Insert a zero-width space after code if there's nothing
+                    if (!codeElement.nextSibling ||
+                        (codeElement.nextSibling.nodeType === Node.TEXT_NODE &&
+                         codeElement.nextSibling.textContent === '')) {
+                        const space = document.createTextNode('\u200B');
+                        codeElement.parentNode.insertBefore(space, codeElement.nextSibling);
+                    }
+
+                    newRange.setStartAfter(codeElement);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                }
+                // Arrow Left at start of code - move cursor before the element
+                else if (e.key === 'ArrowLeft' && isAtStart) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+
+                    // Insert a zero-width space before code if there's nothing
+                    if (!codeElement.previousSibling ||
+                        (codeElement.previousSibling.nodeType === Node.TEXT_NODE &&
+                         codeElement.previousSibling.textContent === '')) {
+                        const space = document.createTextNode('\u200B');
+                        codeElement.parentNode.insertBefore(space, codeElement);
+                    }
+
+                    newRange.setStartBefore(codeElement);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                }
+            }
+        }
     };
 
     return (
