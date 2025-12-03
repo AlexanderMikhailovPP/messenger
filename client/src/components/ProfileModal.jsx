@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import UserAvatar from './UserAvatar';
 
 export default function ProfileModal({ isOpen, onClose }) {
     const { user, updateUser } = useAuth();
@@ -48,10 +49,10 @@ export default function ProfileModal({ isOpen, onClose }) {
                 <div className="space-y-4">
                     {/* Avatar Preview */}
                     <div className="flex justify-center">
-                        <img
-                            src={avatarUrl || `https://ui-avatars.com/api/?name=${username}&background=random&size=128`}
-                            alt="Avatar"
-                            className="w-32 h-32 rounded-full"
+                        <UserAvatar
+                            user={{ username, avatar_url: avatarUrl }}
+                            size="2xl"
+                            className="w-32 h-32 text-4xl"
                         />
                     </div>
 

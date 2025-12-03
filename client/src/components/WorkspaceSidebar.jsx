@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Home, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ProfileModal from './ProfileModal';
+import UserAvatar from './UserAvatar';
 
 export default function WorkspaceSidebar() {
     const { user, logout } = useAuth();
@@ -28,10 +29,10 @@ export default function WorkspaceSidebar() {
 
                     <button
                         onClick={() => setShowProfile(true)}
-                        className="w-10 h-10 rounded-lg bg-gray-600 overflow-hidden cursor-pointer border-2 border-transparent hover:border-blue-400 transition-colors"
+                        className="rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-blue-400 transition-colors"
                         title="Edit Profile"
                     >
-                        <img src={user?.avatar_url || `https://ui-avatars.com/api/?name=${user?.username || 'User'}&background=random`} alt="Profile" />
+                        <UserAvatar user={user} size="lg" className="rounded-lg" />
                     </button>
                 </div>
             </div>
