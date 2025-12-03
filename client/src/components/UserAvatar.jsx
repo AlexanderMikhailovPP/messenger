@@ -27,9 +27,11 @@ const SIZES = {
     lg: 'w-10 h-10 text-base',
     xl: 'w-12 h-12 text-lg',
     '2xl': 'w-16 h-16 text-xl',
+    '3xl': 'w-24 h-24 text-2xl',
+    '4xl': 'w-32 h-32 text-4xl',
 };
 
-export default function UserAvatar({ user, size = 'md', className = '', showStatus = false, isOnline = false }) {
+export default function UserAvatar({ user, size = 'md', className = '', showStatus = false, isOnline = false, rounded = 'rounded-md' }) {
     const colorClass = useMemo(() => {
         if (!user?.username) return 'bg-gray-500';
         let hash = 0;
@@ -47,7 +49,7 @@ export default function UserAvatar({ user, size = 'md', className = '', showStat
     return (
         <div className={`relative inline-block ${className}`}>
             <div
-                className={`${sizeClass} rounded-md flex items-center justify-center font-bold text-white overflow-hidden flex-shrink-0 select-none ${user?.avatar_url ? 'bg-transparent' : colorClass
+                className={`${sizeClass} ${rounded} flex items-center justify-center font-bold text-white overflow-hidden flex-shrink-0 select-none ${user?.avatar_url ? 'bg-transparent' : colorClass
                     }`}
             >
                 {user?.avatar_url ? (

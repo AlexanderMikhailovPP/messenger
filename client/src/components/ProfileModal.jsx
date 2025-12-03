@@ -51,8 +51,8 @@ export default function ProfileModal({ isOpen, onClose }) {
                     <div className="flex justify-center">
                         <UserAvatar
                             user={{ username, avatar_url: avatarUrl }}
-                            size="2xl"
-                            className="w-32 h-32 text-4xl"
+                            size="4xl"
+                            rounded="rounded-full"
                         />
                     </div>
 
