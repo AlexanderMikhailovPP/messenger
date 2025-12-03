@@ -7,7 +7,8 @@ module.exports = (io) => {
             console.log(`User ${userId} (${socket.id}) joined room ${roomId}`);
 
             // Notify others in the room
-            socket.to(roomId).emit('user-connected', userId, socket.id);
+            const username = socket.data.username;
+            socket.to(roomId).emit('user-connected', userId, socket.id, username);
 
             // Handle disconnect
             socket.on('disconnect', () => {

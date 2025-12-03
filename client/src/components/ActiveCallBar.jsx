@@ -34,8 +34,10 @@ export default function ActiveCallBar() {
                     {/* Peers */}
                     {Object.values(peers).map((peer, index) => (
                         <div key={index} className="relative group" title={`User ${peer.userId}`}>
-                            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center border-2 border-green-500">
-                                <span className="text-xs text-white">U{peer.userId}</span>
+                            <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center border-2 border-green-500 overflow-hidden">
+                                <span className="text-[10px] text-white font-bold truncate px-0.5">
+                                    {peer.username ? peer.username.substring(0, 2).toUpperCase() : `U${peer.userId}`}
+                                </span>
                             </div>
                             {/* Audio element for peer */}
                             <audio

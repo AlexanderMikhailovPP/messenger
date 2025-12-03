@@ -21,9 +21,9 @@ export const CallProvider = ({ children }) => {
         if (!socket) return;
 
         // Handle signaling events
-        socket.on('user-connected', (userId, socketId) => {
-            console.log('User connected to call:', userId, socketId);
-            createPeerConnection(socketId, true, userId);
+        socket.on('user-connected', (userId, socketId, username) => {
+            console.log('User connected to call:', userId, socketId, username);
+            createPeerConnection(socketId, true, userId, username);
         });
 
         socket.on('incoming_call', (payload) => {
@@ -88,7 +88,7 @@ export const CallProvider = ({ children }) => {
         };
     }, []);
 
-    const createPeerConnection = (targetSocketId, isInitiator, targetUserId) => {
+    const createPeerConnection = (targetSocketId, isInitiator, targetUserId, targetUsername) => {
         const pc = new RTCPeerConnection({
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -114,8 +114,8 @@ export const CallProvider = ({ children }) => {
             localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));
         }
 
-        peersRef.current[targetSocketId] = { peerConnection: pc, userId: targetUserId };
-        setPeers(prev => ({ ...prev, [targetSocketId]: { peerConnection: pc, userId: targetUserId } }));
+        peersRef.current[targetSocketId] = { peerConnection: pc, userId: targetUserId, username: targetUsername };
+        setPeers(prev => ({ ...prev, [targetSocketId]: { peerConnection: pc, userId: targetUserId, username: targetUsername } }));
 
         if (isInitiator) {
             pc.createOffer().then(offer => {
