@@ -101,6 +101,14 @@ body {
     margin: 2px 0;
 }
 
+.text-gray-300 blockquote {
+    border-left: 4px solid #4b5563;
+    padding-left: 12px;
+    margin: 8px 0;
+    color: #9ca3af;
+    font-style: italic;
+}
+
 /* Mention styles */
 /* Mention styles */
 .mention-user {

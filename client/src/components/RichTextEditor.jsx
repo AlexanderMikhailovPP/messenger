@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Send, Plus, Smile, Hash, AtSign } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Plus, Smile, Hash, AtSign } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -110,6 +110,37 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             applyFormat('createLink', url);
         }
         setShowLinkInput(false);
+    };
+
+    const insertBlockquote = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString();
+
+        // Create blockquote element
+        const blockquote = document.createElement('blockquote');
+        blockquote.textContent = selectedText || '\u200B'; // Zero-width space if empty
+
+        range.deleteContents();
+        range.insertNode(blockquote);
+
+        // Move cursor inside the blockquote
+        const newRange = document.createRange();
+        if (selectedText) {
+            newRange.setStart(blockquote, blockquote.childNodes.length);
+        } else {
+            newRange.setStart(blockquote, 0);
+        }
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+
+        editorRef.current?.focus();
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
     };
 
     const searchMentions = async (query, type) => {
@@ -478,6 +509,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
                 <ToolbarButton onClick={insertCodeBlock} icon={<Code size={16} />} title="Code Block" />
                 <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<FileCode size={16} />} title="Inline Code" />
+                <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Quote" />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
@@ -607,6 +639,13 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 [contentEditable] pre code {
                     background: transparent;
                     padding: 0;
+                }
+                [contentEditable] blockquote {
+                    border-left: 4px solid #4b5563;
+                    padding-left: 12px;
+                    margin: 8px 0;
+                    color: #9ca3af;
+                    font-style: italic;
                 }
                 [contentEditable] ul {
                     list-style-type: disc;
