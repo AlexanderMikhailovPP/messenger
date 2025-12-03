@@ -1,12 +1,18 @@
 module.exports = (io, db) => {
     const rooms = {}; // channelId -> [socketId]
     const activeCalls = {}; // channelId -> messageId
+    const isDev = process.env.NODE_ENV !== 'production';
 
     io.on('connection', (socket) => {
+        // Track handlers per socket for cleanup
+        const socketHandlers = new Map();
+
         socket.on('join-room', async (roomId, userId) => {
             socket.join(roomId);
             const username = socket.data.username;
-            console.log(`[Signaling] User ${username} (${userId}) joined room ${roomId}. Socket ID: ${socket.id}`);
+            if (isDev) {
+                console.log(`[Signaling] User ${username} (${userId}) joined room ${roomId}. Socket ID: ${socket.id}`);
+            }
 
             // Track participant in DB if it's a huddle room
             if (roomId.startsWith('call_')) {
@@ -19,19 +25,21 @@ module.exports = (io, db) => {
                             `INSERT INTO huddle_participants (huddle_id, user_id) VALUES (?, ?)`,
                             [callInfo.huddleId, userId]
                         );
-                        console.log(`[Signaling] Added participant ${userId} to huddle ${callInfo.huddleId}`);
                     } catch (err) {
-                        console.error(`[Signaling] Failed to add participant:`, err);
+                        if (isDev) {
+                            console.error(`[Signaling] Failed to add participant:`, err);
+                        }
                     }
                 }
             }
 
             // Notify others in the room
             socket.to(roomId).emit('user-connected', userId, socket.id, username);
-            console.log(`[Signaling] Emitted user-connected to room ${roomId} for user ${userId}`);
 
             const handleDisconnect = async () => {
-                console.log(`[Signaling] User ${userId} (${socket.id}) disconnected/left room ${roomId}`);
+                if (isDev) {
+                    console.log(`[Signaling] User ${userId} (${socket.id}) disconnected/left room ${roomId}`);
+                }
                 socket.to(roomId).emit('user-disconnected', userId, socket.id);
 
                 // Update participant left_at in DB
@@ -42,14 +50,15 @@ module.exports = (io, db) => {
                     if (callInfo && callInfo.huddleId) {
                         try {
                             await db.query(
-                                `UPDATE huddle_participants 
-                                 SET left_at = CURRENT_TIMESTAMP 
+                                `UPDATE huddle_participants
+                                 SET left_at = CURRENT_TIMESTAMP
                                  WHERE huddle_id = ? AND user_id = ? AND left_at IS NULL`,
                                 [callInfo.huddleId, userId]
                             );
-                            console.log(`[Signaling] Updated left_at for participant ${userId} in huddle ${callInfo.huddleId}`);
                         } catch (err) {
-                            console.error(`[Signaling] Failed to update participant:`, err);
+                            if (isDev) {
+                                console.error(`[Signaling] Failed to update participant:`, err);
+                            }
                         }
                     }
                 }
@@ -57,19 +66,14 @@ module.exports = (io, db) => {
                 // Check if room is empty (or will be empty)
                 const room = io.sockets.adapter.rooms.get(roomId);
                 const roomSize = room ? room.size : 0;
-                console.log(`[Signaling] Room ${roomId} size after disconnect: ${roomSize}`);
 
                 if (roomSize === 0) {
-                    console.log(`[Signaling] Room ${roomId} is empty`);
-
                     // Check if this was a call room
                     if (roomId.startsWith('call_')) {
                         const channelId = roomId.replace('call_', '');
-                        console.log(`[Signaling] Checking active calls for channel ${channelId}. ActiveCalls:`, activeCalls);
                         const callInfo = activeCalls[channelId];
 
                         if (callInfo) {
-                            console.log(`[Signaling] Call ended in channel ${channelId}. Huddle ID: ${callInfo.huddleId}`);
                             try {
                                 // Update message
                                 if (callInfo.messageId) {
@@ -77,14 +81,12 @@ module.exports = (io, db) => {
                                         "UPDATE messages SET content = '📞 Call ended' WHERE id = ?",
                                         [callInfo.messageId]
                                     );
-                                    console.log(`[Signaling] DB updated for message ${callInfo.messageId}`);
 
                                     // Broadcast update to the chat channel
                                     io.to(parseInt(channelId)).emit('message_updated', {
                                         id: callInfo.messageId,
                                         content: '📞 Call ended'
                                     });
-                                    console.log(`[Signaling] Emitted message_updated to channel ${channelId}`);
                                 }
 
                                 // Update huddle session
@@ -93,28 +95,50 @@ module.exports = (io, db) => {
                                         "UPDATE huddle_sessions SET status = 'ended', ended_at = CURRENT_TIMESTAMP WHERE id = ?",
                                         [callInfo.huddleId]
                                     );
-                                    console.log(`[Signaling] Ended huddle session ${callInfo.huddleId}`);
                                 }
 
                                 delete activeCalls[channelId];
                             } catch (err) {
-                                console.error('[Signaling] Failed to end call:', err);
+                                if (isDev) {
+                                    console.error('[Signaling] Failed to end call:', err);
+                                }
                             }
-                        } else {
-                            console.log(`[Signaling] No active call found for channel ${channelId}`);
                         }
                     }
                 }
+
+                // Cleanup: remove handlers for this room
+                cleanupRoomHandlers(roomId);
             };
 
-            // Handle disconnect
-            socket.on('disconnect', handleDisconnect);
-
-            // Handle manual leave
-            socket.on('leave-room', () => {
+            // Store handlers for cleanup
+            const disconnectHandler = handleDisconnect;
+            const leaveHandler = () => {
                 socket.leave(roomId);
                 handleDisconnect();
+            };
+
+            // Cleanup function for this specific room
+            const cleanupRoomHandlers = (rid) => {
+                if (socketHandlers.has(rid)) {
+                    const handlers = socketHandlers.get(rid);
+                    socket.off('disconnect', handlers.disconnect);
+                    socket.off('leave-room', handlers.leave);
+                    socketHandlers.delete(rid);
+                }
+            };
+
+            // Store handlers
+            socketHandlers.set(roomId, {
+                disconnect: disconnectHandler,
+                leave: leaveHandler
             });
+
+            // Handle disconnect
+            socket.on('disconnect', disconnectHandler);
+
+            // Handle manual leave
+            socket.on('leave-room', leaveHandler);
         });
 
         // Signaling
@@ -135,22 +159,19 @@ module.exports = (io, db) => {
 
         socket.on('start_call', async ({ channelId, targetUserId, messageId }) => {
             const userId = socket.data.userId;
-            console.log(`[Signaling] User ${userId} started call in channel ${channelId} targeting ${targetUserId}. Message ID: ${messageId}`);
 
             try {
                 // Create huddle session in DB
                 const result = await db.insertReturning(
-                    `INSERT INTO huddle_sessions (channel_id, started_by, message_id) 
+                    `INSERT INTO huddle_sessions (channel_id, started_by, message_id)
                      VALUES (?, ?, ?) RETURNING id`,
                     [channelId, userId, messageId]
                 );
 
                 const huddleId = result.id || result.lastID;
-                console.log(`[Signaling] Created huddle session ${huddleId} for channel ${channelId}`);
 
                 // Store mapping
                 activeCalls[channelId] = { messageId, huddleId };
-                console.log(`[Signaling] Stored active call for channel ${channelId}:`, activeCalls[channelId]);
 
                 // Add starter as first participant
                 await db.query(
@@ -159,7 +180,9 @@ module.exports = (io, db) => {
                 );
 
             } catch (err) {
-                console.error(`[Signaling] Failed to create huddle session:`, err);
+                if (isDev) {
+                    console.error(`[Signaling] Failed to create huddle session:`, err);
+                }
             }
 
             const payload = { channelId, callerId: userId };

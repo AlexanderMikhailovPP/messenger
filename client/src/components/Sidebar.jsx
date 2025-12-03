@@ -15,7 +15,7 @@ export default function Sidebar({ currentChannel, setCurrentChannel }) {
 
     const fetchChannels = async () => {
         try {
-            const res = await axios.get('http://localhost:3001/channels');
+            const res = await axios.get('/api/channels', { withCredentials: true });
             setChannels(res.data);
             if (res.data.length > 0 && !currentChannel) {
                 setCurrentChannel(res.data[0]);
@@ -28,7 +28,7 @@ export default function Sidebar({ currentChannel, setCurrentChannel }) {
     const createChannel = async (e) => {
         e.preventDefault();
         try {
-            const res = await axios.post('http://localhost:3001/channels', { name: newChannelName });
+            const res = await axios.post('/api/channels', { name: newChannelName }, { withCredentials: true });
             setChannels([...channels, res.data]);
             setNewChannelName('');
             setShowCreateModal(false);

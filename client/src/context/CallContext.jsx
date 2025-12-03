@@ -128,6 +128,8 @@ export const CallProvider = ({ children }) => {
     }, []);
 
     const createPeerConnection = (targetSocketId, isInitiator, targetUserId, targetUsername) => {
+        const socket = getSocket(); // Get socket instance inside the function
+
         const pc = new RTCPeerConnection({
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -136,7 +138,7 @@ export const CallProvider = ({ children }) => {
         });
 
         pc.onicecandidate = (event) => {
-            if (event.candidate) {
+            if (event.candidate && socket) {
                 socket.emit('ice-candidate', { target: targetSocketId, candidate: event.candidate });
             }
         };
@@ -156,7 +158,7 @@ export const CallProvider = ({ children }) => {
         peersRef.current[targetSocketId] = { peerConnection: pc, userId: targetUserId, username: targetUsername };
         setPeers(prev => ({ ...prev, [targetSocketId]: { peerConnection: pc, userId: targetUserId, username: targetUsername } }));
 
-        if (isInitiator) {
+        if (isInitiator && socket) {
             pc.createOffer().then(offer => {
                 pc.setLocalDescription(offer);
                 socket.emit('offer', { target: targetSocketId, caller: socket.id, sdp: offer });

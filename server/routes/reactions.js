@@ -1,11 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const authMiddleware = require('../middleware/auth');
+
+// All routes require authentication
+router.use(authMiddleware);
 
 // Add reaction to a message
 router.post('/:messageId/reactions', async (req, res) => {
     const { messageId } = req.params;
-    const { userId, emoji } = req.body;
+    const { emoji } = req.body;
+    const userId = req.user.userId;
 
     try {
         await db.query(
@@ -23,14 +28,17 @@ router.post('/:messageId/reactions', async (req, res) => {
                 );
                 res.json({ success: true, removed: true });
             } catch (deleteErr) {
-                console.error(deleteErr);
+                if (process.env.NODE_ENV !== 'production') {
+                    console.error(deleteErr);
+                }
                 res.status(500).json({ error: 'Failed to toggle reaction' });
             }
         } else if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY' || err.code === '23503') {
-            // This handles cases where message_id or user_id might not exist
             res.status(404).json({ error: 'Message or user not found' });
         } else {
-            console.error(err);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error(err);
+            }
             res.status(500).json({ error: 'Failed to add reaction' });
         }
     }
@@ -41,7 +49,6 @@ router.get('/:messageId/reactions', async (req, res) => {
     const { messageId } = req.params;
 
     try {
-        console.log(`Fetching reactions for message ${messageId}`);
         const result = await db.query(`
             SELECT r.emoji, r.user_id, u.username
             FROM reactions r
@@ -49,8 +56,6 @@ router.get('/:messageId/reactions', async (req, res) => {
             WHERE r.message_id = ?
             ORDER BY r.id ASC
         `, [messageId]);
-
-        console.log(`Found ${result.rows.length} reactions for message ${messageId}`);
 
         // Group by emoji and include user list
         const grouped = {};
@@ -71,57 +76,10 @@ router.get('/:messageId/reactions', async (req, res) => {
 
         res.json(Object.values(grouped));
     } catch (err) {
-        console.error(`Error fetching reactions for message ${messageId}:`, err);
-        res.status(500).json({ error: 'Failed to fetch reactions', details: err.message });
-    }
-});
-
-// Edit message
-router.put('/:messageId', async (req, res) => {
-    const { messageId } = req.params;
-    const { content, userId } = req.body;
-
-    try {
-        // Verify ownership
-        const msgResult = await db.query('SELECT user_id FROM messages WHERE id = ?', [messageId]);
-        if (msgResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Message not found' });
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(`Error fetching reactions for message ${messageId}:`, err);
         }
-        if (msgResult.rows[0].user_id !== userId) {
-            return res.status(403).json({ error: 'Not authorized' });
-        }
-
-        await db.query(
-            'UPDATE messages SET content = ?, edited_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [content, messageId]
-        );
-        res.json({ success: true });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to edit message' });
-    }
-});
-
-// Delete message
-router.delete('/:messageId', async (req, res) => {
-    const { messageId } = req.params;
-    const { userId } = req.body;
-
-    try {
-        // Verify ownership
-        const msgResult = await db.query('SELECT user_id FROM messages WHERE id = ?', [messageId]);
-        if (msgResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Message not found' });
-        }
-        if (msgResult.rows[0].user_id !== userId) {
-            return res.status(403).json({ error: 'Not authorized' });
-        }
-
-        await db.query('DELETE FROM messages WHERE id = ?', [messageId]);
-        res.json({ success: true });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to delete message' });
+        res.status(500).json({ error: 'Failed to fetch reactions' });
     }
 });
 

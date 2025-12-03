@@ -5,13 +5,43 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const SALT_ROUNDS = 10;
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret-change-in-production';
+
+// JWT secrets - MUST be set in environment variables
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+    console.error('FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in environment variables');
+    if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+    } else {
+        console.warn('WARNING: Using insecure default secrets for development only');
+    }
+}
+
+// Use secure defaults only in development
+const getJwtSecret = () => JWT_SECRET || 'dev-secret-do-not-use-in-production-' + Date.now();
+const getJwtRefreshSecret = () => JWT_REFRESH_SECRET || 'dev-refresh-secret-do-not-use-in-production-' + Date.now();
+
+// Password validation
+const MIN_PASSWORD_LENGTH = 6;
+const validatePassword = (password) => {
+    if (password.length < MIN_PASSWORD_LENGTH) {
+        return { valid: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
+    }
+    return { valid: true };
+};
 
 router.post('/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ error: 'Username and password required' });
+    }
+
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+        return res.status(400).json({ error: passwordValidation.error });
     }
 
     try {
@@ -22,13 +52,13 @@ router.post('/register', async (req, res) => {
         // Generate tokens
         const accessToken = jwt.sign(
             { userId: id, username },
-            JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: '15m' }
         );
 
         const refreshToken = jwt.sign(
             { userId: id, username },
-            JWT_REFRESH_SECRET,
+            getJwtRefreshSecret(),
             { expiresIn: '7d' }
         );
 
@@ -52,7 +82,9 @@ router.post('/register', async (req, res) => {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
             return res.status(400).json({ error: 'Username already taken' });
         }
-        console.error(err);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(err);
+        }
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -73,13 +105,13 @@ router.post('/login', async (req, res) => {
             // Generate tokens
             const accessToken = jwt.sign(
                 { userId: user.id, username: user.username },
-                JWT_SECRET,
+                getJwtSecret(),
                 { expiresIn: '15m' }
             );
 
             const refreshToken = jwt.sign(
                 { userId: user.id, username: user.username },
-                JWT_REFRESH_SECRET,
+                getJwtRefreshSecret(),
                 { expiresIn: '7d' }
             );
 
@@ -107,7 +139,9 @@ router.post('/login', async (req, res) => {
             res.status(401).json({ error: 'Invalid credentials' });
         }
     } catch (err) {
-        console.error(err);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(err);
+        }
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -121,7 +155,7 @@ router.get('/verify', (req, res) => {
     }
 
     try {
-        jwt.verify(token, JWT_SECRET);
+        jwt.verify(token, getJwtSecret());
         res.json({ valid: true });
     } catch (err) {
         res.status(401).json({ error: 'Invalid token' });
@@ -137,12 +171,12 @@ router.post('/refresh', (req, res) => {
     }
 
     try {
-        const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+        const decoded = jwt.verify(refreshToken, getJwtRefreshSecret());
 
         // Generate new access token
         const newAccessToken = jwt.sign(
             { userId: decoded.userId, username: decoded.username },
-            JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: '15m' }
         );
 

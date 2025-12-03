@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
 
+// Use the same logic as auth.js for JWT secret
+const getJwtSecret = () => process.env.JWT_SECRET || 'dev-secret-do-not-use-in-production-' + Date.now();
+
 /**
  * HTTP authentication middleware
  * Verifies JWT access token from HTTP-only cookie
@@ -12,7 +15,7 @@ const authMiddleware = (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-change-in-production');
+        const decoded = jwt.verify(token, getJwtSecret());
         req.user = decoded;
         next();
     } catch (err) {

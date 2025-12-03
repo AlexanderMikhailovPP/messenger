@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
 
+// Use the same logic as auth.js for JWT secret
+const getJwtSecret = () => process.env.JWT_SECRET || 'dev-secret-do-not-use-in-production-' + Date.now();
+
 /**
  * Socket.IO authentication middleware
  * Verifies JWT token from HTTP-only cookie
@@ -23,13 +26,17 @@ module.exports = (socket, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret-change-in-production');
+        const decoded = jwt.verify(token, getJwtSecret());
         socket.data.userId = decoded.userId;
         socket.data.username = decoded.username;
-        console.log(`Socket authenticated: ${decoded.username} (${decoded.userId})`);
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`Socket authenticated: ${decoded.username} (${decoded.userId})`);
+        }
         next();
     } catch (err) {
-        console.error('Socket auth failed:', err.message);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('Socket auth failed:', err.message);
+        }
         next(new Error('Invalid or expired token'));
     }
 };

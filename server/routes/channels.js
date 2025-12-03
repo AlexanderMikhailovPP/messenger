@@ -1,13 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const authMiddleware = require('../middleware/auth');
+
+// All routes require authentication
+router.use(authMiddleware);
 
 router.get('/', async (req, res) => {
     try {
         const result = await db.query("SELECT * FROM channels WHERE type = 'public' OR type IS NULL");
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(err);
+        }
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -26,7 +32,9 @@ router.post('/', async (req, res) => {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
             return res.status(400).json({ error: 'Channel name already taken' });
         }
-        console.error(err);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(err);
+        }
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -73,7 +81,9 @@ router.post('/dm', async (req, res) => {
             otherUserId: targetUserId
         });
     } catch (err) {
-        console.error('DM creation error:', err);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('DM creation error:', err);
+        }
         res.status(500).json({ error: 'Database error' });
     }
 });
@@ -109,7 +119,9 @@ router.get('/dms/:userId', async (req, res) => {
 
         res.json(enrichedChannels);
     } catch (err) {
-        console.error('Error fetching DMs:', err);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('Error fetching DMs:', err);
+        }
         res.status(500).json({ error: 'Database error' });
     }
 });

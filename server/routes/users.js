@@ -4,6 +4,10 @@ const multer = require('multer');
 const path = require('path');
 const db = require('../db');
 const { uploadFile, deleteFile, isR2Configured } = require('../storage/r2-client');
+const authMiddleware = require('../middleware/auth');
+
+// All routes require authentication
+router.use(authMiddleware);
 
 // Configure multer for memory storage (we'll upload to R2 or save locally)
 const upload = multer({
@@ -116,10 +120,11 @@ router.post('/avatar', upload.single('avatar'), async (req, res) => {
 
 // Update user profile
 router.put('/profile', async (req, res) => {
-    const { userId, username, avatar_url } = req.body;
+    const { username, avatar_url } = req.body;
+    const userId = req.user.userId; // Use authenticated user ID from token
 
-    if (!userId || !username) {
-        return res.status(400).json({ error: 'User ID and username are required' });
+    if (!username) {
+        return res.status(400).json({ error: 'Username is required' });
     }
 
     try {
@@ -146,14 +151,9 @@ router.put('/profile', async (req, res) => {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
             return res.status(400).json({ error: 'Username already taken' });
         }
-        console.error('Profile update error:', err);
-        console.error('Error details:', {
-            message: err.message,
-            code: err.code,
-            userId,
-            username,
-            avatar_url
-        });
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('Profile update error:', err);
+        }
         res.status(500).json({ error: 'Failed to update profile' });
     }
 });

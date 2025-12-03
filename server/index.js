@@ -59,28 +59,35 @@ require('./socket/signaling')(io, db);
 // Apply Socket.IO authentication middleware
 io.use(socketAuth);
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 io.on('connection', (socket) => {
     const userId = socket.data.userId;
     const username = socket.data.username;
 
-    console.log(`User ${username} (${userId}) connected:`, socket.id);
+    if (isDev) {
+        console.log(`User ${username} (${userId}) connected:`, socket.id);
+    }
 
     // Join user-specific room for direct signaling
     socket.join(userId.toString());
 
     socket.on('join_channel', (channelId) => {
         socket.join(channelId);
-        console.log(`User ${userId} joined channel ${channelId}`);
+        if (isDev) {
+            console.log(`User ${userId} joined channel ${channelId}`);
+        }
     });
 
     socket.on('send_message', async (data, callback) => {
-        console.log('Server received send_message:', data);
-        // Use authenticated userId from socket, but fallback to data.userId for backward compatibility
-        const { content, channelId, userId: clientUserId } = data;
-        const authenticatedUserId = socket.data.userId || clientUserId;
+        // Always use authenticated userId from socket for security
+        const { content, channelId } = data;
+        const authenticatedUserId = socket.data.userId;
 
         if (!authenticatedUserId) {
-            console.error('Cannot send message: userId not found');
+            if (isDev) {
+                console.error('Cannot send message: userId not found');
+            }
             return;
         }
 
@@ -98,7 +105,6 @@ io.on('connection', (socket) => {
             `, [messageId]);
 
             const fullMessage = msgResult.rows[0];
-            console.log('Broadcasting message to channel:', channelId, fullMessage);
 
             // Broadcast to channel
             io.to(channelId).emit('receive_message', fullMessage);
@@ -107,7 +113,9 @@ io.on('connection', (socket) => {
                 callback({ id: messageId });
             }
         } catch (err) {
-            console.error('Error saving message:', err);
+            if (isDev) {
+                console.error('Error saving message:', err);
+            }
         }
     });
 
@@ -123,7 +131,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log(`User ${username} (${userId}) disconnected:`, socket.id);
+        if (isDev) {
+            console.log(`User ${username} (${userId}) disconnected:`, socket.id);
+        }
     });
 });
 
