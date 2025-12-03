@@ -244,7 +244,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
     const addReaction = async (messageId, emoji) => {
         try {
-            await axios.post(`/api/reactions/${messageId}/react`, {
+            await axios.post(`/api/reactions/${messageId}/reactions`, {
                 userId: user.id,
                 emoji
             });
