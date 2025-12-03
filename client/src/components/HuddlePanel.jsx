@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Mic, MicOff, ChevronUp, ChevronDown, X, Phone, PhoneOff, Headphones } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Mic, MicOff, Video, VideoOff, ChevronUp, ChevronDown, X, Phone, PhoneOff, Headphones } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 export default function HuddlePanel({
@@ -8,13 +8,29 @@ export default function HuddlePanel({
     channelType,
     isInCall,
     isMuted,
+    isVideoOn,
     onToggleMute,
+    onToggleVideo,
     onLeave,
     participants = [],
+    localStream,
+    remoteStreams = {},
     connectionStatus = 'connected'
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
     const [callDuration, setCallDuration] = useState(0);
+    const localVideoRef = useRef(null);
+    const remoteVideoRefs = useRef({});
+
+    // Attach local video stream to video element
+    useEffect(() => {
+        if (localVideoRef.current && localStream && isVideoOn) {
+            localVideoRef.current.srcObject = localStream;
+        }
+    }, [localStream, isVideoOn]);
+
+    // Check if anyone has video on
+    const hasAnyVideo = isVideoOn || participants.some(p => !p.isCurrentUser && p.hasVideo);
 
     // Call duration timer
     useEffect(() => {
@@ -42,15 +58,18 @@ export default function HuddlePanel({
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Keyboard shortcut for mute (M key)
+    // Keyboard shortcuts for mute (M key) and video (V key)
     useEffect(() => {
         const handleKeyDown = (e) => {
+            // Don't trigger if typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                return;
+            }
             if (e.key === 'm' || e.key === 'M') {
-                // Don't trigger if typing in an input
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
-                    return;
-                }
                 onToggleMute();
+            }
+            if (e.key === 'v' || e.key === 'V') {
+                onToggleVideo();
             }
         };
 
@@ -59,7 +78,7 @@ export default function HuddlePanel({
         }
 
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isInCall, onToggleMute]);
+    }, [isInCall, onToggleMute, onToggleVideo]);
 
     if (!isInCall) return null;
 
@@ -156,6 +175,18 @@ export default function HuddlePanel({
                             </button>
 
                             <button
+                                onClick={onToggleVideo}
+                                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium text-sm transition-all ${
+                                    isVideoOn
+                                        ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+                                        : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
+                                }`}
+                                title={isVideoOn ? 'Turn off video (V)' : 'Turn on video (V)'}
+                            >
+                                {isVideoOn ? <Video size={16} /> : <VideoOff size={16} />}
+                            </button>
+
+                            <button
                                 onClick={onLeave}
                                 className="flex items-center justify-center gap-2 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors"
                             >
@@ -171,7 +202,7 @@ export default function HuddlePanel({
             {isExpanded && (
                 <div
                     className="bg-[#1a1d21] text-white rounded-xl shadow-2xl border border-[#565856]/30 overflow-hidden flex flex-col"
-                    style={{ width: '340px', maxHeight: '480px' }}
+                    style={{ width: hasAnyVideo ? '500px' : '340px', maxHeight: hasAnyVideo ? '600px' : '480px' }}
                 >
                     {/* Green huddle indicator bar */}
                     <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
@@ -209,6 +240,60 @@ export default function HuddlePanel({
                             </button>
                         </div>
                     </div>
+
+                    {/* Video Grid - only shown when someone has video on */}
+                    {hasAnyVideo && (
+                        <div className="p-3 border-b border-[#565856]/30">
+                            <div className="grid grid-cols-2 gap-2">
+                                {/* Local video */}
+                                {isVideoOn && localStream && (
+                                    <div className="relative aspect-video bg-[#2e3136] rounded-lg overflow-hidden">
+                                        <video
+                                            ref={localVideoRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full h-full object-cover transform scale-x-[-1]"
+                                        />
+                                        <div className="absolute bottom-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-xs text-white">
+                                            You
+                                        </div>
+                                        {isMuted && (
+                                            <div className="absolute top-1 right-1 bg-red-500/80 p-1 rounded">
+                                                <MicOff size={12} className="text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {/* Remote videos */}
+                                {participants.filter(p => !p.isCurrentUser && p.hasVideo).map((participant) => {
+                                    const stream = remoteStreams[participant.socketId];
+                                    return (
+                                        <div key={participant.socketId} className="relative aspect-video bg-[#2e3136] rounded-lg overflow-hidden">
+                                            {stream ? (
+                                                <VideoElement stream={stream} />
+                                            ) : (
+                                                <div className="flex items-center justify-center h-full">
+                                                    <UserAvatar
+                                                        user={{ username: participant.username, avatar_url: participant.avatarUrl }}
+                                                        size="lg"
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="absolute bottom-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-xs text-white">
+                                                {participant.username}
+                                            </div>
+                                            {participant.isMuted && (
+                                                <div className="absolute top-1 right-1 bg-red-500/80 p-1 rounded">
+                                                    <MicOff size={12} className="text-white" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Participants section header */}
                     <div className="px-4 py-2 border-b border-[#565856]/30">
@@ -264,6 +349,11 @@ export default function HuddlePanel({
                                                 Listening
                                             </span>
                                         )}
+                                        {participant.hasVideo && (
+                                            <span className="flex items-center gap-1 text-blue-400 ml-2">
+                                                <Video size={12} />
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -287,6 +377,18 @@ export default function HuddlePanel({
                             </button>
 
                             <button
+                                onClick={onToggleVideo}
+                                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                                    isVideoOn
+                                        ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30'
+                                        : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
+                                }`}
+                                title={isVideoOn ? 'Turn off video (V)' : 'Turn on video (V)'}
+                            >
+                                {isVideoOn ? <Video size={18} /> : <VideoOff size={18} />}
+                            </button>
+
+                            <button
                                 onClick={onLeave}
                                 className="flex items-center justify-center gap-2 py-2.5 px-5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors"
                             >
@@ -299,6 +401,8 @@ export default function HuddlePanel({
                         <div className="mt-2 text-center">
                             <span className="text-xs text-gray-500">
                                 Press <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">M</kbd> to toggle mute
+                                {' · '}
+                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">V</kbd> for video
                             </span>
                         </div>
                     </div>
@@ -312,5 +416,25 @@ export default function HuddlePanel({
                 </div>
             )}
         </div>
+    );
+}
+
+// Helper component to render remote video streams
+function VideoElement({ stream }) {
+    const videoRef = useRef(null);
+
+    useEffect(() => {
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+        }
+    }, [stream]);
+
+    return (
+        <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+        />
     );
 }

@@ -40,17 +40,21 @@ export const CallProvider = ({ children }) => {
     const [localStream, setLocalStream] = useState(null);
     const [peers, setPeers] = useState({});
     const [isMuted, setIsMuted] = useState(false);
+    const [isVideoOn, setIsVideoOn] = useState(false);
     const [activeChannelId, setActiveChannelId] = useState(null);
     const [incomingCall, setIncomingCall] = useState(null);
     const [participants, setParticipants] = useState([]);
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
+    const [remoteStreams, setRemoteStreams] = useState({});
 
     const peersRef = useRef({});
     const localStreamRef = useRef(null);
+    const localVideoRef = useRef(null);
     const audioContextRef = useRef(null);
     const analyserRef = useRef(null);
     const speakingIntervalRef = useRef(null);
     const audioElementsRef = useRef({});
+    const videoElementsRef = useRef({});
 
     // Cleanup function for audio elements
     const cleanupAudioElement = useCallback((socketId) => {
@@ -161,19 +165,35 @@ export const CallProvider = ({ children }) => {
         };
 
         pc.ontrack = (event) => {
-            console.log('[WebRTC] Received remote track from:', targetSocketId);
+            console.log('[WebRTC] Received remote track from:', targetSocketId, 'kind:', event.track.kind);
             const stream = event.streams[0];
 
             if (stream) {
-                // Create audio element for playback
-                createAudioElement(targetSocketId, stream);
+                // Create audio element for playback (audio tracks)
+                if (event.track.kind === 'audio') {
+                    createAudioElement(targetSocketId, stream);
+                }
+
+                // Store video stream for rendering
+                if (event.track.kind === 'video') {
+                    setRemoteStreams(prev => ({
+                        ...prev,
+                        [targetSocketId]: stream
+                    }));
+
+                    // Update participant video state
+                    setParticipants(prev => prev.map(p =>
+                        p.socketId === targetSocketId ? { ...p, hasVideo: true, stream } : p
+                    ));
+                }
 
                 setPeers(prev => ({
                     ...prev,
                     [targetSocketId]: {
                         ...prev[targetSocketId],
                         stream,
-                        hasAudio: true
+                        hasAudio: event.track.kind === 'audio' || prev[targetSocketId]?.hasAudio,
+                        hasVideo: event.track.kind === 'video' || prev[targetSocketId]?.hasVideo
                     }
                 }));
             }
@@ -335,6 +355,12 @@ export const CallProvider = ({ children }) => {
             ));
         };
 
+        const handleVideoUpdate = ({ userId: odId, isVideoOn: videoState }) => {
+            setParticipants(prev => prev.map(p =>
+                p.userId === odId ? { ...p, hasVideo: videoState } : p
+            ));
+        };
+
         socket.on('user-connected', handleUserConnected);
         socket.on('incoming_call', handleIncomingCall);
         socket.on('user-disconnected', handleUserDisconnected);
@@ -342,6 +368,7 @@ export const CallProvider = ({ children }) => {
         socket.on('answer', handleAnswer);
         socket.on('ice-candidate', handleIceCandidate);
         socket.on('mute-update', handleMuteUpdate);
+        socket.on('video-update', handleVideoUpdate);
 
         return () => {
             socket.off('user-connected', handleUserConnected);
@@ -351,6 +378,7 @@ export const CallProvider = ({ children }) => {
             socket.off('answer', handleAnswer);
             socket.off('ice-candidate', handleIceCandidate);
             socket.off('mute-update', handleMuteUpdate);
+            socket.off('video-update', handleVideoUpdate);
         };
     }, [isInCall, createPeerConnection, cleanupAudioElement]);
 
@@ -425,12 +453,18 @@ export const CallProvider = ({ children }) => {
         const socket = getSocket();
         console.log('[CallContext] Leaving call...');
 
-        // Stop local stream
+        // Stop local stream (including video track)
         if (localStreamRef.current) {
             localStreamRef.current.getTracks().forEach(track => track.stop());
             localStreamRef.current = null;
         }
         setLocalStream(null);
+
+        // Stop video track if exists
+        if (localVideoRef.current) {
+            localVideoRef.current.stop();
+            localVideoRef.current = null;
+        }
 
         // Cleanup speaking detection
         cleanupSpeakingDetection();
@@ -449,7 +483,9 @@ export const CallProvider = ({ children }) => {
         setIsInCall(false);
         setActiveChannelId(null);
         setIsMuted(false);
+        setIsVideoOn(false);
         setParticipants([]);
+        setRemoteStreams({});
         setConnectionStatus('disconnected');
 
         // Notify server
@@ -486,6 +522,102 @@ export const CallProvider = ({ children }) => {
         }
     }, [activeChannelId, user?.id, isMuted]);
 
+    const toggleVideo = useCallback(async () => {
+        const socket = getSocket();
+
+        if (!isVideoOn) {
+            // Turn video ON
+            try {
+                const videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    }
+                });
+
+                const videoTrack = videoStream.getVideoTracks()[0];
+
+                // Add video track to local stream
+                if (localStreamRef.current) {
+                    localStreamRef.current.addTrack(videoTrack);
+                }
+
+                // Add video track to all peer connections
+                Object.values(peersRef.current).forEach(({ peerConnection }) => {
+                    if (peerConnection && localStreamRef.current) {
+                        peerConnection.addTrack(videoTrack, localStreamRef.current);
+                    }
+                });
+
+                localVideoRef.current = videoTrack;
+                setIsVideoOn(true);
+
+                // Update local participant state
+                setParticipants(prev => prev.map(p =>
+                    p.isCurrentUser ? { ...p, hasVideo: true } : p
+                ));
+
+                // Broadcast video state to others
+                if (socket && activeChannelId) {
+                    socket.emit('video-update', {
+                        userId: user?.id,
+                        isVideoOn: true,
+                        channelId: activeChannelId
+                    });
+                }
+            } catch (err) {
+                console.error('[CallContext] Failed to enable video:', err);
+                if (err.name === 'NotAllowedError') {
+                    alert('Camera access denied. Please allow camera permissions.');
+                } else if (err.name === 'NotFoundError') {
+                    alert('No camera found.');
+                } else {
+                    alert('Could not access camera: ' + err.message);
+                }
+            }
+        } else {
+            // Turn video OFF
+            if (localVideoRef.current) {
+                localVideoRef.current.stop();
+
+                // Remove video track from local stream
+                if (localStreamRef.current) {
+                    localStreamRef.current.removeTrack(localVideoRef.current);
+                }
+
+                // Remove video track from all peer connections
+                Object.values(peersRef.current).forEach(({ peerConnection }) => {
+                    if (peerConnection) {
+                        const senders = peerConnection.getSenders();
+                        const videoSender = senders.find(s => s.track?.kind === 'video');
+                        if (videoSender) {
+                            peerConnection.removeTrack(videoSender);
+                        }
+                    }
+                });
+
+                localVideoRef.current = null;
+            }
+
+            setIsVideoOn(false);
+
+            // Update local participant state
+            setParticipants(prev => prev.map(p =>
+                p.isCurrentUser ? { ...p, hasVideo: false } : p
+            ));
+
+            // Broadcast video state to others
+            if (socket && activeChannelId) {
+                socket.emit('video-update', {
+                    userId: user?.id,
+                    isVideoOn: false,
+                    channelId: activeChannelId
+                });
+            }
+        }
+    }, [isVideoOn, activeChannelId, user?.id]);
+
     const clearIncomingCall = useCallback(() => {
         setIncomingCall(null);
     }, []);
@@ -508,6 +640,9 @@ export const CallProvider = ({ children }) => {
             leaveCall,
             toggleMute,
             isMuted,
+            toggleVideo,
+            isVideoOn,
+            remoteStreams,
             activeChannelId,
             incomingCall,
             clearIncomingCall,

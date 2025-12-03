@@ -163,6 +163,12 @@ module.exports = (io, db) => {
             socket.to(roomId).emit('mute-update', { userId, isMuted });
         });
 
+        // Broadcast video state to all participants in the call
+        socket.on('video-update', ({ userId, isVideoOn, channelId }) => {
+            const roomId = `call_${channelId}`;
+            socket.to(roomId).emit('video-update', { userId, isVideoOn });
+        });
+
         socket.on('start_call', async ({ channelId, targetUserId, messageId }) => {
             const userId = socket.data.userId;
 
