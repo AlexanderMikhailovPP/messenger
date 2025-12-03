@@ -410,7 +410,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     </div>
                 ) : (
                     messages.map((msg) => (
-                        <div key={msg.id} className="flex gap-3 group hover:bg-[#32353b] px-3 py-1 rounded">
+                        <div key={msg.id} className="flex gap-3 group hover:bg-[#32353b] px-3 py-1 rounded relative">
                             {/* Avatar */}
                             <UserAvatar
                                 user={{
