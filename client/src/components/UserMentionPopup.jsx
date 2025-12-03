@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X, MessageCircle, Phone } from 'lucide-react';
 import { useCall } from '../context/CallContext';
+import UserAvatar from './UserAvatar';
 
 export default function UserMentionPopup({ user, position, onClose, onMessage, onCall, onMouseEnter, onMouseLeave }) {
     const popupRef = useRef(null);
@@ -76,19 +77,14 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
             <div className="p-5">
                 <div className="flex gap-4">
                     {/* Avatar */}
-                    <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gray-700">
-                        {user.avatar_url ? (
-                            <img
-                                src={user.avatar_url}
-                                alt={user.username}
-                                className="w-full h-full object-cover"
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl font-bold">
-                                {user.username[0]?.toUpperCase()}
-                            </div>
-                        )}
-                    </div>
+                    <UserAvatar
+                        user={{
+                            username: user.username,
+                            avatar_url: user.avatar_url
+                        }}
+                        size="2xl"
+                        className="rounded-xl"
+                    />
 
                     {/* User Info */}
                     <div className="flex-1 min-w-0">

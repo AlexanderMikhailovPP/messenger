@@ -3,6 +3,8 @@ import { Menu, MessageSquare } from 'lucide-react';
 import WorkspaceSidebar from './WorkspaceSidebar';
 import NavigationSidebar from './NavigationSidebar';
 import ChatArea from './ChatArea';
+import UserAvatar from './UserAvatar';
+import { useAuth } from '../context/AuthContext';
 
 export default function ChatLayout() {
     const [currentChannel, setCurrentChannel] = useState(null);
@@ -10,6 +12,7 @@ export default function ChatLayout() {
     const [activeTab, setActiveTab] = useState('home'); // 'home' | 'dms' | 'you'
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
+    const { user } = useAuth();
 
     // Minimum swipe distance (in px)
     const minSwipeDistance = 50;
@@ -104,7 +107,7 @@ export default function ChatLayout() {
                                 className={`flex flex-col items-center gap-1 ${activeTab === 'you' ? 'text-white' : 'text-gray-500'}`}
                             >
                                 <div className={`p-1 rounded-lg ${activeTab === 'you' ? 'bg-gray-800' : ''}`}>
-                                    <div className="w-5 h-5 rounded-full bg-gray-600" />
+                                    <UserAvatar user={user} size="xs" />
                                 </div>
                                 <span className="text-[10px] font-medium">You</span>
                             </button>

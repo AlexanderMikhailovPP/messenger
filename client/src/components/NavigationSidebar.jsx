@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Hash, Plus, ChevronDown, Search, MessageSquare, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUnreadCounts } from '../utils/unreadCounter';
+import UserAvatar from './UserAvatar';
 
 export default function NavigationSidebar({ currentChannel, setCurrentChannel, isMobile, activeTab = 'home' }) {
     const [channels, setChannels] = useState([]);
@@ -84,9 +85,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
             {/* Header */}
             {isMobile && (
                 <div className="h-14 px-4 flex items-center gap-3 border-b border-gray-800 bg-[#1a1d21]">
-                    <div className="w-8 h-8 rounded-md bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold">
-                        {user?.username[0]?.toUpperCase()}
-                    </div>
+                    <UserAvatar user={user} size="md" />
                     <span className="text-white font-bold text-lg">Home</span>
                 </div>
             )}
@@ -161,10 +160,12 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                                 }
                                             }}
                                         >
-                                            <img
-                                                src={u.avatar_url || `https://ui-avatars.com/api/?name=${u.username}&background=random`}
-                                                alt={u.username}
-                                                className="w-6 h-6 rounded bg-gray-700"
+                                            <UserAvatar
+                                                user={{
+                                                    username: u.username,
+                                                    avatar_url: u.avatar_url
+                                                }}
+                                                size="sm"
                                             />
                                             <span className="text-sm font-medium">{u.username}</span>
                                         </div>
@@ -250,9 +251,13 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2 min-w-0">
-                                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                                    {dm.displayName?.[0]?.toUpperCase() || dm.name?.[0]?.toUpperCase()}
-                                                </div>
+                                                <UserAvatar
+                                                    user={{
+                                                        username: dm.displayName || dm.name,
+                                                        avatar_url: dm.avatarUrl
+                                                    }}
+                                                    size="xs"
+                                                />
                                                 <span className="text-sm truncate">{dm.displayName || dm.name}</span>
                                             </div>
                                             {unread > 0 && (

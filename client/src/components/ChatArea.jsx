@@ -13,6 +13,7 @@ import TypingIndicator from './TypingIndicator';
 import { sanitizeHTML } from '../utils/sanitize';
 import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator';
 import { markAsRead, incrementUnread } from '../utils/unreadCounter';
+import UserAvatar from './UserAvatar';
 
 export default function ChatArea({ currentChannel, setCurrentChannel, onBack, isMobile }) {
     const [messages, setMessages] = useState([]);
@@ -333,9 +334,13 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     )}
                     {currentChannel.type === 'dm' ? (
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-md bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
-                                {(currentChannel.displayName || currentChannel.name)[0]?.toUpperCase()}
-                            </div>
+                            <UserAvatar
+                                user={{
+                                    username: currentChannel.displayName || currentChannel.name,
+                                    avatar_url: currentChannel.avatarUrl
+                                }}
+                                size="md"
+                            />
                             <span className="font-bold text-white text-lg">
                                 {currentChannel.displayName || currentChannel.name}
                             </span>
@@ -407,13 +412,14 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     messages.map((msg) => (
                         <div key={msg.id} className="flex gap-3 group hover:bg-[#32353b] px-3 py-1 rounded">
                             {/* Avatar */}
-                            <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
-                                {msg.avatar_url ? (
-                                    <img src={msg.avatar_url} alt={msg.username} className="w-full h-full object-cover" />
-                                ) : (
-                                    msg.username[0]?.toUpperCase()
-                                )}
-                            </div>
+                            <UserAvatar
+                                user={{
+                                    username: msg.username,
+                                    avatar_url: msg.avatar_url
+                                }}
+                                size="lg"
+                                className="mt-1"
+                            />
 
                             <div className="flex-1 min-w-0">
                                 {/* Header */}
