@@ -24,7 +24,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesEndRef = useRef(null);
     const editorRef = useRef(null);
     const { user } = useAuth();
-    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, incomingCall, clearIncomingCall, participants } = useCall();
+    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, incomingCall, clearIncomingCall, participants, connectionStatus } = useCall();
     const [loading, setLoading] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesContainerRef = useRef(null);
@@ -421,6 +421,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 onToggleMute={toggleMute}
                 onLeave={leaveCall}
                 participants={participants}
+                connectionStatus={connectionStatus}
             />
 
             {/* Messages Container */}

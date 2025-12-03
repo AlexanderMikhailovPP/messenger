@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Mic, MicOff, ChevronUp, ChevronDown, X, Settings, Volume2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Mic, MicOff, ChevronUp, ChevronDown, X, Phone, PhoneOff, Headphones } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 export default function HuddlePanel({
@@ -10,9 +10,56 @@ export default function HuddlePanel({
     isMuted,
     onToggleMute,
     onLeave,
-    participants = []
+    participants = [],
+    connectionStatus = 'connected'
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [callDuration, setCallDuration] = useState(0);
+
+    // Call duration timer
+    useEffect(() => {
+        if (!isInCall) {
+            setCallDuration(0);
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setCallDuration(prev => prev + 1);
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [isInCall]);
+
+    // Format duration as MM:SS or HH:MM:SS
+    const formatDuration = (seconds) => {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+
+        if (hrs > 0) {
+            return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Keyboard shortcut for mute (M key)
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'm' || e.key === 'M') {
+                // Don't trigger if typing in an input
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+                    return;
+                }
+                onToggleMute();
+            }
+        };
+
+        if (isInCall) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isInCall, onToggleMute]);
 
     if (!isInCall) return null;
 
@@ -21,163 +68,201 @@ export default function HuddlePanel({
     const totalCount = participants.length;
 
     return (
-        <div className="fixed bottom-5 right-5 z-50">
-            {/* Minimized State */}
+        <div className="fixed bottom-5 right-5 z-50 font-sans">
+            {/* Minimized State - Slack-style compact bar */}
             {!isExpanded && (
-                <div className="bg-[#350d36] text-white rounded-lg shadow-2xl border border-gray-700 p-3 min-w-[400px]">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <div className="bg-green-500/20 p-1.5 rounded-full">
-                                <Volume2 size={16} className="text-green-500" />
-                            </div>
-                            <span className="font-semibold text-sm">
-                                Huddle in {channelType === 'dm' ? '@' : '#'}{channelName}
-                            </span>
-                            <span className="text-gray-400 text-xs">{totalCount}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setIsExpanded(true)}
-                                className="hover:bg-white/10 p-1 rounded transition-colors"
-                                title="Expand"
-                            >
-                                <ChevronUp size={16} />
-                            </button>
-                            <button
-                                onClick={onLeave}
-                                className="hover:bg-white/10 p-1 rounded transition-colors"
-                                title="Close"
-                            >
-                                <X size={16} />
-                            </button>
-                        </div>
-                    </div>
+                <div
+                    className="bg-[#1a1d21] text-white rounded-xl shadow-2xl border border-[#565856]/30 overflow-hidden"
+                    style={{ minWidth: '320px' }}
+                >
+                    {/* Green huddle indicator bar */}
+                    <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
 
-                    {/* Participant Avatars Row + Controls */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            {participants.slice(0, 5).map((participant) => (
-                                <div key={participant.userId} className="relative">
-                                    <UserAvatar
-                                        user={{
-                                            username: participant.username,
-                                            avatar_url: participant.avatarUrl
-                                        }}
-                                        size="sm"
-                                    />
+                    <div className="p-3">
+                        {/* Header row */}
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="relative">
+                                    <Headphones size={18} className="text-green-500" />
+                                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                </div>
+                                <div>
+                                    <div className="font-semibold text-sm text-white">
+                                        {channelType === 'dm' ? '' : '#'}{channelName}
+                                    </div>
+                                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                                        <span className="text-green-500">{formatDuration(callDuration)}</span>
+                                        <span className="mx-1">·</span>
+                                        <span>{totalCount} {totalCount === 1 ? 'person' : 'people'}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setIsExpanded(true)}
+                                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                                    title="Expand"
+                                >
+                                    <ChevronUp size={16} className="text-gray-400" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Participants avatars */}
+                        <div className="flex items-center gap-2 mb-3">
+                            {participants.slice(0, 6).map((participant, index) => (
+                                <div
+                                    key={participant.userId}
+                                    className="relative"
+                                    style={{ marginLeft: index > 0 ? '-8px' : '0', zIndex: 10 - index }}
+                                >
+                                    <div className={`rounded-full ${participant.isSpeaking && !participant.isMuted ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-[#1a1d21]' : ''}`}>
+                                        <UserAvatar
+                                            user={{
+                                                username: participant.username,
+                                                avatar_url: participant.avatarUrl
+                                            }}
+                                            size="sm"
+                                        />
+                                    </div>
                                     {participant.isMuted && (
-                                        <div className="absolute -bottom-1 -right-1 bg-red-500 rounded-full p-0.5">
-                                            <MicOff size={8} className="text-white" />
+                                        <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
+                                            <MicOff size={10} className="text-red-400" />
                                         </div>
-                                    )}
-                                    {participant.isSpeaking && !participant.isMuted && (
-                                        <div className="absolute inset-0 rounded-full ring-2 ring-green-500 animate-pulse" />
                                     )}
                                 </div>
                             ))}
-                            {totalCount > 5 && (
-                                <div className="text-xs text-gray-400">+{totalCount - 5}</div>
+                            {totalCount > 6 && (
+                                <div className="w-8 h-8 rounded-full bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 font-medium" style={{ marginLeft: '-8px' }}>
+                                    +{totalCount - 6}
+                                </div>
                             )}
                         </div>
 
+                        {/* Controls */}
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={onToggleMute}
-                                className={`p-2 rounded-full transition-colors ${isMuted
-                                        ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
-                                        : 'bg-white/10 hover:bg-white/20'
-                                    }`}
-                                title={isMuted ? 'Unmute' : 'Mute'}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium text-sm transition-all ${
+                                    isMuted
+                                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                        : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
+                                }`}
+                                title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
                             >
                                 {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
+                                <span>{isMuted ? 'Unmute' : 'Mute'}</span>
                             </button>
 
                             <button
                                 onClick={onLeave}
-                                className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded transition-colors"
+                                className="flex items-center justify-center gap-2 py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors"
                             >
-                                Leave
+                                <PhoneOff size={16} />
+                                <span>Leave</span>
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Expanded State */}
+            {/* Expanded State - Full participant list */}
             {isExpanded && (
-                <div className="bg-[#350d36] text-white rounded-lg shadow-2xl border border-gray-700 w-[350px] max-h-[500px] flex flex-col">
+                <div
+                    className="bg-[#1a1d21] text-white rounded-xl shadow-2xl border border-[#565856]/30 overflow-hidden flex flex-col"
+                    style={{ width: '340px', maxHeight: '480px' }}
+                >
+                    {/* Green huddle indicator bar */}
+                    <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
+
                     {/* Header */}
-                    <div className="flex items-center justify-between p-4 border-b border-gray-700">
+                    <div className="flex items-center justify-between p-4 border-b border-[#565856]/30">
                         <div className="flex items-center gap-2">
-                            <div className="bg-green-500/20 p-1.5 rounded-full">
-                                <Volume2 size={16} className="text-green-500" />
+                            <div className="relative">
+                                <Headphones size={20} className="text-green-500" />
+                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                             </div>
-                            <span className="font-semibold text-sm">
-                                Huddle in {channelType === 'dm' ? '@' : '#'}{channelName}
-                            </span>
+                            <div>
+                                <div className="font-semibold text-white">
+                                    Huddle
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                    {channelType === 'dm' ? '' : '#'}{channelName} · {formatDuration(callDuration)}
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                             <button
                                 onClick={() => setIsExpanded(false)}
-                                className="hover:bg-white/10 p-1 rounded transition-colors"
+                                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
                                 title="Minimize"
                             >
-                                <ChevronDown size={16} />
+                                <ChevronDown size={16} className="text-gray-400" />
                             </button>
                             <button
                                 onClick={onLeave}
-                                className="hover:bg-white/10 p-1 rounded transition-colors"
-                                title="Close"
+                                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                                title="Leave huddle"
                             >
-                                <X size={16} />
+                                <X size={16} className="text-gray-400" />
                             </button>
                         </div>
                     </div>
 
+                    {/* Participants section header */}
+                    <div className="px-4 py-2 border-b border-[#565856]/30">
+                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                            In this huddle — {totalCount}
+                        </span>
+                    </div>
+
                     {/* Participants List */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto">
                         {participants.map((participant) => (
                             <div
                                 key={participant.userId}
                                 className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
                             >
                                 <div className="relative">
-                                    <UserAvatar
-                                        user={{
-                                            username: participant.username,
-                                            avatar_url: participant.avatarUrl
-                                        }}
-                                        size="md"
-                                    />
-                                    {participant.isSpeaking && !participant.isMuted && (
-                                        <div className="absolute inset-0 rounded-full ring-2 ring-green-500 animate-pulse" />
-                                    )}
+                                    <div className={`rounded-full transition-all ${participant.isSpeaking && !participant.isMuted ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-[#1a1d21]' : ''}`}>
+                                        <UserAvatar
+                                            user={{
+                                                username: participant.username,
+                                                avatar_url: participant.avatarUrl
+                                            }}
+                                            size="md"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-sm flex items-center gap-2">
-                                        {participant.username}
+                                    <div className="font-medium text-sm text-white flex items-center gap-2">
+                                        <span className="truncate">{participant.username}</span>
                                         {participant.isCurrentUser && (
-                                            <span className="text-xs text-gray-400">(You)</span>
+                                            <span className="text-xs text-gray-500">(you)</span>
                                         )}
                                     </div>
-                                    <div className="text-xs text-gray-400 flex items-center gap-1">
+                                    <div className="text-xs flex items-center gap-1.5 mt-0.5">
                                         {participant.isMuted ? (
-                                            <>
-                                                <MicOff size={12} className="text-red-400" />
-                                                Microphone off
-                                            </>
+                                            <span className="flex items-center gap-1 text-red-400">
+                                                <MicOff size={12} />
+                                                Muted
+                                            </span>
                                         ) : participant.isSpeaking ? (
-                                            <>
-                                                <Volume2 size={12} className="text-green-500" />
-                                                <span className="text-green-500">Speaking</span>
-                                            </>
+                                            <span className="flex items-center gap-1 text-green-500">
+                                                <div className="flex items-center gap-0.5">
+                                                    <div className="w-1 h-3 bg-green-500 rounded-full animate-pulse" />
+                                                    <div className="w-1 h-4 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }} />
+                                                    <div className="w-1 h-2 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                                                </div>
+                                                Speaking
+                                            </span>
                                         ) : (
-                                            <>
+                                            <span className="flex items-center gap-1 text-gray-500">
                                                 <Mic size={12} />
-                                                Microphone on
-                                            </>
+                                                Listening
+                                            </span>
                                         )}
                                     </div>
                                 </div>
@@ -186,50 +271,44 @@ export default function HuddlePanel({
                     </div>
 
                     {/* Controls Footer */}
-                    <div className="flex items-center justify-between p-4 border-t border-gray-700">
+                    <div className="p-4 border-t border-[#565856]/30 bg-[#1a1d21]">
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={onToggleMute}
-                                className={`p-2.5 rounded-full transition-colors ${isMuted
-                                        ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
-                                        : 'bg-white/10 hover:bg-white/20'
-                                    }`}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                                    isMuted
+                                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30'
+                                        : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
+                                }`}
                                 title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
                             >
                                 {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                                <span>{isMuted ? 'Unmute' : 'Mute'}</span>
                             </button>
 
                             <button
-                                className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors opacity-50 cursor-not-allowed"
-                                title="Video (Coming soon)"
-                                disabled
+                                onClick={onLeave}
+                                className="flex items-center justify-center gap-2 py-2.5 px-5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors"
                             >
-                                <span className="text-xs">📷</span>
-                            </button>
-
-                            <button
-                                className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors opacity-50 cursor-not-allowed"
-                                title="Screen share (Coming soon)"
-                                disabled
-                            >
-                                <span className="text-xs">🖥️</span>
-                            </button>
-
-                            <button
-                                className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                                title="Settings"
-                            >
-                                <Settings size={18} />
+                                <PhoneOff size={18} />
+                                <span>Leave</span>
                             </button>
                         </div>
 
-                        <button
-                            onClick={onLeave}
-                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded transition-colors"
-                        >
-                            Leave
-                        </button>
+                        {/* Keyboard shortcut hint */}
+                        <div className="mt-2 text-center">
+                            <span className="text-xs text-gray-500">
+                                Press <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">M</kbd> to toggle mute
+                            </span>
+                        </div>
                     </div>
+                </div>
+            )}
+
+            {/* Connection status indicator */}
+            {connectionStatus === 'connecting' && (
+                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-medium">
+                    Connecting...
                 </div>
             )}
         </div>

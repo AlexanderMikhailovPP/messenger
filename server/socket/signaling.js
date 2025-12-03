@@ -153,8 +153,14 @@ module.exports = (io, db) => {
         });
 
         socket.on('ice-candidate', (payload) => {
-            // payload: { target: socketId, candidate: RTCIceCandidate }
+            // payload: { target: socketId, candidate: RTCIceCandidate, caller: socketId }
             io.to(payload.target).emit('ice-candidate', payload);
+        });
+
+        // Broadcast mute state to all participants in the call
+        socket.on('mute-update', ({ userId, isMuted, channelId }) => {
+            const roomId = `call_${channelId}`;
+            socket.to(roomId).emit('mute-update', { userId, isMuted });
         });
 
         socket.on('start_call', async ({ channelId, targetUserId, messageId }) => {
