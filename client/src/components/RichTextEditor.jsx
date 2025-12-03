@@ -181,10 +181,21 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     };
 
     // Voice recording functions
+    const streamRef = useRef(null);
+    const isCancelledRef = useRef(false);
+
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
+            streamRef.current = stream;
+            isCancelledRef.current = false;
+
+            // Use audio/webm with opus codec for better compatibility
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : 'audio/webm';
+
+            const mediaRecorder = new MediaRecorder(stream, { mimeType });
             mediaRecorderRef.current = mediaRecorder;
             audioChunksRef.current = [];
 
@@ -195,19 +206,29 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             };
 
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                const audioUrl = URL.createObjectURL(audioBlob);
-                // Save to preview state instead of sending immediately
-                setRecordedAudio({
-                    blob: audioBlob,
-                    url: audioUrl,
-                    duration: recordingTime
-                });
                 // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
+
+                // Don't create blob if cancelled
+                if (isCancelledRef.current) {
+                    audioChunksRef.current = [];
+                    return;
+                }
+
+                if (audioChunksRef.current.length > 0) {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    // Save to preview state
+                    setRecordedAudio({
+                        blob: audioBlob,
+                        url: audioUrl,
+                        duration: recordingTime
+                    });
+                }
             };
 
-            mediaRecorder.start();
+            // Start with timeslice to get data periodically
+            mediaRecorder.start(100);
             setIsRecording(true);
             setRecordingTime(0);
 
@@ -223,6 +244,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     const stopRecording = () => {
         if (mediaRecorderRef.current && isRecording) {
+            isCancelledRef.current = false;
             mediaRecorderRef.current.stop();
             setIsRecording(false);
             if (recordingTimerRef.current) {
@@ -233,10 +255,14 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     const cancelRecording = () => {
         if (mediaRecorderRef.current && isRecording) {
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+            isCancelledRef.current = true;
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+            }
             mediaRecorderRef.current.stop();
             audioChunksRef.current = [];
             setIsRecording(false);
+            setRecordingTime(0);
             if (recordingTimerRef.current) {
                 clearInterval(recordingTimerRef.current);
             }
@@ -818,28 +844,32 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                             <Mic size={16} />
                         </button>
                     ) : isRecording ? (
-                        <div className="flex items-center gap-2 bg-red-500/20 rounded-full px-3 py-1">
-                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                            <span className="text-red-400 text-sm font-medium">{formatRecordingTime(recordingTime)}</span>
-                            <button
-                                type="button"
-                                onClick={cancelRecording}
-                                className="p-1 hover:bg-red-500/30 rounded-full transition-colors"
-                                title="Cancel"
-                            >
-                                <X size={14} className="text-red-400" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={stopRecording}
-                                className="p-1 hover:bg-red-500/30 rounded-full transition-colors"
-                                title="Stop recording"
-                            >
-                                <Square size={14} className="text-red-400" fill="currentColor" />
-                            </button>
+                        <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-2">
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                                <span className="text-red-400 text-sm font-medium min-w-[40px]">{formatRecordingTime(recordingTime)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    onClick={cancelRecording}
+                                    className="p-1.5 bg-gray-700 hover:bg-gray-600 rounded-full transition-colors"
+                                    title="Cancel recording"
+                                >
+                                    <Trash2 size={16} className="text-gray-300" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={stopRecording}
+                                    className="p-1.5 bg-green-600 hover:bg-green-500 rounded-full transition-colors"
+                                    title="Done - preview recording"
+                                >
+                                    <Check size={16} className="text-white" />
+                                </button>
+                            </div>
                         </div>
                     ) : recordedAudio ? (
-                        <div className="flex items-center gap-2 bg-[#2b2d31] rounded-full px-3 py-1">
+                        <div className="flex items-center gap-3 bg-[#2d3748] border border-gray-600 rounded-lg px-4 py-2">
                             <audio
                                 ref={previewAudioRef}
                                 src={recordedAudio.url}
@@ -849,35 +879,37 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                             <button
                                 type="button"
                                 onClick={togglePreviewPlayback}
-                                className="p-1 hover:bg-[#3f4147] rounded-full transition-colors"
-                                title={isPlayingPreview ? 'Pause' : 'Play'}
+                                className="p-1.5 bg-blue-600 hover:bg-blue-500 rounded-full transition-colors"
+                                title={isPlayingPreview ? 'Pause' : 'Play preview'}
                             >
                                 {isPlayingPreview ? (
-                                    <Pause size={14} className="text-blue-400" />
+                                    <Pause size={16} className="text-white" />
                                 ) : (
-                                    <Play size={14} className="text-blue-400" fill="currentColor" />
+                                    <Play size={16} className="text-white" fill="currentColor" />
                                 )}
                             </button>
-                            <div className="flex items-center gap-1">
-                                <Mic size={12} className="text-gray-400" />
-                                <span className="text-gray-300 text-sm">{formatRecordingTime(recordedAudio.duration)}</span>
+                            <div className="flex items-center gap-1.5">
+                                <Mic size={14} className="text-gray-400" />
+                                <span className="text-gray-200 text-sm font-medium">{formatRecordingTime(recordedAudio.duration)}</span>
                             </div>
-                            <button
-                                type="button"
-                                onClick={discardVoiceMessage}
-                                className="p-1 hover:bg-red-500/30 rounded-full transition-colors"
-                                title="Discard"
-                            >
-                                <Trash2 size={14} className="text-red-400" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={confirmVoiceMessage}
-                                className="p-1 hover:bg-green-500/30 rounded-full transition-colors"
-                                title="Send voice message"
-                            >
-                                <Check size={14} className="text-green-400" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    type="button"
+                                    onClick={discardVoiceMessage}
+                                    className="p-1.5 bg-gray-700 hover:bg-red-600 rounded-full transition-colors"
+                                    title="Discard"
+                                >
+                                    <Trash2 size={16} className="text-gray-300 hover:text-white" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={confirmVoiceMessage}
+                                    className="p-1.5 bg-green-600 hover:bg-green-500 rounded-full transition-colors"
+                                    title="Send voice message"
+                                >
+                                    <Send size={16} className="text-white" />
+                                </button>
+                            </div>
                         </div>
                     ) : null}
                 </div>
