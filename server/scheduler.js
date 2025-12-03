@@ -31,10 +31,16 @@ const checkScheduledMessages = async () => {
         for (const scheduled of result.rows) {
             try {
                 // Insert the actual message
-                const messageResult = await db.query(
+                await db.query(
                     `INSERT INTO messages (content, user_id, channel_id)
-                     VALUES (?, ?, ?) RETURNING *`,
+                     VALUES (?, ?, ?)`,
                     [scheduled.content, scheduled.user_id, scheduled.channel_id]
+                );
+
+                // Get the inserted message
+                const messageResult = await db.query(
+                    `SELECT * FROM messages WHERE user_id = ? AND channel_id = ? ORDER BY id DESC LIMIT 1`,
+                    [scheduled.user_id, scheduled.channel_id]
                 );
 
                 const newMessage = messageResult.rows[0];
@@ -53,7 +59,8 @@ const checkScheduledMessages = async () => {
                         avatar_url: scheduled.avatar_url
                     };
 
-                    io.to(`channel_${scheduled.channel_id}`).emit('receive_message', messageData);
+                    // Emit to channel room (clients join with just channelId, not "channel_" prefix)
+                    io.to(scheduled.channel_id.toString()).emit('receive_message', messageData);
                 }
 
                 console.log(`Scheduled message ${scheduled.id} sent to channel ${scheduled.channel_id}`);

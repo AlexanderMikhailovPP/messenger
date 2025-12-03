@@ -141,14 +141,20 @@ router.delete('/:id', async (req, res) => {
     const userId = req.user.userId;
 
     try {
-        const result = await db.query(
-            'DELETE FROM scheduled_messages WHERE id = ? AND user_id = ? RETURNING id',
+        // First check if message exists and belongs to user
+        const existing = await db.query(
+            'SELECT id FROM scheduled_messages WHERE id = ? AND user_id = ?',
             [id, userId]
         );
 
-        if (result.rows.length === 0) {
+        if (existing.rows.length === 0) {
             return res.status(404).json({ error: 'Scheduled message not found' });
         }
+
+        await db.query(
+            'DELETE FROM scheduled_messages WHERE id = ? AND user_id = ?',
+            [id, userId]
+        );
 
         res.json({ success: true });
     } catch (err) {

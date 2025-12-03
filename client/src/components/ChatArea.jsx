@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { getSocket } from '../socket';
-import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown, ChevronLeft, PhoneOff, MessageSquare } from 'lucide-react';
+import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown, ChevronLeft, PhoneOff, MessageSquare, Clock, Trash2, Play, Edit3, ChevronUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import toast from 'react-hot-toast';
@@ -32,6 +32,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const [loading, setLoading] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesContainerRef = useRef(null);
+    const [scheduledMessages, setScheduledMessages] = useState([]);
+    const [showScheduledPanel, setShowScheduledPanel] = useState(true);
 
     // Typing indicator
     const socket = getSocket();
@@ -45,6 +47,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             const socket = getSocket();
 
             fetchMessages(currentChannel.id, controller.signal);
+            fetchScheduledMessages(currentChannel.id);
 
             // Mark current channel as read
             markAsRead(currentChannel.id);
@@ -525,9 +528,54 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             console.log('Schedule response:', res.data);
             toast.success(`Сообщение запланировано на ${scheduledDate.toLocaleString('ru-RU')}`);
             setNewMessage('');
+            // Refresh scheduled messages list
+            fetchScheduledMessages(currentChannel.id);
         } catch (err) {
             console.error('Failed to schedule message:', err);
             toast.error('Не удалось запланировать сообщение');
+        }
+    };
+
+    // Fetch scheduled messages for channel
+    const fetchScheduledMessages = async (channelId) => {
+        try {
+            const res = await axios.get(`/api/scheduled/channel/${channelId}`);
+            setScheduledMessages(res.data);
+        } catch (err) {
+            console.error('Failed to fetch scheduled messages:', err);
+            setScheduledMessages([]);
+        }
+    };
+
+    // Delete scheduled message
+    const handleDeleteScheduled = async (id) => {
+        try {
+            await axios.delete(`/api/scheduled/${id}`);
+            setScheduledMessages(prev => prev.filter(m => m.id !== id));
+            toast.success('Запланированное сообщение удалено');
+        } catch (err) {
+            console.error('Failed to delete scheduled message:', err);
+            toast.error('Не удалось удалить сообщение');
+        }
+    };
+
+    // Send scheduled message now
+    const handleSendNow = async (id) => {
+        try {
+            const res = await axios.post(`/api/scheduled/${id}/send-now`);
+            const socket = getSocket();
+            if (socket && res.data.message) {
+                socket.emit('send_message', {
+                    content: res.data.message.content,
+                    userId: user.id,
+                    channelId: res.data.message.channelId
+                });
+            }
+            setScheduledMessages(prev => prev.filter(m => m.id !== id));
+            toast.success('Сообщение отправлено');
+        } catch (err) {
+            console.error('Failed to send scheduled message:', err);
+            toast.error('Не удалось отправить сообщение');
         }
     };
 
@@ -867,6 +915,69 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
             {/* Typing Indicator */}
             <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
+
+            {/* Scheduled Messages Panel */}
+            {scheduledMessages.length > 0 && (
+                <div className="mx-5 mb-2">
+                    <button
+                        onClick={() => setShowScheduledPanel(!showScheduledPanel)}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-t-lg text-purple-300 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Clock size={16} />
+                            <span className="text-sm font-medium">
+                                Запланированные сообщения ({scheduledMessages.length})
+                            </span>
+                        </div>
+                        {showScheduledPanel ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                    </button>
+
+                    {showScheduledPanel && (
+                        <div className="bg-[#2a2d32] border border-t-0 border-purple-500/30 rounded-b-lg max-h-48 overflow-y-auto">
+                            {scheduledMessages.map((msg) => (
+                                <div
+                                    key={msg.id}
+                                    className="flex items-center justify-between px-3 py-2 border-b border-gray-700 last:border-b-0 hover:bg-gray-800/50 group"
+                                >
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 text-xs text-purple-400 mb-1">
+                                            <Clock size={12} />
+                                            <span>
+                                                {new Date(msg.scheduled_at).toLocaleString('ru-RU', {
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </span>
+                                        </div>
+                                        <div
+                                            className="text-sm text-gray-300 truncate"
+                                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content.substring(0, 100)) }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => handleSendNow(msg.id)}
+                                            className="p-1.5 hover:bg-green-600/30 rounded text-green-400 transition-colors"
+                                            title="Отправить сейчас"
+                                        >
+                                            <Play size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteScheduled(msg.id)}
+                                            className="p-1.5 hover:bg-red-600/30 rounded text-red-400 transition-colors"
+                                            title="Удалить"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Input Area */}
             <div className="p-5 pt-0 pb-6">
