@@ -474,7 +474,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
                             {/* Emoji Picker Popup */}
                             {showEmojiPicker === msg.id && (
-                                <div className={`z-50 ${isMobile ? 'fixed inset-x-0 bottom-0 top-auto' : 'absolute top-full right-0'}`}>
+                                <div className={`z-50 ${isMobile ? 'fixed inset-x-0 bottom-0 top-auto' : 'absolute bottom-full right-0 mb-2'}`}>
                                     <div className="fixed inset-0" onClick={() => setShowEmojiPicker(null)} />
                                     <div className={`relative ${isMobile ? 'w-full' : ''}`}>
                                         <EmojiPicker
