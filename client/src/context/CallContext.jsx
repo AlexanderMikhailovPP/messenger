@@ -56,7 +56,29 @@ export const CallProvider = ({ children }) => {
             }
 
             // Remove from participants
-            setParticipants(prev => prev.filter(p => p.userId !== userId));
+            setParticipants(prev => {
+                const updated = prev.filter(p => p.userId !== userId);
+
+                // If only current user left, auto-leave call
+                if (updated.length === 1 && updated[0].isCurrentUser) {
+                    console.log('[CallContext] Last participant - auto-leaving call');
+                    setTimeout(() => {
+                        // Give server time to update message
+                        setIsInCall(false);
+                        setActiveChannelId(null);
+                        setParticipants([]);
+
+                        if (localStreamRef.current) {
+                            localStreamRef.current.getTracks().forEach(track => track.stop());
+                        }
+                        setLocalStream(null);
+                        localStreamRef.current = null;
+                        setIsMuted(false);
+                    }, 500);
+                }
+
+                return updated;
+            });
         });
 
         socket.on('offer', async (payload) => {
