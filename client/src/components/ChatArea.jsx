@@ -440,10 +440,28 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                 </div>
 
                                 {/* Message Content */}
-                                <div
-                                    className="text-[15px] text-gray-300 leading-relaxed break-words"
-                                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
-                                />
+                                {msg.content === '📞 Started a huddle' ? (
+                                    <div className="flex items-center gap-3 bg-[#2f3136] p-3 rounded-lg border border-gray-700 mt-1 max-w-md">
+                                        <div className="bg-green-500/20 p-2 rounded-full">
+                                            <Headphones size={24} className="text-green-500" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-bold text-white">Huddle started</div>
+                                            <div className="text-xs text-gray-400">Click to join the conversation</div>
+                                        </div>
+                                        <button
+                                            onClick={() => joinCall(currentChannel.id)}
+                                            className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded transition-colors"
+                                        >
+                                            Join
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="text-[15px] text-gray-300 leading-relaxed break-words"
+                                        dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
+                                    />
+                                )}
 
                                 {/* Reactions */}
                                 {reactions[msg.id] && reactions[msg.id].length > 0 && (
