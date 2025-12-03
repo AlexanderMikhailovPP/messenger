@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Check, Play, Pause, Trash2 } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Check, Play, Pause, Trash2, Clock, ChevronDown } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import QuickEmojiPicker from './QuickEmojiPicker';
 
-export default function RichTextEditor({ value, onChange, placeholder, onSubmit, disabled, onFileAttach, onVoiceMessage, attachments = [], onRemoveAttachment }) {
+export default function RichTextEditor({ value, onChange, placeholder, onSubmit, onScheduledSubmit, disabled, onFileAttach, onVoiceMessage, attachments = [], onRemoveAttachment }) {
     const [showLinkInput, setShowLinkInput] = useState(false);
     const [mentionQuery, setMentionQuery] = useState('');
     const [mentionType, setMentionType] = useState(null);
@@ -17,6 +17,10 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const [recordingTime, setRecordingTime] = useState(0);
     const [recordedAudio, setRecordedAudio] = useState(null); // { blob, url, duration }
     const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+    const [showScheduleMenu, setShowScheduleMenu] = useState(false);
+    const [showCustomSchedule, setShowCustomSchedule] = useState(false);
+    const [scheduledDate, setScheduledDate] = useState('');
+    const [scheduledTime, setScheduledTime] = useState('');
     const editorRef = useRef(null);
     const fileInputRef = useRef(null);
     const mediaRecorderRef = useRef(null);
@@ -25,7 +29,81 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const recordingTimeRef = useRef(0);
     const emojiButtonRef = useRef(null);
     const previewAudioRef = useRef(null);
+    const scheduleMenuRef = useRef(null);
     const { user } = useAuth();
+
+    // Close schedule menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (scheduleMenuRef.current && !scheduleMenuRef.current.contains(e.target)) {
+                setShowScheduleMenu(false);
+                setShowCustomSchedule(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Schedule preset options
+    const getSchedulePresets = () => {
+        const now = new Date();
+        const presets = [];
+
+        // In 30 minutes
+        const in30 = new Date(now.getTime() + 30 * 60 * 1000);
+        presets.push({ label: 'Через 30 минут', date: in30 });
+
+        // In 1 hour
+        const in1h = new Date(now.getTime() + 60 * 60 * 1000);
+        presets.push({ label: 'Через 1 час', date: in1h });
+
+        // In 3 hours
+        const in3h = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+        presets.push({ label: 'Через 3 часа', date: in3h });
+
+        // Tomorrow at 9:00
+        const tomorrow9 = new Date(now);
+        tomorrow9.setDate(tomorrow9.getDate() + 1);
+        tomorrow9.setHours(9, 0, 0, 0);
+        presets.push({ label: 'Завтра в 9:00', date: tomorrow9 });
+
+        // Monday at 9:00 (if not Monday)
+        const monday = new Date(now);
+        const daysUntilMonday = (8 - monday.getDay()) % 7 || 7;
+        monday.setDate(monday.getDate() + daysUntilMonday);
+        monday.setHours(9, 0, 0, 0);
+        if (daysUntilMonday > 1) {
+            presets.push({ label: 'В понедельник в 9:00', date: monday });
+        }
+
+        return presets;
+    };
+
+    const handleScheduleSelect = (date) => {
+        if (onScheduledSubmit) {
+            onScheduledSubmit(date);
+        }
+        setShowScheduleMenu(false);
+        setShowCustomSchedule(false);
+    };
+
+    const handleCustomSchedule = () => {
+        if (!scheduledDate || !scheduledTime) return;
+
+        const dateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+        if (dateTime <= new Date()) {
+            alert('Выберите время в будущем');
+            return;
+        }
+
+        handleScheduleSelect(dateTime);
+        setScheduledDate('');
+        setScheduledTime('');
+    };
+
+    const formatScheduleTime = (date) => {
+        return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    };
 
     useEffect(() => {
         if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -922,14 +1000,101 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                         </div>
                     ) : null}
                 </div>
-                <button
-                    type="submit"
-                    onClick={onSubmit}
-                    disabled={disabled || isRecording}
-                    className={`p-2 rounded transition-colors ${!disabled && !isRecording ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
-                >
-                    <Send size={16} />
-                </button>
+                <div className="flex items-center">
+                    <button
+                        type="submit"
+                        onClick={onSubmit}
+                        disabled={disabled || isRecording}
+                        className={`p-2 rounded-l transition-colors ${!disabled && !isRecording ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                    >
+                        <Send size={16} />
+                    </button>
+                    <div className="relative" ref={scheduleMenuRef}>
+                        <button
+                            type="button"
+                            onClick={() => setShowScheduleMenu(!showScheduleMenu)}
+                            disabled={disabled || isRecording}
+                            className={`p-2 rounded-r border-l border-[#005c47] transition-colors ${!disabled && !isRecording ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                            title="Отложить отправку"
+                        >
+                            <ChevronDown size={14} />
+                        </button>
+
+                        {/* Schedule Menu */}
+                        {showScheduleMenu && (
+                            <div className="absolute bottom-full right-0 mb-2 w-64 bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                                <div className="px-3 py-2 border-b border-gray-700">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                                        <Clock size={14} />
+                                        <span>Отложить отправку</span>
+                                    </div>
+                                </div>
+
+                                {!showCustomSchedule ? (
+                                    <>
+                                        <div className="py-1">
+                                            {getSchedulePresets().map((preset, index) => (
+                                                <button
+                                                    key={index}
+                                                    onClick={() => handleScheduleSelect(preset.date)}
+                                                    className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-[#2b2d31] transition-colors flex justify-between items-center"
+                                                >
+                                                    <span>{preset.label}</span>
+                                                    <span className="text-gray-500 text-xs">{formatScheduleTime(preset.date)}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="border-t border-gray-700">
+                                            <button
+                                                onClick={() => setShowCustomSchedule(true)}
+                                                className="w-full px-3 py-2 text-left text-sm text-blue-400 hover:bg-[#2b2d31] transition-colors"
+                                            >
+                                                Выбрать дату и время...
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="p-3 space-y-3">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1">Дата</label>
+                                            <input
+                                                type="date"
+                                                value={scheduledDate}
+                                                onChange={(e) => setScheduledDate(e.target.value)}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                className="w-full px-2 py-1.5 bg-[#2b2d31] border border-gray-600 rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1">Время</label>
+                                            <input
+                                                type="time"
+                                                value={scheduledTime}
+                                                onChange={(e) => setScheduledTime(e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-[#2b2d31] border border-gray-600 rounded text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setShowCustomSchedule(false)}
+                                                className="flex-1 px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                                            >
+                                                Назад
+                                            </button>
+                                            <button
+                                                onClick={handleCustomSchedule}
+                                                disabled={!scheduledDate || !scheduledTime}
+                                                className="flex-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                            >
+                                                Запланировать
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Hidden file input */}

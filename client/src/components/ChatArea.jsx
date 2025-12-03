@@ -504,6 +504,29 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         }
     };
 
+    // Handle scheduled message
+    const handleScheduledSubmit = async (scheduledDate) => {
+        const trimmed = newMessage.trim();
+        if (!trimmed || !currentChannel) return;
+
+        try {
+            await axios.post('/api/scheduled', {
+                content: trimmed,
+                channelId: currentChannel.id,
+                scheduledAt: scheduledDate.toISOString()
+            });
+
+            toast.success(`Сообщение запланировано на ${scheduledDate.toLocaleString('ru-RU')}`);
+            setNewMessage('');
+            if (editorRef.current) {
+                editorRef.current.innerHTML = '';
+            }
+        } catch (err) {
+            console.error('Failed to schedule message:', err);
+            toast.error('Не удалось запланировать сообщение');
+        }
+    };
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -863,6 +886,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                         }}
                         placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
                         onSubmit={handleSubmit}
+                        onScheduledSubmit={handleScheduledSubmit}
                         disabled={!newMessage.trim() && attachments.length === 0}
                         onFileAttach={handleFileAttach}
                         onVoiceMessage={handleVoiceMessage}

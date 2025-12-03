@@ -32,6 +32,7 @@ const channelRoutes = require('./routes/channels');
 const messageRoutes = require('./routes/messages');
 const userRoutes = require('./routes/users');
 const reactionsRoutes = require('./routes/reactions');
+const scheduledRoutes = require('./routes/scheduled');
 const db = require('./db');
 
 // API Routes
@@ -40,6 +41,7 @@ app.use('/api/channels', channelRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reactions', reactionsRoutes);
+app.use('/api/scheduled', scheduledRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -55,6 +57,10 @@ app.get(/(.*)/, (req, res) => {
 
 // Initialize WebRTC signaling
 require('./socket/signaling')(io, db);
+
+// Initialize message scheduler
+const { initScheduler } = require('./scheduler');
+initScheduler(io);
 
 // Apply Socket.IO authentication middleware
 io.use(socketAuth);

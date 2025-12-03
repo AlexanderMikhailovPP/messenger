@@ -101,6 +101,21 @@ const initDb = async () => {
       // Column likely already exists
     }
 
+    // Scheduled messages table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS scheduled_messages (
+        id ${autoIncrement},
+        content ${textType} NOT NULL,
+        user_id INTEGER NOT NULL,
+        channel_id INTEGER NOT NULL,
+        scheduled_at ${isPostgres ? 'TIMESTAMP' : 'DATETIME'} NOT NULL,
+        created_at ${isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP'},
+        status ${textType} DEFAULT 'pending',
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (channel_id) REFERENCES channels (id)
+      );
+    `);
+
     // Create indexes for better performance
     try {
       if (isPostgres) {
