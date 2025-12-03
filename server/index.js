@@ -54,7 +54,7 @@ app.get(/(.*)/, (req, res) => {
 });
 
 // Initialize WebRTC signaling
-require('./socket/signaling')(io);
+require('./socket/signaling')(io, db);
 
 // Apply Socket.IO authentication middleware
 io.use(socketAuth);
@@ -73,7 +73,7 @@ io.on('connection', (socket) => {
         console.log(`User ${userId} joined channel ${channelId}`);
     });
 
-    socket.on('send_message', async (data) => {
+    socket.on('send_message', async (data, callback) => {
         console.log('Server received send_message:', data);
         // Use authenticated userId from socket, but fallback to data.userId for backward compatibility
         const { content, channelId, userId: clientUserId } = data;
@@ -102,6 +102,10 @@ io.on('connection', (socket) => {
 
             // Broadcast to channel
             io.to(channelId).emit('receive_message', fullMessage);
+
+            if (callback) {
+                callback({ id: messageId });
+            }
         } catch (err) {
             console.error('Error saving message:', err);
         }

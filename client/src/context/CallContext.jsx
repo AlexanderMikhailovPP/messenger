@@ -22,7 +22,7 @@ export const CallProvider = ({ children }) => {
 
         // Handle signaling events
         socket.on('user-connected', (userId, socketId, username) => {
-            console.log('User connected to call:', userId, socketId, username);
+            console.log('[CallContext] User connected:', { userId, socketId, username });
             createPeerConnection(socketId, true, userId, username);
         });
 
@@ -145,6 +145,7 @@ export const CallProvider = ({ children }) => {
             setIsInCall(true);
             setActiveChannelId(channelId);
 
+            console.log('[CallContext] Joining room:', `call_${channelId}`);
             socket.emit('join-room', `call_${channelId}`, user.id);
         } catch (err) {
             console.error('Failed to get local stream:', err);

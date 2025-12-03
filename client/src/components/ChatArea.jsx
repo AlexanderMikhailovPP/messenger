@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { getSocket } from '../socket';
-import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown, ChevronLeft } from 'lucide-react';
+import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown, ChevronLeft, PhoneOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import toast from 'react-hot-toast';
@@ -69,8 +69,19 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             }
         };
 
+        const handleMessageUpdated = (updatedMessage) => {
+            setMessages((prev) => prev.map(msg =>
+                msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
+            ));
+        };
+
         socket.on('receive_message', handleNewMessage);
-        return () => socket.off('receive_message', handleNewMessage);
+        socket.on('message_updated', handleMessageUpdated);
+
+        return () => {
+            socket.off('receive_message', handleNewMessage);
+            socket.off('message_updated', handleMessageUpdated);
+        };
     }, [currentChannel]);
 
     useEffect(() => {
@@ -296,14 +307,17 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
         joinCall(currentChannel.id);
 
-        socket.emit('start_call', {
-            channelId: currentChannel.id,
-            targetUserId: currentChannel.otherUserId
-        });
-
         socket.emit('send_message', {
             content: '📞 Started a huddle',
             channelId: currentChannel.id
+        }, (response) => {
+            if (response && response.id) {
+                socket.emit('start_call', {
+                    channelId: currentChannel.id,
+                    targetUserId: currentChannel.otherUserId,
+                    messageId: response.id
+                });
+            }
         });
 
         toast.success('Huddle started!');
@@ -455,6 +469,16 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                         >
                                             Join
                                         </button>
+                                    </div>
+                                ) : msg.content === '📞 Call ended' ? (
+                                    <div className="flex items-center gap-3 bg-[#2f3136] p-3 rounded-lg border border-gray-700 mt-1 max-w-md opacity-75">
+                                        <div className="bg-gray-700 p-2 rounded-full">
+                                            <PhoneOff size={24} className="text-gray-400" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-bold text-gray-300">Call ended</div>
+                                            <div className="text-xs text-gray-500">This session has finished</div>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div
