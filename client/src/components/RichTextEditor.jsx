@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Loader2 } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Check, Play, Pause, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import QuickEmojiPicker from './QuickEmojiPicker';
@@ -15,12 +15,15 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
+    const [recordedAudio, setRecordedAudio] = useState(null); // { blob, url, duration }
+    const [isPlayingPreview, setIsPlayingPreview] = useState(false);
     const editorRef = useRef(null);
     const fileInputRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const recordingTimerRef = useRef(null);
     const emojiButtonRef = useRef(null);
+    const previewAudioRef = useRef(null);
     const { user } = useAuth();
 
     useEffect(() => {
@@ -193,9 +196,13 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
             mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                if (onVoiceMessage) {
-                    onVoiceMessage(audioBlob);
-                }
+                const audioUrl = URL.createObjectURL(audioBlob);
+                // Save to preview state instead of sending immediately
+                setRecordedAudio({
+                    blob: audioBlob,
+                    url: audioUrl,
+                    duration: recordingTime
+                });
                 // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
             };
@@ -226,16 +233,40 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
     const cancelRecording = () => {
         if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
             mediaRecorderRef.current.stop();
-            // Don't call onVoiceMessage - just discard
             audioChunksRef.current = [];
             setIsRecording(false);
             if (recordingTimerRef.current) {
                 clearInterval(recordingTimerRef.current);
             }
-            // Stop tracks
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
         }
+    };
+
+    const confirmVoiceMessage = () => {
+        if (recordedAudio && onVoiceMessage) {
+            onVoiceMessage(recordedAudio.blob);
+        }
+        discardVoiceMessage();
+    };
+
+    const discardVoiceMessage = () => {
+        if (recordedAudio?.url) {
+            URL.revokeObjectURL(recordedAudio.url);
+        }
+        setRecordedAudio(null);
+        setIsPlayingPreview(false);
+    };
+
+    const togglePreviewPlayback = () => {
+        if (!previewAudioRef.current) return;
+
+        if (isPlayingPreview) {
+            previewAudioRef.current.pause();
+        } else {
+            previewAudioRef.current.play();
+        }
+        setIsPlayingPreview(!isPlayingPreview);
     };
 
     const formatRecordingTime = (seconds) => {
@@ -777,7 +808,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     </div>
 
                     {/* Voice recording */}
-                    {!isRecording ? (
+                    {!isRecording && !recordedAudio ? (
                         <button
                             type="button"
                             onClick={startRecording}
@@ -786,7 +817,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                         >
                             <Mic size={16} />
                         </button>
-                    ) : (
+                    ) : isRecording ? (
                         <div className="flex items-center gap-2 bg-red-500/20 rounded-full px-3 py-1">
                             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                             <span className="text-red-400 text-sm font-medium">{formatRecordingTime(recordingTime)}</span>
@@ -802,12 +833,53 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                                 type="button"
                                 onClick={stopRecording}
                                 className="p-1 hover:bg-red-500/30 rounded-full transition-colors"
-                                title="Stop and send"
+                                title="Stop recording"
                             >
                                 <Square size={14} className="text-red-400" fill="currentColor" />
                             </button>
                         </div>
-                    )}
+                    ) : recordedAudio ? (
+                        <div className="flex items-center gap-2 bg-[#2b2d31] rounded-full px-3 py-1">
+                            <audio
+                                ref={previewAudioRef}
+                                src={recordedAudio.url}
+                                onEnded={() => setIsPlayingPreview(false)}
+                                className="hidden"
+                            />
+                            <button
+                                type="button"
+                                onClick={togglePreviewPlayback}
+                                className="p-1 hover:bg-[#3f4147] rounded-full transition-colors"
+                                title={isPlayingPreview ? 'Pause' : 'Play'}
+                            >
+                                {isPlayingPreview ? (
+                                    <Pause size={14} className="text-blue-400" />
+                                ) : (
+                                    <Play size={14} className="text-blue-400" fill="currentColor" />
+                                )}
+                            </button>
+                            <div className="flex items-center gap-1">
+                                <Mic size={12} className="text-gray-400" />
+                                <span className="text-gray-300 text-sm">{formatRecordingTime(recordedAudio.duration)}</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={discardVoiceMessage}
+                                className="p-1 hover:bg-red-500/30 rounded-full transition-colors"
+                                title="Discard"
+                            >
+                                <Trash2 size={14} className="text-red-400" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmVoiceMessage}
+                                className="p-1 hover:bg-green-500/30 rounded-full transition-colors"
+                                title="Send voice message"
+                            >
+                                <Check size={14} className="text-green-400" />
+                            </button>
+                        </div>
+                    ) : null}
                 </div>
                 <button
                     type="submit"

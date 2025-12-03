@@ -117,6 +117,82 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         return () => container.removeEventListener('scroll', handleScroll);
     }, []);
 
+    // Handle voice message player controls
+    useEffect(() => {
+        const handleVoicePlayer = (e) => {
+            const playBtn = e.target.closest('.voice-play-btn');
+            if (!playBtn) return;
+
+            const player = playBtn.closest('.voice-message-player');
+            if (!player) return;
+
+            const audio = player.querySelector('audio');
+            const playIcon = playBtn.querySelector('.play-icon');
+            const pauseIcon = playBtn.querySelector('.pause-icon');
+            const progress = player.querySelector('.voice-progress');
+            const duration = player.querySelector('.voice-duration');
+
+            if (!audio) return;
+
+            if (audio.paused) {
+                // Pause all other voice players first
+                document.querySelectorAll('.voice-message-player audio').forEach(a => {
+                    if (a !== audio && !a.paused) {
+                        a.pause();
+                        const otherPlayer = a.closest('.voice-message-player');
+                        if (otherPlayer) {
+                            const otherPlayIcon = otherPlayer.querySelector('.play-icon');
+                            const otherPauseIcon = otherPlayer.querySelector('.pause-icon');
+                            if (otherPlayIcon) otherPlayIcon.style.display = 'block';
+                            if (otherPauseIcon) otherPauseIcon.style.display = 'none';
+                        }
+                    }
+                });
+
+                audio.play();
+                if (playIcon) playIcon.style.display = 'none';
+                if (pauseIcon) pauseIcon.style.display = 'block';
+            } else {
+                audio.pause();
+                if (playIcon) playIcon.style.display = 'block';
+                if (pauseIcon) pauseIcon.style.display = 'none';
+            }
+
+            // Update progress and duration
+            const updateProgress = () => {
+                if (progress && audio.duration) {
+                    const percent = (audio.currentTime / audio.duration) * 100;
+                    progress.style.width = `${percent}%`;
+                }
+                if (duration) {
+                    const mins = Math.floor(audio.currentTime / 60);
+                    const secs = Math.floor(audio.currentTime % 60);
+                    duration.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+            };
+
+            audio.ontimeupdate = updateProgress;
+            audio.onended = () => {
+                if (playIcon) playIcon.style.display = 'block';
+                if (pauseIcon) pauseIcon.style.display = 'none';
+                if (progress) progress.style.width = '0%';
+                if (duration) duration.textContent = '0:00';
+            };
+
+            // Set duration when metadata is loaded
+            audio.onloadedmetadata = () => {
+                if (duration && audio.duration) {
+                    const mins = Math.floor(audio.duration / 60);
+                    const secs = Math.floor(audio.duration % 60);
+                    duration.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+            };
+        };
+
+        document.addEventListener('click', handleVoicePlayer);
+        return () => document.removeEventListener('click', handleVoicePlayer);
+    }, []);
+
     // Handle mention hover
     useEffect(() => {
         const handleGlobalMouseOver = (e) => {
@@ -408,7 +484,20 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            const voiceHtml = `<div class="voice-message"><audio controls src="${res.data.url}" style="max-width: 300px;"></audio><div class="text-xs text-gray-400">Voice message</div></div>`;
+            // Beautiful voice message HTML with custom player
+            const voiceHtml = `
+                <div class="voice-message-player" data-src="${res.data.url}">
+                    <button class="voice-play-btn">
+                        <svg class="play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <svg class="pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    </button>
+                    <div class="voice-waveform">
+                        <div class="voice-progress"></div>
+                    </div>
+                    <span class="voice-duration">0:00</span>
+                    <audio src="${res.data.url}" preload="metadata"></audio>
+                </div>
+            `;
 
             socket.emit('send_message', {
                 content: voiceHtml,
