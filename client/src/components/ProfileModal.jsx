@@ -52,7 +52,7 @@ export default function ProfileModal({ isOpen, onClose }) {
                         <UserAvatar
                             user={{ username, avatar_url: avatarUrl }}
                             size="4xl"
-                            rounded="rounded-full"
+                            rounded="rounded-3xl"
                         />
                     </div>
 
