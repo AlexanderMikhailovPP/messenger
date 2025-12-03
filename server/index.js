@@ -62,7 +62,7 @@ io.use(socketAuth);
 io.on('connection', (socket) => {
     const userId = socket.data.userId;
     const username = socket.data.username;
-    const username = socket.data.username;
+
     console.log(`User ${username} (${userId}) connected:`, socket.id);
 
     // Join user-specific room for direct signaling
