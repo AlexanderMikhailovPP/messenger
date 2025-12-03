@@ -287,9 +287,10 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
                 <button
                     onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
+                        // Position picker to the left of the button, ensuring it stays on screen
                         setShowEmojiPicker({
                             messageId,
-                            position: { x: rect.left, y: rect.bottom + 4 }
+                            position: { x: Math.max(10, rect.right - 320), y: rect.bottom + 4 }
                         });
                     }}
                     className="w-5 h-5 rounded bg-[#3f4147] hover:bg-[#4f5157] flex items-center justify-center"
@@ -361,9 +362,10 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
                         <button
                             onClick={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
+                                // Position picker to the left, ensuring it stays on screen
                                 setShowEmojiPicker({
                                     messageId: msg.id,
-                                    position: { x: Math.min(rect.left, 100), y: rect.bottom + 4 }
+                                    position: { x: Math.max(10, rect.right - 320), y: rect.bottom + 4 }
                                 });
                             }}
                             className="p-1.5 hover:bg-[#3f4147] rounded transition-colors"
