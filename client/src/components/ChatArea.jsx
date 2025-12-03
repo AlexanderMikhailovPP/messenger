@@ -464,33 +464,55 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                             {/* Message Actions */}
                             <div className={`${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} flex items-start gap-1 transition-opacity`}>
                                 <button
-                                    onClick={() => setShowEmojiPicker(msg.id)}
+                                    onClick={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        // Calculate position: above the button, right-aligned to the button
+                                        // But since it's 350px wide, we might need to shift it left
+                                        const x = rect.right - 350;
+                                        const y = rect.top - 460; // 450px height + 10px padding
+
+                                        setShowEmojiPicker({
+                                            messageId: msg.id,
+                                            position: { x, y }
+                                        });
+                                    }}
                                     className="p-1.5 hover:bg-gray-700 rounded transition-colors"
                                     title="Add Reaction"
                                 >
                                     <Smile className="text-gray-400" size={16} />
                                 </button>
                             </div>
-
-                            {/* Emoji Picker Popup */}
-                            {showEmojiPicker === msg.id && (
-                                <div className={`z-50 ${isMobile ? 'fixed inset-x-0 bottom-0 top-auto' : 'absolute bottom-full right-0 mb-2'}`}>
-                                    <div className="fixed inset-0" onClick={() => setShowEmojiPicker(null)} />
-                                    <div className={`relative ${isMobile ? 'w-full' : ''}`}>
-                                        <EmojiPicker
-                                            onEmojiClick={(emojiData) => addReaction(msg.id, emojiData.emoji)}
-                                            theme="dark"
-                                            width={isMobile ? '100%' : 350}
-                                            height={isMobile ? 400 : 450}
-                                        />
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     ))
                 )}
                 <div ref={messagesEndRef} />
             </div>
+
+            {/* Emoji Picker Portal */}
+            {showEmojiPicker && (
+                <div
+                    className="fixed z-50"
+                    style={{
+                        left: isMobile ? 0 : Math.max(10, showEmojiPicker.position.x),
+                        top: isMobile ? 'auto' : Math.max(10, showEmojiPicker.position.y),
+                        bottom: isMobile ? 0 : 'auto',
+                        width: isMobile ? '100%' : 'auto'
+                    }}
+                >
+                    <div className="fixed inset-0" onClick={() => setShowEmojiPicker(null)} />
+                    <div className="relative shadow-2xl rounded-xl overflow-hidden">
+                        <EmojiPicker
+                            onEmojiClick={(emojiData) => addReaction(showEmojiPicker.messageId, emojiData.emoji)}
+                            theme="dark"
+                            width={isMobile ? '100%' : 350}
+                            height={isMobile ? 400 : 450}
+                            searchDisabled={false}
+                            skinTonesDisabled={true}
+                            previewConfig={{ showPreview: false }}
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* Scroll to Bottom Button */}
             {showScrollButton && (
