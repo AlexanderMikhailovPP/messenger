@@ -447,16 +447,33 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                 {/* Reactions */}
                                 {reactions[msg.id] && reactions[msg.id].length > 0 && (
                                     <div className="flex gap-1 mt-1">
-                                        {reactions[msg.id].map((reaction, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="px-2 py-1 bg-[#2f3136] rounded-full text-xs flex items-center gap-1 hover:bg-[#36393f] transition-colors cursor-pointer"
-                                                title={`${reaction.count} users reacted with ${reaction.emoji}`}
-                                            >
-                                                <span>{reaction.emoji}</span>
-                                                <span className="text-gray-400">{reaction.count}</span>
-                                            </div>
-                                        ))}
+                                        {reactions[msg.id].map((reaction, idx) => {
+                                            const hasReacted = reaction.users.some(u => u.id === user.id);
+                                            const userNames = reaction.users.map(u => u.id === user.id ? 'You' : u.username);
+                                            let tooltip = '';
+                                            if (userNames.length === 1) {
+                                                tooltip = `${userNames[0]} reacted with ${reaction.emoji}`;
+                                            } else if (userNames.length === 2) {
+                                                tooltip = `${userNames.join(' and ')} reacted with ${reaction.emoji}`;
+                                            } else {
+                                                tooltip = `${userNames.slice(0, 2).join(', ')} and ${userNames.length - 2} others reacted with ${reaction.emoji}`;
+                                            }
+
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => addReaction(msg.id, reaction.emoji)}
+                                                    className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 transition-colors cursor-pointer border ${hasReacted
+                                                            ? 'bg-blue-500/20 border-blue-500/50 hover:bg-blue-500/30'
+                                                            : 'bg-[#2f3136] border-transparent hover:bg-[#36393f] hover:border-gray-600'
+                                                        }`}
+                                                    title={tooltip}
+                                                >
+                                                    <span>{reaction.emoji}</span>
+                                                    <span className={hasReacted ? 'text-blue-100' : 'text-gray-400'}>{reaction.count}</span>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
