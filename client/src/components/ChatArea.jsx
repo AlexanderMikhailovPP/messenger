@@ -506,21 +506,25 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
     // Handle scheduled message
     const handleScheduledSubmit = async (scheduledDate) => {
-        const trimmed = newMessage.trim();
-        if (!trimmed || !currentChannel) return;
+        // newMessage contains HTML from RichTextEditor
+        const content = newMessage.trim();
+        console.log('Scheduling message:', { content, channelId: currentChannel?.id, scheduledDate });
+
+        if (!content || !currentChannel) {
+            console.log('Missing content or channel');
+            return;
+        }
 
         try {
-            await axios.post('/api/scheduled', {
-                content: trimmed,
+            const res = await axios.post('/api/scheduled', {
+                content: content,
                 channelId: currentChannel.id,
                 scheduledAt: scheduledDate.toISOString()
             });
 
+            console.log('Schedule response:', res.data);
             toast.success(`Сообщение запланировано на ${scheduledDate.toLocaleString('ru-RU')}`);
             setNewMessage('');
-            if (editorRef.current) {
-                editorRef.current.innerHTML = '';
-            }
         } catch (err) {
             console.error('Failed to schedule message:', err);
             toast.error('Не удалось запланировать сообщение');

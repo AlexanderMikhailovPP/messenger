@@ -11,22 +11,34 @@ router.post('/', async (req, res) => {
     const { content, channelId, scheduledAt } = req.body;
     const userId = req.user.userId;
 
+    console.log('Creating scheduled message:', { content: content?.substring(0, 50), channelId, scheduledAt, userId });
+
     if (!content || !channelId || !scheduledAt) {
+        console.log('Missing fields:', { content: !!content, channelId: !!channelId, scheduledAt: !!scheduledAt });
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const scheduledDate = new Date(scheduledAt);
     if (scheduledDate <= new Date()) {
+        console.log('Time in past:', scheduledDate, 'vs now:', new Date());
         return res.status(400).json({ error: 'Scheduled time must be in the future' });
     }
 
     try {
-        const result = await db.query(
+        // Insert without RETURNING for SQLite compatibility
+        await db.query(
             `INSERT INTO scheduled_messages (content, user_id, channel_id, scheduled_at)
-             VALUES (?, ?, ?, ?) RETURNING *`,
+             VALUES (?, ?, ?, ?)`,
             [content, userId, channelId, scheduledDate.toISOString()]
         );
 
+        // Get the inserted row
+        const result = await db.query(
+            'SELECT * FROM scheduled_messages WHERE user_id = ? ORDER BY id DESC LIMIT 1',
+            [userId]
+        );
+
+        console.log('Scheduled message created:', result.rows[0]);
         res.json(result.rows[0]);
     } catch (err) {
         console.error('Failed to create scheduled message:', err);
