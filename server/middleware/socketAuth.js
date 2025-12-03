@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 // Use the same logic as auth.js for JWT secret
-const getJwtSecret = () => process.env.JWT_SECRET || 'dev-secret-do-not-use-in-production-' + Date.now();
+const getJwtSecret = () => process.env.JWT_SECRET || 'corp-messenger-jwt-secret-change-me-in-production';
 
 /**
  * Socket.IO authentication middleware

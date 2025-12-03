@@ -6,22 +6,16 @@ const jwt = require('jsonwebtoken');
 
 const SALT_ROUNDS = 10;
 
-// JWT secrets - MUST be set in environment variables
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+// JWT secrets - should be set via environment variables for security
+const JWT_SECRET = process.env.JWT_SECRET || 'corp-messenger-jwt-secret-change-me-in-production';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'corp-messenger-refresh-secret-change-me-in-production';
 
-if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
-    console.error('FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in environment variables');
-    if (process.env.NODE_ENV === 'production') {
-        process.exit(1);
-    } else {
-        console.warn('WARNING: Using insecure default secrets for development only');
-    }
+if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
+    console.warn('WARNING: JWT_SECRET and/or JWT_REFRESH_SECRET not set in environment variables. Using default secrets.');
 }
 
-// Use secure defaults only in development
-const getJwtSecret = () => JWT_SECRET || 'dev-secret-do-not-use-in-production-' + Date.now();
-const getJwtRefreshSecret = () => JWT_REFRESH_SECRET || 'dev-refresh-secret-do-not-use-in-production-' + Date.now();
+const getJwtSecret = () => JWT_SECRET;
+const getJwtRefreshSecret = () => JWT_REFRESH_SECRET;
 
 // Password validation
 const MIN_PASSWORD_LENGTH = 6;
