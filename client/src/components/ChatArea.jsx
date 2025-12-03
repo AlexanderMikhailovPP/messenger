@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import EmojiPicker from 'emoji-picker-react';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
-import ActiveCallBar from './ActiveCallBar';
+import HuddlePanel from './HuddlePanel';
 import TypingIndicator from './TypingIndicator';
 import { sanitizeHTML } from '../utils/sanitize';
 import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator';
@@ -24,7 +24,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesEndRef = useRef(null);
     const editorRef = useRef(null);
     const { user } = useAuth();
-    const { isInCall, joinCall, incomingCall, clearIncomingCall } = useCall();
+    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, incomingCall, clearIncomingCall, participants } = useCall();
     const [loading, setLoading] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesContainerRef = useRef(null);
@@ -411,8 +411,17 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 </div>
             )}
 
-            {/* Active Call Bar */}
-            <ActiveCallBar />
+            {/* Huddle Panel */}
+            <HuddlePanel
+                channelId={currentChannel?.id}
+                channelName={currentChannel?.displayName || currentChannel?.name || 'Unknown'}
+                channelType={currentChannel?.type || 'channel'}
+                isInCall={isInCall}
+                isMuted={isMuted}
+                onToggleMute={toggleMute}
+                onLeave={leaveCall}
+                participants={participants}
+            />
 
             {/* Messages Container */}
             <div

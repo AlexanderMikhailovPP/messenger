@@ -12,6 +12,7 @@ export const CallProvider = ({ children }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [activeChannelId, setActiveChannelId] = useState(null);
     const [incomingCall, setIncomingCall] = useState(null);
+    const [participants, setParticipants] = useState([]); // [{ userId, username, avatarUrl, isMuted, isSpeaking, isCurrentUser }]
 
     const peersRef = useRef({}); // Keep track of peers for callbacks
     const localStreamRef = useRef(null);
@@ -24,6 +25,19 @@ export const CallProvider = ({ children }) => {
         socket.on('user-connected', (userId, socketId, username) => {
             console.log('[CallContext] User connected:', { userId, socketId, username });
             createPeerConnection(socketId, true, userId, username);
+
+            // Add to participants list
+            setParticipants(prev => {
+                if (prev.some(p => p.userId === userId)) return prev;
+                return [...prev, {
+                    userId,
+                    username,
+                    avatarUrl: null,
+                    isMuted: false,
+                    isSpeaking: false,
+                    isCurrentUser: false
+                }];
+            });
         });
 
         socket.on('incoming_call', (payload) => {
@@ -40,6 +54,9 @@ export const CallProvider = ({ children }) => {
                 peersRef.current = newPeers;
                 setPeers(newPeers);
             }
+
+            // Remove from participants
+            setParticipants(prev => prev.filter(p => p.userId !== userId));
         });
 
         socket.on('offer', async (payload) => {
@@ -148,6 +165,16 @@ export const CallProvider = ({ children }) => {
             console.log('[CallContext] Joining room:', `call_${channelId}`);
             console.log('[CallContext] Setting activeChannelId to:', channelId);
             socket.emit('join-room', `call_${channelId}`, user.id);
+
+            // Add current user to participants
+            setParticipants([{
+                userId: user.id,
+                username: user.username,
+                avatarUrl: user.avatar_url,
+                isMuted: false,
+                isSpeaking: false,
+                isCurrentUser: true
+            }]);
         } catch (err) {
             console.error('Failed to get local stream:', err);
             alert('Could not access microphone. Please allow permissions.');
@@ -165,6 +192,7 @@ export const CallProvider = ({ children }) => {
         setIsInCall(false);
         setActiveChannelId(null);
         setIsMuted(false);
+        setParticipants([]); // Clear participants
 
         Object.values(peersRef.current).forEach(p => p.peerConnection.close());
         peersRef.current = {};
@@ -188,7 +216,7 @@ export const CallProvider = ({ children }) => {
     const clearIncomingCall = () => setIncomingCall(null);
 
     return (
-        <CallContext.Provider value={{ isInCall, localStream, peers, joinCall, leaveCall, toggleMute, isMuted, activeChannelId, incomingCall, clearIncomingCall }}>
+        <CallContext.Provider value={{ isInCall, localStream, peers, joinCall, leaveCall, toggleMute, isMuted, activeChannelId, incomingCall, clearIncomingCall, participants }}>
             {children}
         </CallContext.Provider>
     );
