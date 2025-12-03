@@ -8,7 +8,7 @@ import UserAvatar from './UserAvatar';
 const changelogData = [
     {
         version: '1.5.0',
-        date: '2024-12-04',
+        date: '2025-12-04',
         icon: Clock,
         color: 'bg-purple-500',
         title: 'Отложенные сообщения',
@@ -20,7 +20,7 @@ const changelogData = [
     },
     {
         version: '1.4.0',
-        date: '2024-12-03',
+        date: '2025-12-03',
         icon: Video,
         color: 'bg-blue-500',
         title: 'Видеозвонки',
@@ -32,7 +32,7 @@ const changelogData = [
     },
     {
         version: '1.3.0',
-        date: '2024-12-02',
+        date: '2025-12-02',
         icon: Mic,
         color: 'bg-green-500',
         title: 'Голосовые сообщения',
@@ -44,7 +44,7 @@ const changelogData = [
     },
     {
         version: '1.2.0',
-        date: '2024-12-01',
+        date: '2025-12-01',
         icon: Type,
         color: 'bg-orange-500',
         title: 'Форматирование текста',
@@ -56,7 +56,7 @@ const changelogData = [
     },
     {
         version: '1.1.0',
-        date: '2024-11-30',
+        date: '2025-11-30',
         icon: MessageSquare,
         color: 'bg-pink-500',
         title: 'Треды и реакции',
@@ -68,7 +68,7 @@ const changelogData = [
     },
     {
         version: '1.0.0',
-        date: '2024-11-29',
+        date: '2025-11-29',
         icon: Users,
         color: 'bg-gray-500',
         title: 'Первый релиз',
