@@ -464,7 +464,8 @@ export const CallProvider = ({ children }) => {
         if (localStreamRef.current) {
             const audioTrack = localStreamRef.current.getAudioTracks()[0];
             if (audioTrack) {
-                const newMuteState = !audioTrack.enabled;
+                // Toggle: if currently enabled (not muted), disable it (mute)
+                const newMuteState = !isMuted;
                 audioTrack.enabled = !newMuteState;
                 setIsMuted(newMuteState);
 
@@ -483,7 +484,7 @@ export const CallProvider = ({ children }) => {
                 }
             }
         }
-    }, [activeChannelId, user?.id]);
+    }, [activeChannelId, user?.id, isMuted]);
 
     const clearIncomingCall = useCallback(() => {
         setIncomingCall(null);
