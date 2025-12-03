@@ -321,6 +321,79 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         } else if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             onSubmit?.(e);
+        } else if (e.key === 'Enter' && e.shiftKey) {
+            // Check if we're inside a list item
+            const selection = window.getSelection();
+            if (selection.rangeCount) {
+                const range = selection.getRangeAt(0);
+                let node = range.startContainer;
+                let listItem = null;
+                let list = null;
+
+                // Find parent LI and UL/OL
+                let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+                while (current && current !== editorRef.current) {
+                    if (current.tagName === 'LI') {
+                        listItem = current;
+                    }
+                    if (current.tagName === 'UL' || current.tagName === 'OL') {
+                        list = current;
+                        break;
+                    }
+                    current = current.parentElement;
+                }
+
+                if (listItem && list) {
+                    e.preventDefault();
+
+                    // If current list item is empty, exit the list
+                    if (listItem.textContent.trim() === '') {
+                        // Remove empty list item
+                        listItem.remove();
+
+                        // Add a br after the list and move cursor there
+                        const br = document.createElement('br');
+                        if (list.nextSibling) {
+                            list.parentNode.insertBefore(br, list.nextSibling);
+                        } else {
+                            list.parentNode.appendChild(br);
+                        }
+
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(br);
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                    } else {
+                        // Create new list item
+                        const newLi = document.createElement('li');
+                        newLi.innerHTML = '\u200B'; // Zero-width space for cursor
+
+                        // Insert after current list item
+                        if (listItem.nextSibling) {
+                            list.insertBefore(newLi, listItem.nextSibling);
+                        } else {
+                            list.appendChild(newLi);
+                        }
+
+                        // Move cursor to new list item
+                        const newRange = document.createRange();
+                        newRange.setStart(newLi, 0);
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                    }
+
+                    // Update value
+                    if (editorRef.current) {
+                        onChange(editorRef.current.innerHTML);
+                    }
+                    return;
+                }
+            }
+
+            // Default Shift+Enter behavior - insert line break
+            document.execCommand('insertLineBreak');
         }
 
         // Handle arrow keys to escape from inline code/formatting elements
