@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Plus, Smile, Hash, AtSign } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import QuickEmojiPicker from './QuickEmojiPicker';
 
-export default function RichTextEditor({ value, onChange, placeholder, onSubmit, disabled }) {
+export default function RichTextEditor({ value, onChange, placeholder, onSubmit, disabled, onFileAttach, onVoiceMessage, attachments = [], onRemoveAttachment }) {
     const [showLinkInput, setShowLinkInput] = useState(false);
     const [mentionQuery, setMentionQuery] = useState('');
     const [mentionType, setMentionType] = useState(null);
@@ -11,7 +12,15 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const [showMentions, setShowMentions] = useState(false);
     const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
     const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
     const editorRef = useRef(null);
+    const fileInputRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const recordingTimerRef = useRef(null);
+    const emojiButtonRef = useRef(null);
     const { user } = useAuth();
 
     useEffect(() => {
@@ -142,6 +151,112 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             onChange(editorRef.current.innerHTML);
         }
     };
+
+    // Insert emoji at cursor position
+    const insertEmoji = (emoji) => {
+        if (!editorRef.current) return;
+
+        editorRef.current.focus();
+        document.execCommand('insertText', false, emoji);
+
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+        setShowEmojiPicker(false);
+    };
+
+    // Handle file selection
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length > 0 && onFileAttach) {
+            onFileAttach(files);
+        }
+        // Reset input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    // Voice recording functions
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    audioChunksRef.current.push(e.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                if (onVoiceMessage) {
+                    onVoiceMessage(audioBlob);
+                }
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingTime(0);
+
+            // Start timer
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+        } catch (err) {
+            console.error('Failed to start recording:', err);
+            alert('Could not access microphone. Please allow microphone permissions.');
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+            if (recordingTimerRef.current) {
+                clearInterval(recordingTimerRef.current);
+            }
+        }
+    };
+
+    const cancelRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            // Don't call onVoiceMessage - just discard
+            audioChunksRef.current = [];
+            setIsRecording(false);
+            if (recordingTimerRef.current) {
+                clearInterval(recordingTimerRef.current);
+            }
+            // Stop tracks
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        }
+    };
+
+    const formatRecordingTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Close emoji picker when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (showEmojiPicker && emojiButtonRef.current && !emojiButtonRef.current.contains(e.target)) {
+                const picker = document.querySelector('.emoji-picker-container');
+                if (picker && !picker.contains(e.target)) {
+                    setShowEmojiPicker(false);
+                }
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showEmojiPicker]);
 
     const searchMentions = async (query, type) => {
         try {
@@ -595,21 +710,123 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 )}
             </div>
 
+            {/* Attachments Preview */}
+            {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-3 py-2 border-t border-gray-700">
+                    {attachments.map((file, index) => (
+                        <div key={index} className="relative group flex items-center gap-2 bg-[#2b2d31] rounded-lg px-3 py-2">
+                            {file.type?.startsWith('image/') ? (
+                                <img
+                                    src={file.preview || URL.createObjectURL(file)}
+                                    alt={file.name}
+                                    className="w-10 h-10 object-cover rounded"
+                                />
+                            ) : (
+                                <div className="w-10 h-10 bg-[#3f4147] rounded flex items-center justify-center">
+                                    <Paperclip size={16} className="text-gray-400" />
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <div className="text-sm text-white truncate max-w-[150px]">{file.name}</div>
+                                <div className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</div>
+                            </div>
+                            {onRemoveAttachment && (
+                                <button
+                                    onClick={() => onRemoveAttachment(index)}
+                                    className="p-1 hover:bg-red-500/20 rounded transition-colors"
+                                >
+                                    <X size={14} className="text-gray-400 hover:text-red-400" />
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {/* Action Bar */}
             <div className="flex items-center justify-between p-2 border-t border-gray-700">
                 <div className="flex items-center gap-1">
-                    <ActionBtn icon={<Plus size={16} />} />
-                    <ActionBtn icon={<Smile size={16} />} />
+                    {/* File attachment */}
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded-full transition-colors"
+                        title="Attach file"
+                    >
+                        <Paperclip size={16} />
+                    </button>
+
+                    {/* Emoji picker */}
+                    <div className="relative" ref={emojiButtonRef}>
+                        <button
+                            type="button"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                            className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded-full transition-colors"
+                            title="Add emoji"
+                        >
+                            <Smile size={16} />
+                        </button>
+                        {showEmojiPicker && (
+                            <div className="emoji-picker-container absolute bottom-full left-0 mb-2 z-50">
+                                <QuickEmojiPicker
+                                    onSelect={insertEmoji}
+                                    onClose={() => setShowEmojiPicker(false)}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Voice recording */}
+                    {!isRecording ? (
+                        <button
+                            type="button"
+                            onClick={startRecording}
+                            className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded-full transition-colors"
+                            title="Record voice message"
+                        >
+                            <Mic size={16} />
+                        </button>
+                    ) : (
+                        <div className="flex items-center gap-2 bg-red-500/20 rounded-full px-3 py-1">
+                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            <span className="text-red-400 text-sm font-medium">{formatRecordingTime(recordingTime)}</span>
+                            <button
+                                type="button"
+                                onClick={cancelRecording}
+                                className="p-1 hover:bg-red-500/30 rounded-full transition-colors"
+                                title="Cancel"
+                            >
+                                <X size={14} className="text-red-400" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={stopRecording}
+                                className="p-1 hover:bg-red-500/30 rounded-full transition-colors"
+                                title="Stop and send"
+                            >
+                                <Square size={14} className="text-red-400" fill="currentColor" />
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <button
                     type="submit"
                     onClick={onSubmit}
-                    disabled={disabled}
-                    className={`p-2 rounded transition-colors ${!disabled ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                    disabled={disabled || isRecording}
+                    className={`p-2 rounded transition-colors ${!disabled && !isRecording ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
                 >
                     <Send size={16} />
                 </button>
             </div>
+
+            {/* Hidden file input */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+            />
 
             <style>{`
                 [contentEditable][data-placeholder]:empty:before {
@@ -689,17 +906,6 @@ function ToolbarButton({ onClick, icon, title }) {
             onClick={onClick}
             className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
             title={title}
-        >
-            {icon}
-        </button>
-    );
-}
-
-function ActionBtn({ icon }) {
-    return (
-        <button
-            type="button"
-            className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded-full transition-colors"
         >
             {icon}
         </button>

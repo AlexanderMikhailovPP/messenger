@@ -1,10 +1,114 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const db = require('../db');
 const authMiddleware = require('../middleware/auth');
+const { uploadFile, isR2Configured } = require('../storage/r2-client');
 
 // All routes require authentication
 router.use(authMiddleware);
+
+// Configure multer for file uploads
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+});
+
+// Upload file attachment
+router.post('/upload', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        let fileUrl;
+        const originalName = req.file.originalname;
+        const mimeType = req.file.mimetype;
+        const fileSize = req.file.size;
+
+        if (isR2Configured()) {
+            // Upload to Cloudflare R2
+            fileUrl = await uploadFile(
+                req.file.buffer,
+                originalName,
+                mimeType,
+                'attachments'
+            );
+        } else {
+            // Fallback to local filesystem
+            const fs = require('fs').promises;
+            const uploadDir = path.join(__dirname, '../uploads/attachments');
+
+            // Ensure directory exists
+            await fs.mkdir(uploadDir, { recursive: true });
+
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            const ext = path.extname(originalName);
+            const filename = 'file-' + uniqueSuffix + ext;
+            const filepath = path.join(uploadDir, filename);
+
+            await fs.writeFile(filepath, req.file.buffer);
+            fileUrl = `/uploads/attachments/${filename}`;
+        }
+
+        res.json({
+            url: fileUrl,
+            name: originalName,
+            type: mimeType,
+            size: fileSize
+        });
+    } catch (err) {
+        console.error('File upload error:', err);
+        res.status(500).json({ error: 'Failed to upload file' });
+    }
+});
+
+// Upload voice message
+router.post('/voice', upload.single('audio'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No audio uploaded' });
+        }
+
+        let fileUrl;
+        const mimeType = req.file.mimetype || 'audio/webm';
+        const fileSize = req.file.size;
+
+        if (isR2Configured()) {
+            // Upload to Cloudflare R2
+            fileUrl = await uploadFile(
+                req.file.buffer,
+                `voice-${Date.now()}.webm`,
+                mimeType,
+                'voice-messages'
+            );
+        } else {
+            // Fallback to local filesystem
+            const fs = require('fs').promises;
+            const uploadDir = path.join(__dirname, '../uploads/voice');
+
+            // Ensure directory exists
+            await fs.mkdir(uploadDir, { recursive: true });
+
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            const filename = 'voice-' + uniqueSuffix + '.webm';
+            const filepath = path.join(uploadDir, filename);
+
+            await fs.writeFile(filepath, req.file.buffer);
+            fileUrl = `/uploads/voice/${filename}`;
+        }
+
+        res.json({
+            url: fileUrl,
+            type: mimeType,
+            size: fileSize
+        });
+    } catch (err) {
+        console.error('Voice upload error:', err);
+        res.status(500).json({ error: 'Failed to upload voice message' });
+    }
+});
 
 // Get messages for a channel (excluding thread replies)
 router.get('/:channelId', async (req, res) => {

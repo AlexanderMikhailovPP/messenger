@@ -23,6 +23,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const [showEmojiPicker, setShowEmojiPicker] = useState(null);
     const [mentionPopup, setMentionPopup] = useState(null);
     const [activeThread, setActiveThread] = useState(null);
+    const [attachments, setAttachments] = useState([]);
+    const [uploadingFiles, setUploadingFiles] = useState(false);
     const messagesEndRef = useRef(null);
     const editorRef = useRef(null);
     const { user } = useAuth();
@@ -315,9 +317,13 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         }
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         const trimmed = newMessage.trim();
-        if (!trimmed || trimmed.length === 0 || !currentChannel) return;
+        const hasContent = trimmed && trimmed.length > 0;
+        const hasAttachments = attachments.length > 0;
+
+        if (!hasContent && !hasAttachments) return;
+        if (!currentChannel) return;
 
         const socket = getSocket();
         if (!socket) {
@@ -325,15 +331,93 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             return;
         }
 
+        let messageContent = trimmed;
+
+        // Upload attachments first if any
+        if (hasAttachments) {
+            setUploadingFiles(true);
+            try {
+                const uploadedFiles = [];
+                for (const file of attachments) {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await axios.post('/api/messages/upload', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    uploadedFiles.push(res.data);
+                }
+
+                // Add file links to message content
+                const fileHtml = uploadedFiles.map(file => {
+                    if (file.type?.startsWith('image/')) {
+                        return `<div class="attachment-image"><img src="${file.url}" alt="${file.name}" style="max-width: 400px; max-height: 300px; border-radius: 8px; margin: 4px 0;" /><div class="text-xs text-gray-400">${file.name}</div></div>`;
+                    } else if (file.type?.startsWith('audio/')) {
+                        return `<div class="attachment-audio"><audio controls src="${file.url}" style="max-width: 300px;"></audio><div class="text-xs text-gray-400">${file.name}</div></div>`;
+                    } else {
+                        return `<div class="attachment-file"><a href="${file.url}" target="_blank" class="flex items-center gap-2 bg-[#2b2d31] rounded-lg px-3 py-2 inline-flex text-blue-400 hover:text-blue-300"><span>📎</span><span>${file.name}</span><span class="text-xs text-gray-500">(${(file.size / 1024).toFixed(1)} KB)</span></a></div>`;
+                    }
+                }).join('');
+
+                messageContent = messageContent ? `${messageContent}<br/>${fileHtml}` : fileHtml;
+            } catch (err) {
+                console.error('Failed to upload files:', err);
+                toast.error('Failed to upload files');
+                setUploadingFiles(false);
+                return;
+            }
+            setUploadingFiles(false);
+        }
+
         socket.emit('send_message', {
-            content: trimmed,
+            content: messageContent,
             userId: user.id,
             channelId: currentChannel.id
         });
 
         setNewMessage('');
+        setAttachments([]);
         if (editorRef.current) {
             editorRef.current.innerHTML = '';
+        }
+    };
+
+    // Handle file attachment
+    const handleFileAttach = (files) => {
+        setAttachments(prev => [...prev, ...files]);
+    };
+
+    // Remove attachment
+    const handleRemoveAttachment = (index) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Handle voice message
+    const handleVoiceMessage = async (audioBlob) => {
+        if (!currentChannel) return;
+
+        const socket = getSocket();
+        if (!socket) {
+            toast.error('Not connected. Please try logging in again.');
+            return;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'voice-message.webm');
+            const res = await axios.post('/api/messages/voice', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            const voiceHtml = `<div class="voice-message"><audio controls src="${res.data.url}" style="max-width: 300px;"></audio><div class="text-xs text-gray-400">Voice message</div></div>`;
+
+            socket.emit('send_message', {
+                content: voiceHtml,
+                userId: user.id,
+                channelId: currentChannel.id
+            });
+        } catch (err) {
+            console.error('Failed to upload voice message:', err);
+            toast.error('Failed to send voice message');
         }
     };
 
@@ -696,7 +780,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                         }}
                         placeholder={`Message ${currentChannel.type === 'dm' ? '@' + (currentChannel.displayName || currentChannel.name) : '#' + currentChannel.name}`}
                         onSubmit={handleSubmit}
-                        disabled={!newMessage.trim()}
+                        disabled={!newMessage.trim() && attachments.length === 0}
+                        onFileAttach={handleFileAttach}
+                        onVoiceMessage={handleVoiceMessage}
+                        attachments={attachments}
+                        onRemoveAttachment={handleRemoveAttachment}
                     />
                 </div>
             </div>

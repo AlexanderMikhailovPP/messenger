@@ -7,9 +7,9 @@ import DOMPurify from 'dompurify';
  */
 export const sanitizeHTML = (html) => {
     return DOMPurify.sanitize(html, {
-        ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'code', 'pre', 'a', 'span', 'br', 'div', 'p', 'ul', 'ol', 'li', 'blockquote'],
-        ALLOWED_ATTR: ['class', 'data-id', 'data-type', 'href', 'target', 'rel'],
+        ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'code', 'pre', 'a', 'span', 'br', 'div', 'p', 'ul', 'ol', 'li', 'blockquote', 'img', 'audio'],
+        ALLOWED_ATTR: ['class', 'data-id', 'data-type', 'href', 'target', 'rel', 'src', 'alt', 'style', 'controls'],
         ALLOW_DATA_ATTR: true,
-        ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
+        ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
     });
 };
