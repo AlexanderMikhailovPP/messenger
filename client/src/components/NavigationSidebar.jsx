@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Hash, Plus, ChevronDown, Search, MessageSquare, Home, Sparkles, X, Clock, Video, Mic, Type, Users } from 'lucide-react';
+import { Hash, Plus, ChevronDown, Search, Sparkles, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUnreadCounts } from '../utils/unreadCounter';
 import UserAvatar from './UserAvatar';
@@ -9,8 +9,6 @@ const changelogData = [
     {
         version: '1.5.0',
         date: '2025-12-04',
-        icon: Clock,
-        color: 'bg-purple-500',
         title: 'Отложенные сообщения',
         changes: [
             'Планирование отправки сообщений на определённое время',
@@ -21,20 +19,6 @@ const changelogData = [
     {
         version: '1.4.0',
         date: '2025-12-03',
-        icon: Video,
-        color: 'bg-blue-500',
-        title: 'Видеозвонки',
-        changes: [
-            'WebRTC видеозвонки между пользователями',
-            'Включение/выключение камеры и микрофона',
-            'Групповые видеоконференции (Huddle)',
-        ]
-    },
-    {
-        version: '1.3.0',
-        date: '2025-12-02',
-        icon: Mic,
-        color: 'bg-green-500',
         title: 'Голосовые сообщения',
         changes: [
             'Запись голосовых сообщений',
@@ -43,38 +27,41 @@ const changelogData = [
         ]
     },
     {
+        version: '1.3.0',
+        date: '2025-12-03',
+        title: 'Видеозвонки и Huddle',
+        changes: [
+            'WebRTC видеозвонки между пользователями',
+            'Включение/выключение камеры и микрофона',
+            'Групповые видеоконференции (Huddle)',
+        ]
+    },
+    {
         version: '1.2.0',
-        date: '2025-12-01',
-        icon: Type,
-        color: 'bg-orange-500',
-        title: 'Форматирование текста',
+        date: '2025-12-03',
+        title: 'Форматирование и треды',
         changes: [
             'Жирный, курсив, подчёркнутый текст',
-            'Списки и цитаты',
-            'Блоки кода с подсветкой синтаксиса',
+            'Списки, цитаты и блоки кода',
+            'Ответы в тредах на сообщения',
         ]
     },
     {
         version: '1.1.0',
-        date: '2025-11-30',
-        icon: MessageSquare,
-        color: 'bg-pink-500',
-        title: 'Треды и реакции',
+        date: '2025-12-01',
+        title: 'Реакции',
         changes: [
-            'Ответы в тредах на сообщения',
             'Эмодзи-реакции на сообщения',
-            'Отображение количества ответов',
+            'Пикер эмодзи с поиском',
         ]
     },
     {
         version: '1.0.0',
-        date: '2025-11-29',
-        icon: Users,
-        color: 'bg-gray-500',
+        date: '2025-12-01',
         title: 'Первый релиз',
         changes: [
             'Регистрация и авторизация',
-            'Создание каналов',
+            'Создание каналов и личных сообщений',
             'Обмен сообщениями в реальном времени',
         ]
     },
@@ -423,42 +410,31 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                         </div>
 
                         {/* Changelog entries */}
-                        <div className="overflow-y-auto max-h-[calc(80vh-140px)] p-4 space-y-4">
-                            {changelogData.map((entry, index) => {
-                                const IconComponent = entry.icon;
-                                return (
-                                    <div
-                                        key={entry.version}
-                                        className={`relative pl-8 pb-4 ${index !== changelogData.length - 1 ? 'border-l-2 border-gray-700 ml-4' : 'ml-4'}`}
-                                    >
-                                        {/* Version badge with icon */}
-                                        <div className={`absolute -left-4 top-0 w-8 h-8 ${entry.color} rounded-full flex items-center justify-center shadow-lg`}>
-                                            <IconComponent size={16} className="text-white" />
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="bg-gray-800 rounded-xl p-4 ml-4 hover:bg-gray-750 transition-colors">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <h3 className="font-bold text-lg">{entry.title}</h3>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-gray-400">{entry.date}</span>
-                                                    <span className="text-xs bg-gray-700 px-2 py-0.5 rounded-full font-mono">
-                                                        v{entry.version}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <ul className="space-y-1.5">
-                                                {entry.changes.map((change, i) => (
-                                                    <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                                                        <span className="text-green-400 mt-0.5">•</span>
-                                                        {change}
-                                                    </li>
-                                                ))}
-                                            </ul>
+                        <div className="overflow-y-auto max-h-[calc(80vh-140px)] p-4 space-y-3">
+                            {changelogData.map((entry) => (
+                                <div
+                                    key={entry.version}
+                                    className="bg-gray-800 rounded-xl p-4 hover:bg-gray-800/80 transition-colors"
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="font-bold text-lg">{entry.title}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-400">{entry.date}</span>
+                                            <span className="text-xs bg-gray-700 px-2 py-0.5 rounded-full font-mono">
+                                                v{entry.version}
+                                            </span>
                                         </div>
                                     </div>
-                                );
-                            })}
+                                    <ul className="space-y-1.5">
+                                        {entry.changes.map((change, i) => (
+                                            <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                                                <span className="text-green-400 mt-0.5">•</span>
+                                                {change}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
