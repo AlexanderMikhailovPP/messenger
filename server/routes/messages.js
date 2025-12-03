@@ -66,6 +66,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
 // Upload voice message
 router.post('/voice', upload.single('audio'), async (req, res) => {
+    console.log('Voice upload request received');
+    console.log('File:', req.file ? { size: req.file.size, mimetype: req.file.mimetype } : 'NO FILE');
+
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No audio uploaded' });
@@ -74,6 +77,8 @@ router.post('/voice', upload.single('audio'), async (req, res) => {
         let fileUrl;
         const mimeType = req.file.mimetype || 'audio/webm';
         const fileSize = req.file.size;
+
+        console.log('Processing voice file:', { mimeType, fileSize });
 
         if (isR2Configured()) {
             // Upload to Cloudflare R2
@@ -97,8 +102,10 @@ router.post('/voice', upload.single('audio'), async (req, res) => {
 
             await fs.writeFile(filepath, req.file.buffer);
             fileUrl = `/uploads/voice/${filename}`;
+            console.log('Voice file saved to:', filepath);
         }
 
+        console.log('Voice upload success:', { url: fileUrl, size: fileSize });
         res.json({
             url: fileUrl,
             type: mimeType,
