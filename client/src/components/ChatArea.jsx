@@ -64,7 +64,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         const handleNewMessage = (message) => {
             if (currentChannel && message.channel_id === currentChannel.id) {
                 setMessages((prev) => [...prev, message]);
-                // Message in current channel - already marked as read
+                // Scroll to bottom for new messages in current channel
+                setTimeout(() => {
+                    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
             } else {
                 // Message in different channel - increment unread
                 incrementUnread(message.channel_id);
@@ -96,10 +99,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             socket.off('thread_updated', handleThreadUpdated);
         };
     }, [currentChannel]);
-
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
 
     // Scroll button visibility
     useEffect(() => {
