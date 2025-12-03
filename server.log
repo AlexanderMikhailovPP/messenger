@@ -1,0 +1,58 @@
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        avatar_url TEXT
+      );
+Server running on port 3001
+
+      CREATE TABLE IF NOT EXISTS channels (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        description TEXT,
+        type TEXT DEFAULT 'public'
+      );
+
+      CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content TEXT NOT NULL,
+        user_id INTEGER NOT NULL,
+        channel_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        edited_at DATETIME,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (channel_id) REFERENCES channels (id)
+      );
+
+      CREATE TABLE IF NOT EXISTS reactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        emoji TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (message_id) REFERENCES messages (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        UNIQUE(message_id, user_id, emoji)
+      );
+SQLite Query Error: SqliteError: duplicate column name: type
+    at Database.prepare (/Users/aleksandr.mixayilov/CorpMessenger/server/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21)
+    at /Users/aleksandr.mixayilov/CorpMessenger/server/db-adapter.js:73:39
+    at new Promise (<anonymous>)
+    at Object.query (/Users/aleksandr.mixayilov/CorpMessenger/server/db-adapter.js:70:16)
+    at initDb (/Users/aleksandr.mixayilov/CorpMessenger/server/db.js:56:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  code: 'SQLITE_ERROR'
+}
+SQLite Query Error: SqliteError: duplicate column name: edited_at
+    at Database.prepare (/Users/aleksandr.mixayilov/CorpMessenger/server/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21)
+    at /Users/aleksandr.mixayilov/CorpMessenger/server/db-adapter.js:73:39
+    at new Promise (<anonymous>)
+    at Object.query (/Users/aleksandr.mixayilov/CorpMessenger/server/db-adapter.js:70:16)
+    at initDb (/Users/aleksandr.mixayilov/CorpMessenger/server/db.js:63:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+  code: 'SQLITE_ERROR'
+}
+SELECT * FROM channels WHERE name = 'general'
+Database initialized (sqlite)

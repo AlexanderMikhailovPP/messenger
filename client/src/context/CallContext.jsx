@@ -146,6 +146,7 @@ export const CallProvider = ({ children }) => {
             setActiveChannelId(channelId);
 
             console.log('[CallContext] Joining room:', `call_${channelId}`);
+            console.log('[CallContext] Setting activeChannelId to:', channelId);
             socket.emit('join-room', `call_${channelId}`, user.id);
         } catch (err) {
             console.error('Failed to get local stream:', err);
