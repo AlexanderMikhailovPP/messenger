@@ -23,6 +23,87 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const applyFormat = (command, value = null) => {
         document.execCommand(command, false, value);
         editorRef.current?.focus();
+        // Trigger onChange after formatting
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+    };
+
+    const wrapSelectionWithTag = (tagName) => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString();
+
+        if (selectedText) {
+            // Wrap selected text with tag
+            const wrapper = document.createElement(tagName);
+            wrapper.textContent = selectedText;
+            range.deleteContents();
+            range.insertNode(wrapper);
+
+            // Move cursor after the wrapper
+            const newRange = document.createRange();
+            newRange.setStartAfter(wrapper);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        } else {
+            // No selection - insert placeholder
+            const wrapper = document.createElement(tagName);
+            wrapper.innerHTML = '&#8203;'; // Zero-width space
+            range.insertNode(wrapper);
+
+            // Move cursor inside the wrapper
+            const newRange = document.createRange();
+            newRange.selectNodeContents(wrapper);
+            newRange.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        }
+
+        editorRef.current?.focus();
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+    };
+
+    const insertCodeBlock = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString();
+
+        // Create pre > code structure
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.textContent = selectedText || '\u200B'; // Zero-width space if empty
+        pre.appendChild(code);
+
+        range.deleteContents();
+        range.insertNode(pre);
+
+        // Add a line break after for continued typing
+        const br = document.createElement('br');
+        if (pre.nextSibling) {
+            pre.parentNode.insertBefore(br, pre.nextSibling);
+        } else {
+            pre.parentNode.appendChild(br);
+        }
+
+        // Move cursor after the pre block
+        const newRange = document.createRange();
+        newRange.setStartAfter(br);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+
+        editorRef.current?.focus();
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
     };
 
     const insertLink = () => {
@@ -260,8 +341,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
-                <ToolbarButton onClick={() => applyFormat('formatBlock', '<pre>')} icon={<Code size={16} />} title="Code Block" />
-                <ToolbarButton onClick={() => applyFormat('insertHTML', '<code></code>')} icon={<FileCode size={16} />} title="Inline Code" />
+                <ToolbarButton onClick={insertCodeBlock} icon={<Code size={16} />} title="Code Block" />
+                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<FileCode size={16} />} title="Inline Code" />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
@@ -377,14 +458,45 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     background: #374151;
                     padding: 2px 6px;
                     border-radius: 4px;
-                    font-family: monospace;
+                    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', monospace;
+                    font-size: 0.9em;
                 }
                 [contentEditable] pre {
                     background: #1f2937;
                     padding: 12px;
                     border-radius: 6px;
                     overflow-x: auto;
-                    font-family: monospace;
+                    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', monospace;
+                    margin: 8px 0;
+                }
+                [contentEditable] pre code {
+                    background: transparent;
+                    padding: 0;
+                }
+                [contentEditable] ul {
+                    list-style-type: disc;
+                    padding-left: 24px;
+                    margin: 4px 0;
+                }
+                [contentEditable] ol {
+                    list-style-type: decimal;
+                    padding-left: 24px;
+                    margin: 4px 0;
+                }
+                [contentEditable] li {
+                    margin: 2px 0;
+                }
+                [contentEditable] b, [contentEditable] strong {
+                    font-weight: 700;
+                }
+                [contentEditable] i, [contentEditable] em {
+                    font-style: italic;
+                }
+                [contentEditable] u {
+                    text-decoration: underline;
+                }
+                [contentEditable] s, [contentEditable] strike {
+                    text-decoration: line-through;
                 }
                 [contentEditable] .mention-user,
                 [contentEditable] .mention-channel {

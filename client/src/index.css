@@ -51,8 +51,9 @@ body {
     background: #374151;
     padding: 2px 6px;
     border-radius: 4px;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9em;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Courier New', monospace;
+    font-size: 0.875em;
+    color: #f3a8b5;
 }
 
 .text-gray-300 pre {
@@ -60,8 +61,16 @@ body {
     padding: 12px;
     border-radius: 6px;
     overflow-x: auto;
-    font-family: 'Courier New', monospace;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Courier New', monospace;
     margin: 8px 0;
+    font-size: 0.875em;
+    line-height: 1.5;
+}
+
+.text-gray-300 pre code {
+    background: transparent;
+    padding: 0;
+    color: #e5e7eb;
 }
 
 .text-gray-300 a {
