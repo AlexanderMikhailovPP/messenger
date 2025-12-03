@@ -9,60 +9,60 @@ const changelogData = [
     {
         version: '1.5.0',
         date: '2025-12-04',
-        title: 'Отложенные сообщения',
+        title: 'Scheduled Messages',
         changes: [
-            'Планирование отправки сообщений на определённое время',
-            'Пресеты: через 30 мин, 1 час, 3 часа, завтра в 9:00',
-            'Выбор произвольной даты и времени',
+            'Schedule messages to be sent at a specific time',
+            'Presets: in 30 min, 1 hour, 3 hours, tomorrow at 9:00',
+            'Custom date and time picker',
         ]
     },
     {
         version: '1.4.0',
         date: '2025-12-03',
-        title: 'Голосовые сообщения',
+        title: 'Voice Messages',
         changes: [
-            'Запись голосовых сообщений',
-            'Предпрослушивание перед отправкой',
-            'Воспроизведение в чате',
+            'Record voice messages',
+            'Preview before sending',
+            'Playback in chat',
         ]
     },
     {
         version: '1.3.0',
         date: '2025-12-03',
-        title: 'Видеозвонки и Huddle',
+        title: 'Video Calls & Huddle',
         changes: [
-            'WebRTC видеозвонки между пользователями',
-            'Включение/выключение камеры и микрофона',
-            'Групповые видеоконференции (Huddle)',
+            'WebRTC video calls between users',
+            'Toggle camera and microphone',
+            'Group video conferences (Huddle)',
         ]
     },
     {
         version: '1.2.0',
         date: '2025-12-03',
-        title: 'Форматирование и треды',
+        title: 'Formatting & Threads',
         changes: [
-            'Жирный, курсив, подчёркнутый текст',
-            'Списки, цитаты и блоки кода',
-            'Ответы в тредах на сообщения',
+            'Bold, italic, underline text',
+            'Lists, quotes and code blocks',
+            'Reply in threads',
         ]
     },
     {
         version: '1.1.0',
         date: '2025-12-01',
-        title: 'Реакции',
+        title: 'Reactions',
         changes: [
-            'Эмодзи-реакции на сообщения',
-            'Пикер эмодзи с поиском',
+            'Emoji reactions on messages',
+            'Emoji picker with search',
         ]
     },
     {
         version: '1.0.0',
         date: '2025-12-01',
-        title: 'Первый релиз',
+        title: 'Initial Release',
         changes: [
-            'Регистрация и авторизация',
-            'Создание каналов и личных сообщений',
-            'Обмен сообщениями в реальном времени',
+            'Registration and authentication',
+            'Create channels and direct messages',
+            'Real-time messaging',
         ]
     },
 ];
@@ -403,8 +403,8 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                     <Sparkles size={24} className="text-yellow-300" />
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-bold">Что нового</h2>
-                                    <p className="text-white/70 text-sm">История обновлений CorpMessenger</p>
+                                    <h2 className="text-2xl font-bold">What's New</h2>
+                                    <p className="text-white/70 text-sm">CorpMessenger Release Notes</p>
                                 </div>
                             </div>
                         </div>
