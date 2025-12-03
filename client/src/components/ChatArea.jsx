@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { getSocket } from '../socket';
-import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown, ChevronLeft, PhoneOff } from 'lucide-react';
+import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown, ChevronLeft, PhoneOff, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import toast from 'react-hot-toast';
@@ -9,6 +9,7 @@ import QuickEmojiPicker from './QuickEmojiPicker';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
 import HuddlePanel from './HuddlePanel';
+import ThreadPanel from './ThreadPanel';
 import TypingIndicator from './TypingIndicator';
 import { sanitizeHTML } from '../utils/sanitize';
 import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator';
@@ -21,6 +22,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const [reactions, setReactions] = useState({});
     const [showEmojiPicker, setShowEmojiPicker] = useState(null);
     const [mentionPopup, setMentionPopup] = useState(null);
+    const [activeThread, setActiveThread] = useState(null);
     const messagesEndRef = useRef(null);
     const editorRef = useRef(null);
     const { user } = useAuth();
@@ -75,12 +77,23 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             ));
         };
 
+        // Handle thread updates (reply count changes)
+        const handleThreadUpdated = ({ messageId, replyCount, lastReply }) => {
+            setMessages((prev) => prev.map(msg =>
+                msg.id === messageId
+                    ? { ...msg, reply_count: replyCount, last_reply_at: lastReply.created_at }
+                    : msg
+            ));
+        };
+
         socket.on('receive_message', handleNewMessage);
         socket.on('message_updated', handleMessageUpdated);
+        socket.on('thread_updated', handleThreadUpdated);
 
         return () => {
             socket.off('receive_message', handleNewMessage);
             socket.off('message_updated', handleMessageUpdated);
+            socket.off('thread_updated', handleThreadUpdated);
         };
     }, [currentChannel]);
 
@@ -366,7 +379,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     }
 
     return (
-        <div className="flex-1 h-full flex flex-col bg-[#1a1d21] relative min-h-0">
+        <div className="flex-1 h-full flex bg-[#1a1d21] relative min-h-0">
+            {/* Main Chat Area */}
+            <div className={`flex-1 flex flex-col min-h-0 ${activeThread ? 'hidden md:flex' : ''}`}>
             {/* Channel Header */}
             <div className="h-14 px-4 flex items-center justify-between border-b border-gray-800 bg-[#1a1d21] shadow-sm flex-shrink-0">
                 <div className="flex items-center gap-3">
@@ -577,6 +592,17 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                         </button>
                                     </div>
                                 )}
+
+                                {/* Thread replies indicator */}
+                                {msg.reply_count > 0 && (
+                                    <button
+                                        onClick={() => setActiveThread(msg)}
+                                        className="flex items-center gap-2 mt-1 text-[#00a8fc] hover:underline text-sm"
+                                    >
+                                        <MessageSquare size={14} />
+                                        <span>{msg.reply_count} {msg.reply_count === 1 ? 'reply' : 'replies'}</span>
+                                    </button>
+                                )}
                             </div>
 
                             {/* Message Actions */}
@@ -596,6 +622,13 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                     title="Add Reaction"
                                 >
                                     <Smile className="text-gray-400 hover:text-white" size={16} />
+                                </button>
+                                <button
+                                    onClick={() => setActiveThread(msg)}
+                                    className="p-1.5 hover:bg-[#3f4147] rounded transition-colors"
+                                    title="Reply in thread"
+                                >
+                                    <MessageSquare className="text-gray-400 hover:text-white" size={16} />
                                 </button>
                             </div>
                         </div>
@@ -684,6 +717,16 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                             setMentionPopup(null);
                         }, 500);
                     }}
+                />
+            )}
+            </div>
+
+            {/* Thread Panel - Right Sidebar */}
+            {activeThread && (
+                <ThreadPanel
+                    parentMessage={activeThread}
+                    channelName={currentChannel?.name}
+                    onClose={() => setActiveThread(null)}
                 />
             )}
         </div>

@@ -94,17 +94,26 @@ const initDb = async () => {
       // Column likely already exists
     }
 
+    // Migration: Add thread_id column for threading support
+    try {
+      await db.query(`ALTER TABLE messages ADD COLUMN thread_id INTEGER REFERENCES messages(id)`);
+    } catch (error) {
+      // Column likely already exists
+    }
+
     // Create indexes for better performance
     try {
       if (isPostgres) {
         await db.query('CREATE INDEX IF NOT EXISTS idx_messages_channel_id ON messages(channel_id)');
         await db.query('CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)');
+        await db.query('CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON messages(thread_id)');
         await db.query('CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id)');
         await db.query('CREATE INDEX IF NOT EXISTS idx_huddle_participants_huddle_id ON huddle_participants(huddle_id)');
       } else {
         // SQLite syntax
         await db.query('CREATE INDEX IF NOT EXISTS idx_messages_channel_id ON messages(channel_id)');
         await db.query('CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id)');
+        await db.query('CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON messages(thread_id)');
         await db.query('CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON reactions(message_id)');
         await db.query('CREATE INDEX IF NOT EXISTS idx_huddle_participants_huddle_id ON huddle_participants(huddle_id)');
       }

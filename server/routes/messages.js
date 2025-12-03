@@ -6,15 +6,17 @@ const authMiddleware = require('../middleware/auth');
 // All routes require authentication
 router.use(authMiddleware);
 
-// Get messages for a channel
+// Get messages for a channel (excluding thread replies)
 router.get('/:channelId', async (req, res) => {
     const { channelId } = req.params;
     try {
         const result = await db.query(`
-            SELECT m.*, u.username, u.avatar_url
+            SELECT m.*, u.username, u.avatar_url,
+                   (SELECT COUNT(*) FROM messages WHERE thread_id = m.id) as reply_count,
+                   (SELECT MAX(created_at) FROM messages WHERE thread_id = m.id) as last_reply_at
             FROM messages m
             JOIN users u ON m.user_id = u.id
-            WHERE m.channel_id = ?
+            WHERE m.channel_id = ? AND m.thread_id IS NULL
             ORDER BY m.id ASC
         `, [channelId]);
         res.json(result.rows);
@@ -23,6 +25,43 @@ router.get('/:channelId', async (req, res) => {
             console.error(`Error fetching messages for channel ${channelId}:`, err);
         }
         res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+});
+
+// Get thread messages (replies to a parent message)
+router.get('/thread/:messageId', async (req, res) => {
+    const { messageId } = req.params;
+    try {
+        // Get parent message
+        const parentResult = await db.query(`
+            SELECT m.*, u.username, u.avatar_url
+            FROM messages m
+            JOIN users u ON m.user_id = u.id
+            WHERE m.id = ?
+        `, [messageId]);
+
+        if (parentResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Message not found' });
+        }
+
+        // Get thread replies
+        const repliesResult = await db.query(`
+            SELECT m.*, u.username, u.avatar_url
+            FROM messages m
+            JOIN users u ON m.user_id = u.id
+            WHERE m.thread_id = ?
+            ORDER BY m.id ASC
+        `, [messageId]);
+
+        res.json({
+            parent: parentResult.rows[0],
+            replies: repliesResult.rows
+        });
+    } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(`Error fetching thread ${messageId}:`, err);
+        }
+        res.status(500).json({ error: 'Failed to fetch thread' });
     }
 });
 

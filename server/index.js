@@ -81,7 +81,7 @@ io.on('connection', (socket) => {
 
     socket.on('send_message', async (data, callback) => {
         // Always use authenticated userId from socket for security
-        const { content, channelId } = data;
+        const { content, channelId, threadId } = data;
         const authenticatedUserId = socket.data.userId;
 
         if (!authenticatedUserId) {
@@ -93,21 +93,50 @@ io.on('connection', (socket) => {
 
         // Save to DB
         try {
-            const result = await db.insertReturning('INSERT INTO messages (content, user_id, channel_id) VALUES (?, ?, ?) RETURNING id', [content, authenticatedUserId, channelId]);
+            let result;
+            if (threadId) {
+                // Thread reply
+                result = await db.insertReturning(
+                    'INSERT INTO messages (content, user_id, channel_id, thread_id) VALUES (?, ?, ?, ?) RETURNING id',
+                    [content, authenticatedUserId, channelId, threadId]
+                );
+            } else {
+                // Regular message
+                result = await db.insertReturning(
+                    'INSERT INTO messages (content, user_id, channel_id) VALUES (?, ?, ?) RETURNING id',
+                    [content, authenticatedUserId, channelId]
+                );
+            }
             const messageId = result.id || result.lastID;
 
             // Fetch full message with user info to broadcast
             const msgResult = await db.query(`
-                SELECT m.*, u.username, u.avatar_url 
-                FROM messages m 
-                JOIN users u ON m.user_id = u.id 
+                SELECT m.*, u.username, u.avatar_url
+                FROM messages m
+                JOIN users u ON m.user_id = u.id
                 WHERE m.id = ?
             `, [messageId]);
 
             const fullMessage = msgResult.rows[0];
 
-            // Broadcast to channel
-            io.to(channelId).emit('receive_message', fullMessage);
+            if (threadId) {
+                // Broadcast to thread subscribers
+                io.to(`thread_${threadId}`).emit('thread_reply', fullMessage);
+
+                // Also notify main channel about thread update (for reply count)
+                const replyCountResult = await db.query(
+                    'SELECT COUNT(*) as count FROM messages WHERE thread_id = ?',
+                    [threadId]
+                );
+                io.to(channelId).emit('thread_updated', {
+                    messageId: threadId,
+                    replyCount: replyCountResult.rows[0].count,
+                    lastReply: fullMessage
+                });
+            } else {
+                // Broadcast to channel
+                io.to(channelId).emit('receive_message', fullMessage);
+            }
 
             if (callback) {
                 callback({ id: messageId });
@@ -116,6 +145,21 @@ io.on('connection', (socket) => {
             if (isDev) {
                 console.error('Error saving message:', err);
             }
+        }
+    });
+
+    // Join thread room for real-time updates
+    socket.on('join_thread', (threadId) => {
+        socket.join(`thread_${threadId}`);
+        if (isDev) {
+            console.log(`User ${userId} joined thread ${threadId}`);
+        }
+    });
+
+    socket.on('leave_thread', (threadId) => {
+        socket.leave(`thread_${threadId}`);
+        if (isDev) {
+            console.log(`User ${userId} left thread ${threadId}`);
         }
     });
 
