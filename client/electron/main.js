@@ -40,12 +40,21 @@ function createWindow() {
         mainWindow.webContents.openDevTools();
     } else {
         // In production, load the built files
-        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+        const indexPath = path.join(__dirname, '../dist/index.html');
+        console.log('Loading:', indexPath);
+        mainWindow.loadFile(indexPath).catch(err => {
+            console.error('Failed to load index.html:', err);
+        });
     }
 
     // Show window when ready
     mainWindow.once('ready-to-show', () => {
         mainWindow.show();
+    });
+
+    // Log any page errors
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        console.error('Failed to load:', errorCode, errorDescription);
     });
 
     // Handle external links

@@ -1,6 +1,10 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 import { connectSocket, disconnectSocket } from '../socket';
+import { API_URL } from '../config';
+
+// Configure axios base URL for production/Electron
+axios.defaults.baseURL = API_URL;
 
 const AuthContext = createContext(null);
 

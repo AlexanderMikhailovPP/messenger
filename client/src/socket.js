@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { SOCKET_URL } from './config';
 
 let socket = null;
 
@@ -9,7 +10,7 @@ let socket = null;
 export const connectSocket = () => {
     if (socket) return socket;
 
-    socket = io({
+    socket = io(SOCKET_URL, {
         withCredentials: true, // Send HTTP-only cookies
         autoConnect: false
     });
