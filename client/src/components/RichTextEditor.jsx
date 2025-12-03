@@ -85,17 +85,15 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         range.deleteContents();
         range.insertNode(pre);
 
-        // Add a line break after for continued typing
-        const br = document.createElement('br');
-        if (pre.nextSibling) {
-            pre.parentNode.insertBefore(br, pre.nextSibling);
-        } else {
-            pre.parentNode.appendChild(br);
-        }
-
-        // Move cursor after the pre block
+        // Move cursor inside the code block
         const newRange = document.createRange();
-        newRange.setStartAfter(br);
+        if (selectedText) {
+            // If there was selected text, place cursor at the end
+            newRange.setStart(code, code.childNodes.length);
+        } else {
+            // If empty, place cursor at start (before zero-width space)
+            newRange.setStart(code, 0);
+        }
         newRange.collapse(true);
         selection.removeAllRanges();
         selection.addRange(newRange);
