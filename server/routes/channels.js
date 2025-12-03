@@ -56,7 +56,8 @@ router.post('/dm', async (req, res) => {
             return res.json({
                 ...existing.rows[0],
                 displayName,
-                avatarUrl
+                avatarUrl,
+                otherUserId: targetUserId
             });
         }
 
@@ -68,7 +69,8 @@ router.post('/dm', async (req, res) => {
             name: dmName,
             type: 'dm',
             displayName,
-            avatarUrl
+            avatarUrl,
+            otherUserId: targetUserId
         });
     } catch (err) {
         console.error('DM creation error:', err);
@@ -100,7 +102,8 @@ router.get('/dms/:userId', async (req, res) => {
             return {
                 ...ch,
                 displayName: otherUser ? otherUser.username : 'Unknown User',
-                avatarUrl: otherUser ? otherUser.avatar_url : null
+                avatarUrl: otherUser ? otherUser.avatar_url : null,
+                otherUserId: otherId
             };
         }));
 

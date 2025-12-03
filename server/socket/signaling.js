@@ -40,11 +40,19 @@ module.exports = (io) => {
             io.to(payload.target).emit('ice-candidate', payload);
         });
 
-        socket.on('start_call', ({ channelId }) => {
+        socket.on('start_call', ({ channelId, targetUserId }) => {
             const userId = socket.data.userId;
-            console.log(`User ${userId} started call in channel ${channelId}`);
-            // Broadcast to all users in the channel room (they join this room via join_channel event)
-            socket.to(channelId).emit('incoming_call', { channelId, callerId: userId });
+            console.log(`User ${userId} started call in channel ${channelId} targeting ${targetUserId}`);
+
+            const payload = { channelId, callerId: userId };
+
+            if (targetUserId) {
+                // Direct call to user
+                io.to(targetUserId.toString()).emit('incoming_call', payload);
+            } else {
+                // Broadcast to channel (fallback)
+                socket.to(channelId).emit('incoming_call', payload);
+            }
         });
     });
 };

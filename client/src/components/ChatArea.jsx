@@ -297,7 +297,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         joinCall(currentChannel.id);
 
         socket.emit('start_call', {
-            channelId: currentChannel.id
+            channelId: currentChannel.id,
+            targetUserId: currentChannel.otherUserId
         });
 
         socket.emit('send_message', {
@@ -464,8 +465,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                                     key={idx}
                                                     onClick={() => addReaction(msg.id, reaction.emoji)}
                                                     className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 transition-colors cursor-pointer border ${hasReacted
-                                                            ? 'bg-blue-500/20 border-blue-500/50 hover:bg-blue-500/30'
-                                                            : 'bg-[#2f3136] border-transparent hover:bg-[#36393f] hover:border-gray-600'
+                                                        ? 'bg-blue-500/20 border-blue-500/50 hover:bg-blue-500/30'
+                                                        : 'bg-[#2f3136] border-transparent hover:bg-[#36393f] hover:border-gray-600'
                                                         }`}
                                                     title={tooltip}
                                                 >
