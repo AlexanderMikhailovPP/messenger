@@ -478,11 +478,13 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         }
 
         try {
+            console.log('Uploading voice message, blob size:', audioBlob.size, 'type:', audioBlob.type);
             const formData = new FormData();
             formData.append('audio', audioBlob, 'voice-message.webm');
             const res = await axios.post('/api/messages/voice', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
+            console.log('Voice upload response:', res.data);
 
             // Beautiful voice message HTML with custom player
             const voiceHtml = `

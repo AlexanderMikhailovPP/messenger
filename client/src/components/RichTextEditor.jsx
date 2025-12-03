@@ -22,6 +22,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const recordingTimerRef = useRef(null);
+    const recordingTimeRef = useRef(0);
     const emojiButtonRef = useRef(null);
     const previewAudioRef = useRef(null);
     const { user } = useAuth();
@@ -189,6 +190,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             streamRef.current = stream;
             isCancelledRef.current = false;
+            recordingTimeRef.current = 0;
 
             // Use audio/webm with opus codec for better compatibility
             const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -217,24 +219,30 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
                 if (audioChunksRef.current.length > 0) {
                     const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    // Save to preview state
-                    setRecordedAudio({
-                        blob: audioBlob,
-                        url: audioUrl,
-                        duration: recordingTime
-                    });
+                    // Validate blob has content
+                    if (audioBlob.size > 0) {
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        // Save to preview state - use ref for duration since state may be stale
+                        setRecordedAudio({
+                            blob: audioBlob,
+                            url: audioUrl,
+                            duration: recordingTimeRef.current
+                        });
+                    } else {
+                        console.error('Recording produced empty blob');
+                    }
                 }
             };
 
-            // Start with timeslice to get data periodically
-            mediaRecorder.start(100);
+            // Start with timeslice to get data periodically (250ms for better chunk sizes)
+            mediaRecorder.start(250);
             setIsRecording(true);
             setRecordingTime(0);
 
-            // Start timer
+            // Start timer - update both state and ref
             recordingTimerRef.current = setInterval(() => {
-                setRecordingTime(prev => prev + 1);
+                recordingTimeRef.current += 1;
+                setRecordingTime(recordingTimeRef.current);
             }, 1000);
         } catch (err) {
             console.error('Failed to start recording:', err);
@@ -263,6 +271,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             audioChunksRef.current = [];
             setIsRecording(false);
             setRecordingTime(0);
+            recordingTimeRef.current = 0;
             if (recordingTimerRef.current) {
                 clearInterval(recordingTimerRef.current);
             }
