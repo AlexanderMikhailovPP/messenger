@@ -5,7 +5,7 @@ import { Hash, Send, Info, Smile, Plus, AtSign, Headphones, X, ChevronDown, Chev
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import toast from 'react-hot-toast';
-import EmojiPicker from 'emoji-picker-react';
+import QuickEmojiPicker from './QuickEmojiPicker';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
 import HuddlePanel from './HuddlePanel';
@@ -254,19 +254,50 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     };
 
     const addReaction = async (messageId, emoji) => {
-        try {
-            await axios.post(`/api/reactions/${messageId}/reactions`, {
-                userId: user.id,
-                emoji
+        // Optimistic update
+        const prevReactions = reactions[messageId] || [];
+        const existingReaction = prevReactions.find(r => r.emoji === emoji);
+        const hasUserReacted = existingReaction?.users.some(u => u.id === user.id);
+
+        let optimisticReactions;
+        if (hasUserReacted) {
+            // Remove user's reaction
+            optimisticReactions = prevReactions.map(r => {
+                if (r.emoji === emoji) {
+                    const newUsers = r.users.filter(u => u.id !== user.id);
+                    return newUsers.length > 0 ? { ...r, users: newUsers, count: newUsers.length } : null;
+                }
+                return r;
+            }).filter(Boolean);
+        } else if (existingReaction) {
+            // Add user to existing reaction
+            optimisticReactions = prevReactions.map(r => {
+                if (r.emoji === emoji) {
+                    return {
+                        ...r,
+                        users: [...r.users, { id: user.id, username: user.username }],
+                        count: r.count + 1
+                    };
+                }
+                return r;
             });
-            // Refresh reactions for this message
-            const reactionsRes = await axios.get(`/api/reactions/${messageId}/reactions`);
-            setReactions(prev => ({
-                ...prev,
-                [messageId]: reactionsRes.data
-            }));
-            setShowEmojiPicker(null);
+        } else {
+            // New reaction
+            optimisticReactions = [...prevReactions, {
+                emoji,
+                count: 1,
+                users: [{ id: user.id, username: user.username }]
+            }];
+        }
+
+        setReactions(prev => ({ ...prev, [messageId]: optimisticReactions }));
+        setShowEmojiPicker(null);
+
+        try {
+            await axios.post(`/api/reactions/${messageId}/reactions`, { emoji });
         } catch (err) {
+            // Revert on error
+            setReactions(prev => ({ ...prev, [messageId]: prevReactions }));
             console.error('Failed to add reaction', err);
             toast.error('Failed to add reaction');
         }
@@ -499,7 +530,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
                                 {/* Reactions */}
                                 {reactions[msg.id] && reactions[msg.id].length > 0 && (
-                                    <div className="flex gap-1 mt-1">
+                                    <div className="flex flex-wrap items-center gap-1 mt-1">
                                         {reactions[msg.id].map((reaction, idx) => {
                                             const hasReacted = reaction.users.some(u => u.id === user.id);
                                             const userNames = reaction.users.map(u => u.id === user.id ? 'You' : u.username);
@@ -513,20 +544,37 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             }
 
                                             return (
-                                                <div
+                                                <button
                                                     key={idx}
                                                     onClick={() => addReaction(msg.id, reaction.emoji)}
                                                     className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 transition-colors cursor-pointer border ${hasReacted
-                                                        ? 'bg-blue-500/20 border-blue-500/50 hover:bg-blue-500/30'
+                                                        ? 'bg-[#5865f2]/20 border-[#5865f2]/50 hover:bg-[#5865f2]/30'
                                                         : 'bg-[#2f3136] border-transparent hover:bg-[#36393f] hover:border-gray-600'
                                                         }`}
                                                     title={tooltip}
                                                 >
                                                     <span>{reaction.emoji}</span>
-                                                    <span className={hasReacted ? 'text-blue-100' : 'text-gray-400'}>{reaction.count}</span>
-                                                </div>
+                                                    <span className={hasReacted ? 'text-[#c9cdfb]' : 'text-gray-400'}>{reaction.count}</span>
+                                                </button>
                                             );
                                         })}
+                                        {/* Add reaction button - Slack style */}
+                                        <button
+                                            onClick={(e) => {
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                setShowEmojiPicker({
+                                                    messageId: msg.id,
+                                                    position: {
+                                                        x: Math.min(rect.left, window.innerWidth - 340),
+                                                        y: rect.bottom + 8
+                                                    }
+                                                });
+                                            }}
+                                            className="w-6 h-6 rounded-full bg-[#2f3136] border border-dashed border-gray-600 hover:border-gray-400 hover:bg-[#36393f] flex items-center justify-center transition-colors"
+                                            title="Add reaction"
+                                        >
+                                            <Plus size={12} className="text-gray-400" />
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -536,20 +584,18 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                 <button
                                     onClick={(e) => {
                                         const rect = e.currentTarget.getBoundingClientRect();
-                                        // Calculate position: above the button, right-aligned to the button
-                                        // But since it's 350px wide, we might need to shift it left
-                                        const x = rect.right - 350;
-                                        const y = rect.top - 460; // 450px height + 10px padding
-
                                         setShowEmojiPicker({
                                             messageId: msg.id,
-                                            position: { x, y }
+                                            position: {
+                                                x: Math.min(rect.left, window.innerWidth - 340),
+                                                y: rect.bottom + 8
+                                            }
                                         });
                                     }}
-                                    className="p-1.5 hover:bg-gray-700 rounded transition-colors"
+                                    className="p-1.5 hover:bg-[#3f4147] rounded transition-colors"
                                     title="Add Reaction"
                                 >
-                                    <Smile className="text-gray-400" size={16} />
+                                    <Smile className="text-gray-400 hover:text-white" size={16} />
                                 </button>
                             </div>
                         </div>
@@ -558,27 +604,21 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Emoji Picker Portal */}
+            {/* Quick Emoji Picker */}
             {showEmojiPicker && (
                 <div
                     className="fixed z-50"
                     style={{
-                        left: isMobile ? 0 : Math.max(10, showEmojiPicker.position.x),
-                        top: isMobile ? 'auto' : Math.max(10, showEmojiPicker.position.y),
-                        bottom: isMobile ? 0 : 'auto',
-                        width: isMobile ? '100%' : 'auto'
+                        left: isMobile ? '50%' : Math.max(10, showEmojiPicker.position.x),
+                        top: isMobile ? '50%' : Math.max(10, Math.min(showEmojiPicker.position.y, window.innerHeight - 400)),
+                        transform: isMobile ? 'translate(-50%, -50%)' : 'none'
                     }}
                 >
-                    <div className="fixed inset-0" onClick={() => setShowEmojiPicker(null)} />
-                    <div className="relative shadow-2xl rounded-xl overflow-hidden">
-                        <EmojiPicker
-                            onEmojiClick={(emojiData) => addReaction(showEmojiPicker.messageId, emojiData.emoji)}
-                            theme="dark"
-                            width={isMobile ? '100%' : 350}
-                            height={isMobile ? 400 : 450}
-                            searchDisabled={false}
-                            skinTonesDisabled={true}
-                            previewConfig={{ showPreview: false }}
+                    <div className="fixed inset-0 bg-black/20" onClick={() => setShowEmojiPicker(null)} />
+                    <div className="relative">
+                        <QuickEmojiPicker
+                            onSelect={(emoji) => addReaction(showEmojiPicker.messageId, emoji)}
+                            onClose={() => setShowEmojiPicker(null)}
                         />
                     </div>
                 </div>
