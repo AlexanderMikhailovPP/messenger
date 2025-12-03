@@ -16,10 +16,12 @@ export const AuthProvider = ({ children }) => {
             async (error) => {
                 const originalRequest = error.config;
 
-                // Skip refresh for auth endpoints to avoid infinite loops
-                const isAuthEndpoint = originalRequest.url?.includes('/api/auth/');
+                // Skip refresh only for refresh/logout endpoints to avoid infinite loops
+                // Allow refresh for /verify so tokens get refreshed on page load
+                const skipRefreshEndpoints = ['/api/auth/refresh', '/api/auth/logout', '/api/auth/login', '/api/auth/register'];
+                const shouldSkipRefresh = skipRefreshEndpoints.some(ep => originalRequest.url?.includes(ep));
 
-                if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+                if (error.response?.status === 401 && !originalRequest._retry && !shouldSkipRefresh) {
                     originalRequest._retry = true;
 
                     try {
