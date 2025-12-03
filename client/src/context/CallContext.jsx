@@ -241,6 +241,28 @@ export const CallProvider = ({ children }) => {
         return pc;
     }, [createAudioElement]);
 
+    // Renegotiate connection after track changes
+    const renegotiate = useCallback(async (targetSocketId) => {
+        const socket = getSocket();
+        const peer = peersRef.current[targetSocketId];
+        if (!socket || !peer?.peerConnection) return;
+
+        const pc = peer.peerConnection;
+
+        try {
+            console.log('[WebRTC] Renegotiating with:', targetSocketId);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('offer', {
+                target: targetSocketId,
+                caller: socket.id,
+                sdp: pc.localDescription
+            });
+        } catch (err) {
+            console.error('[WebRTC] Renegotiation error:', err);
+        }
+    }, []);
+
     // Socket event handlers
     useEffect(() => {
         const socket = getSocket();
@@ -309,8 +331,15 @@ export const CallProvider = ({ children }) => {
         const handleOffer = async (payload) => {
             try {
                 console.log('[CallContext] Received offer from:', payload.caller);
-                const pc = createPeerConnection(payload.caller, false, null, null);
-                if (!pc) return;
+
+                // Check if we already have a peer connection (renegotiation case)
+                let pc = peersRef.current[payload.caller]?.peerConnection;
+
+                if (!pc) {
+                    // New connection
+                    pc = createPeerConnection(payload.caller, false, null, null);
+                    if (!pc) return;
+                }
 
                 await pc.setRemoteDescription(payload.sdp);
                 const answer = await pc.createAnswer();
@@ -321,6 +350,8 @@ export const CallProvider = ({ children }) => {
                     caller: socket.id,
                     sdp: pc.localDescription
                 });
+
+                console.log('[CallContext] Sent answer to:', payload.caller);
             } catch (err) {
                 console.error('[CallContext] Error handling offer:', err);
             }
@@ -543,15 +574,22 @@ export const CallProvider = ({ children }) => {
                     localStreamRef.current.addTrack(videoTrack);
                 }
 
-                // Add video track to all peer connections
-                Object.values(peersRef.current).forEach(({ peerConnection }) => {
-                    if (peerConnection && localStreamRef.current) {
-                        peerConnection.addTrack(videoTrack, localStreamRef.current);
+                // Add video track to all peer connections and renegotiate
+                const peerSocketIds = Object.keys(peersRef.current);
+                for (const socketId of peerSocketIds) {
+                    const peer = peersRef.current[socketId];
+                    if (peer?.peerConnection && localStreamRef.current) {
+                        peer.peerConnection.addTrack(videoTrack, localStreamRef.current);
+                        // Renegotiate to update SDP with new video track
+                        await renegotiate(socketId);
                     }
-                });
+                }
 
                 localVideoRef.current = videoTrack;
                 setIsVideoOn(true);
+
+                // Update local stream state to trigger re-render
+                setLocalStream(localStreamRef.current);
 
                 // Update local participant state
                 setParticipants(prev => prev.map(p =>
@@ -566,6 +604,8 @@ export const CallProvider = ({ children }) => {
                         channelId: activeChannelId
                     });
                 }
+
+                console.log('[CallContext] Video enabled and renegotiated with', peerSocketIds.length, 'peers');
             } catch (err) {
                 console.error('[CallContext] Failed to enable video:', err);
                 if (err.name === 'NotAllowedError') {
@@ -586,18 +626,23 @@ export const CallProvider = ({ children }) => {
                     localStreamRef.current.removeTrack(localVideoRef.current);
                 }
 
-                // Remove video track from all peer connections
-                Object.values(peersRef.current).forEach(({ peerConnection }) => {
-                    if (peerConnection) {
-                        const senders = peerConnection.getSenders();
+                // Remove video track from all peer connections and renegotiate
+                const peerSocketIds = Object.keys(peersRef.current);
+                for (const socketId of peerSocketIds) {
+                    const peer = peersRef.current[socketId];
+                    if (peer?.peerConnection) {
+                        const senders = peer.peerConnection.getSenders();
                         const videoSender = senders.find(s => s.track?.kind === 'video');
                         if (videoSender) {
-                            peerConnection.removeTrack(videoSender);
+                            peer.peerConnection.removeTrack(videoSender);
                         }
+                        // Renegotiate to update SDP
+                        await renegotiate(socketId);
                     }
-                });
+                }
 
                 localVideoRef.current = null;
+                console.log('[CallContext] Video disabled and renegotiated with', peerSocketIds.length, 'peers');
             }
 
             setIsVideoOn(false);
@@ -616,7 +661,7 @@ export const CallProvider = ({ children }) => {
                 });
             }
         }
-    }, [isVideoOn, activeChannelId, user?.id]);
+    }, [isVideoOn, activeChannelId, user?.id, renegotiate]);
 
     const clearIncomingCall = useCallback(() => {
         setIncomingCall(null);
