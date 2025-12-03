@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Send, Hash, MessageSquare } from 'lucide-react';
+import { X, Send, Hash, MessageSquare, Smile, Plus, Pencil, Trash2, MoreHorizontal } from 'lucide-react';
 import axios from 'axios';
 import { getSocket } from '../socket';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
+import QuickEmojiPicker from './QuickEmojiPicker';
 import { sanitizeHTML } from '../utils/sanitize';
 import toast from 'react-hot-toast';
 
@@ -12,10 +13,16 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
     const [replies, setReplies] = useState([]);
     const [newReply, setNewReply] = useState('');
     const [loading, setLoading] = useState(true);
+    const [reactions, setReactions] = useState({});
+    const [showEmojiPicker, setShowEmojiPicker] = useState(null);
+    const [editingMessage, setEditingMessage] = useState(null);
+    const [editContent, setEditContent] = useState('');
+    const [showActions, setShowActions] = useState(null);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
+    const editInputRef = useRef(null);
 
-    // Fetch thread data
+    // Fetch thread data and reactions
     useEffect(() => {
         if (!parentMessage?.id) return;
 
@@ -24,6 +31,21 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
                 setLoading(true);
                 const res = await axios.get(`/api/messages/thread/${parentMessage.id}`);
                 setReplies(res.data.replies || []);
+
+                // Fetch reactions for all messages (parent + replies)
+                const allMessageIds = [parentMessage.id, ...(res.data.replies || []).map(r => r.id)];
+                const reactionsData = {};
+                await Promise.all(
+                    allMessageIds.map(async (msgId) => {
+                        try {
+                            const reactRes = await axios.get(`/api/reactions/${msgId}/reactions`);
+                            reactionsData[msgId] = reactRes.data;
+                        } catch (e) {
+                            reactionsData[msgId] = [];
+                        }
+                    })
+                );
+                setReactions(reactionsData);
             } catch (err) {
                 console.error('Failed to fetch thread:', err);
                 toast.error('Failed to load thread');
@@ -40,33 +62,135 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
         const socket = getSocket();
         if (!socket || !parentMessage?.id) return;
 
-        // Join thread room
         socket.emit('join_thread', parentMessage.id);
 
-        // Listen for new replies
         const handleThreadReply = (message) => {
             if (message.thread_id === parentMessage.id) {
                 setReplies(prev => [...prev, message]);
+                setReactions(prev => ({ ...prev, [message.id]: [] }));
             }
         };
 
+        const handleMessageUpdated = (updatedMessage) => {
+            setReplies(prev => prev.map(msg =>
+                msg.id === updatedMessage.id ? { ...msg, ...updatedMessage } : msg
+            ));
+        };
+
         socket.on('thread_reply', handleThreadReply);
+        socket.on('message_updated', handleMessageUpdated);
 
         return () => {
             socket.emit('leave_thread', parentMessage.id);
             socket.off('thread_reply', handleThreadReply);
+            socket.off('message_updated', handleMessageUpdated);
         };
     }, [parentMessage?.id]);
 
     // Scroll to bottom when new replies come in
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [replies]);
+    }, [replies.length]);
 
     // Focus input on open
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
+
+    // Focus edit input when editing
+    useEffect(() => {
+        if (editingMessage && editInputRef.current) {
+            editInputRef.current.focus();
+            editInputRef.current.setSelectionRange(editContent.length, editContent.length);
+        }
+    }, [editingMessage]);
+
+    // Add reaction (optimistic)
+    const addReaction = async (messageId, emoji) => {
+        const prevReactions = reactions[messageId] || [];
+        const existingReaction = prevReactions.find(r => r.emoji === emoji);
+        const hasUserReacted = existingReaction?.users.some(u => u.id === user.id);
+
+        let optimisticReactions;
+        if (hasUserReacted) {
+            optimisticReactions = prevReactions.map(r => {
+                if (r.emoji === emoji) {
+                    const newUsers = r.users.filter(u => u.id !== user.id);
+                    return newUsers.length > 0 ? { ...r, users: newUsers, count: newUsers.length } : null;
+                }
+                return r;
+            }).filter(Boolean);
+        } else if (existingReaction) {
+            optimisticReactions = prevReactions.map(r => {
+                if (r.emoji === emoji) {
+                    return {
+                        ...r,
+                        users: [...r.users, { id: user.id, username: user.username }],
+                        count: r.count + 1
+                    };
+                }
+                return r;
+            });
+        } else {
+            optimisticReactions = [...prevReactions, {
+                emoji,
+                count: 1,
+                users: [{ id: user.id, username: user.username }]
+            }];
+        }
+
+        setReactions(prev => ({ ...prev, [messageId]: optimisticReactions }));
+        setShowEmojiPicker(null);
+
+        try {
+            await axios.post(`/api/reactions/${messageId}/reactions`, { emoji });
+        } catch (err) {
+            setReactions(prev => ({ ...prev, [messageId]: prevReactions }));
+            toast.error('Failed to add reaction');
+        }
+    };
+
+    // Edit message
+    const handleEdit = (message) => {
+        setEditingMessage(message.id);
+        setEditContent(message.content.replace(/<[^>]*>/g, '')); // Strip HTML
+        setShowActions(null);
+    };
+
+    const saveEdit = async () => {
+        if (!editContent.trim() || !editingMessage) return;
+
+        try {
+            await axios.put(`/api/messages/${editingMessage}`, { content: editContent });
+            setReplies(prev => prev.map(msg =>
+                msg.id === editingMessage ? { ...msg, content: editContent, edited_at: new Date().toISOString() } : msg
+            ));
+            setEditingMessage(null);
+            setEditContent('');
+            toast.success('Message updated');
+        } catch (err) {
+            toast.error('Failed to edit message');
+        }
+    };
+
+    const cancelEdit = () => {
+        setEditingMessage(null);
+        setEditContent('');
+    };
+
+    // Delete message
+    const handleDelete = async (messageId) => {
+        if (!confirm('Delete this message?')) return;
+
+        try {
+            await axios.delete(`/api/messages/${messageId}`);
+            setReplies(prev => prev.filter(msg => msg.id !== messageId));
+            setShowActions(null);
+            toast.success('Message deleted');
+        } catch (err) {
+            toast.error('Failed to delete message');
+        }
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -95,6 +219,21 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
         }
     };
 
+    const handleEditKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            cancelEdit();
+        }
+    };
+
+    // Handle @ mentions in input
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        setNewReply(value);
+    };
+
     const formatTime = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -112,6 +251,148 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
             return 'Yesterday';
         }
         return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    };
+
+    // Render reactions for a message
+    const renderReactions = (messageId) => {
+        const msgReactions = reactions[messageId] || [];
+        if (msgReactions.length === 0) return null;
+
+        return (
+            <div className="flex flex-wrap items-center gap-1 mt-1">
+                {msgReactions.map((reaction, idx) => {
+                    const hasReacted = reaction.users.some(u => u.id === user.id);
+                    const userNames = reaction.users.map(u => u.id === user.id ? 'You' : u.username);
+                    let tooltip = userNames.length === 1
+                        ? `${userNames[0]} reacted with ${reaction.emoji}`
+                        : userNames.length === 2
+                            ? `${userNames.join(' and ')} reacted with ${reaction.emoji}`
+                            : `${userNames.slice(0, 2).join(', ')} and ${userNames.length - 2} others`;
+
+                    return (
+                        <button
+                            key={idx}
+                            onClick={() => addReaction(messageId, reaction.emoji)}
+                            className={`px-1.5 py-0.5 rounded text-xs flex items-center gap-1 transition-colors ${hasReacted
+                                ? 'bg-[#5865f2]/20 border border-[#5865f2]/50'
+                                : 'bg-[#3f4147] hover:bg-[#4f5157]'
+                                }`}
+                            title={tooltip}
+                        >
+                            <span>{reaction.emoji}</span>
+                            <span className={hasReacted ? 'text-[#c9cdfb]' : 'text-gray-400'}>{reaction.count}</span>
+                        </button>
+                    );
+                })}
+                <button
+                    onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setShowEmojiPicker({
+                            messageId,
+                            position: { x: rect.left, y: rect.bottom + 4 }
+                        });
+                    }}
+                    className="w-5 h-5 rounded bg-[#3f4147] hover:bg-[#4f5157] flex items-center justify-center"
+                    title="Add reaction"
+                >
+                    <Plus size={10} className="text-gray-400" />
+                </button>
+            </div>
+        );
+    };
+
+    // Render message with actions
+    const renderMessage = (msg, isParent = false) => {
+        const isOwner = msg.user_id === user.id;
+        const isEditing = editingMessage === msg.id;
+
+        return (
+            <div
+                key={msg.id}
+                className={`flex gap-3 group relative ${isParent ? '' : 'hover:bg-[#2e3035] -mx-2 px-2 py-1 rounded'}`}
+                onMouseEnter={() => !isParent && setShowActions(msg.id)}
+                onMouseLeave={() => setShowActions(null)}
+            >
+                <UserAvatar
+                    user={{ username: msg.username, avatar_url: msg.avatar_url }}
+                    size={isParent ? 'md' : 'sm'}
+                />
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                        <span className={`font-medium text-white ${isParent ? '' : 'text-sm'}`}>{msg.username}</span>
+                        <span className="text-xs text-gray-500">
+                            {isParent ? `${formatDate(msg.created_at)} at ` : ''}{formatTime(msg.created_at)}
+                        </span>
+                        {msg.edited_at && <span className="text-xs text-gray-600">(edited)</span>}
+                    </div>
+
+                    {isEditing ? (
+                        <div className="mt-1">
+                            <textarea
+                                ref={editInputRef}
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                onKeyDown={handleEditKeyDown}
+                                className="w-full bg-[#383a40] text-white text-sm rounded px-2 py-1 resize-none focus:outline-none focus:ring-1 focus:ring-[#5865f2]"
+                                rows={2}
+                            />
+                            <div className="flex gap-2 mt-1">
+                                <button onClick={cancelEdit} className="text-xs text-gray-400 hover:text-white">
+                                    Cancel
+                                </button>
+                                <button onClick={saveEdit} className="text-xs text-[#5865f2] hover:text-[#7983f5]">
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            className={`text-gray-300 ${isParent ? 'text-sm' : 'text-sm'} break-words`}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
+                        />
+                    )}
+
+                    {renderReactions(msg.id)}
+                </div>
+
+                {/* Action buttons */}
+                {!isParent && showActions === msg.id && !isEditing && (
+                    <div className="absolute right-0 top-0 flex items-center gap-0.5 bg-[#2b2d31] border border-[#3f4147] rounded shadow-lg">
+                        <button
+                            onClick={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setShowEmojiPicker({
+                                    messageId: msg.id,
+                                    position: { x: Math.min(rect.left, 100), y: rect.bottom + 4 }
+                                });
+                            }}
+                            className="p-1.5 hover:bg-[#3f4147] rounded transition-colors"
+                            title="Add reaction"
+                        >
+                            <Smile size={14} className="text-gray-400" />
+                        </button>
+                        {isOwner && (
+                            <>
+                                <button
+                                    onClick={() => handleEdit(msg)}
+                                    className="p-1.5 hover:bg-[#3f4147] rounded transition-colors"
+                                    title="Edit"
+                                >
+                                    <Pencil size={14} className="text-gray-400" />
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(msg.id)}
+                                    className="p-1.5 hover:bg-[#3f4147] rounded transition-colors"
+                                    title="Delete"
+                                >
+                                    <Trash2 size={14} className="text-red-400" />
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     if (!parentMessage) return null;
@@ -140,27 +421,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
 
             {/* Parent Message */}
             <div className="px-4 py-3 border-b border-[#1e1f22] bg-[#232428]">
-                <div className="flex gap-3">
-                    <UserAvatar
-                        user={{
-                            username: parentMessage.username,
-                            avatar_url: parentMessage.avatar_url
-                        }}
-                        size="md"
-                    />
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                            <span className="font-semibold text-white">{parentMessage.username}</span>
-                            <span className="text-xs text-gray-500">
-                                {formatDate(parentMessage.created_at)} at {formatTime(parentMessage.created_at)}
-                            </span>
-                        </div>
-                        <div
-                            className="text-gray-300 text-sm mt-1 break-words"
-                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(parentMessage.content) }}
-                        />
-                    </div>
-                </div>
+                {renderMessage(parentMessage, true)}
             </div>
 
             {/* Reply count */}
@@ -171,7 +432,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
             </div>
 
             {/* Replies */}
-            <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3">
                 {loading ? (
                     <div className="flex items-center justify-center h-20">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
@@ -181,27 +442,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
                         No replies yet. Start the conversation!
                     </div>
                 ) : (
-                    replies.map((reply) => (
-                        <div key={reply.id} className="flex gap-3 group">
-                            <UserAvatar
-                                user={{
-                                    username: reply.username,
-                                    avatar_url: reply.avatar_url
-                                }}
-                                size="sm"
-                            />
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="font-medium text-white text-sm">{reply.username}</span>
-                                    <span className="text-xs text-gray-500">{formatTime(reply.created_at)}</span>
-                                </div>
-                                <div
-                                    className="text-gray-300 text-sm break-words"
-                                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(reply.content) }}
-                                />
-                            </div>
-                        </div>
-                    ))
+                    replies.map((reply) => renderMessage(reply))
                 )}
                 <div ref={messagesEndRef} />
             </div>
@@ -212,11 +453,11 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
                     <textarea
                         ref={inputRef}
                         value={newReply}
-                        onChange={(e) => setNewReply(e.target.value)}
+                        onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
-                        placeholder="Reply..."
+                        placeholder="Reply... (use @ to mention)"
                         rows={1}
-                        className="w-full bg-[#383a40] text-white rounded-lg px-4 py-3 pr-12 resize-none focus:outline-none focus:ring-2 focus:ring-[#5865f2] placeholder-gray-500"
+                        className="w-full bg-[#383a40] text-white rounded-lg px-4 py-3 pr-12 resize-none focus:outline-none focus:ring-2 focus:ring-[#5865f2] placeholder-gray-500 text-sm"
                         style={{ minHeight: '44px', maxHeight: '120px' }}
                     />
                     <button
@@ -228,6 +469,25 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
                     </button>
                 </form>
             </div>
+
+            {/* Emoji Picker */}
+            {showEmojiPicker && (
+                <div
+                    className="fixed z-50"
+                    style={{
+                        left: Math.max(10, Math.min(showEmojiPicker.position.x, window.innerWidth - 340)),
+                        top: Math.min(showEmojiPicker.position.y, window.innerHeight - 350)
+                    }}
+                >
+                    <div className="fixed inset-0" onClick={() => setShowEmojiPicker(null)} />
+                    <div className="relative">
+                        <QuickEmojiPicker
+                            onSelect={(emoji) => addReaction(showEmojiPicker.messageId, emoji)}
+                            onClose={() => setShowEmojiPicker(null)}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
