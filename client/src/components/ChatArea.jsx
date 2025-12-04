@@ -1140,7 +1140,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             {/* Input Area */}
             <div className="p-5 pt-0 pb-6">
                 <div
-                    className="border border-gray-600 rounded-xl bg-[#222529] focus-within:border-gray-400 transition-all relative"
+                    className="rounded-xl bg-[#222529] transition-all relative"
                     onFocus={() => {
                         setTimeout(() => {
                             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
