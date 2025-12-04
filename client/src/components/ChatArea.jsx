@@ -302,12 +302,33 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             }
         };
 
+        // Handle clicks on channel mentions
+        const handleChannelMentionClick = async (e) => {
+            const target = e.target.closest('.mention-channel');
+            if (target) {
+                const channelId = target.getAttribute('data-id');
+                if (channelId) {
+                    try {
+                        const res = await axios.get(`/api/channels/${channelId}`);
+                        if (res.data) {
+                            setCurrentChannel(res.data);
+                        }
+                    } catch (err) {
+                        console.error('Failed to navigate to channel:', err);
+                        toast.error('Failed to navigate to channel');
+                    }
+                }
+            }
+        };
+
         document.addEventListener('mouseover', handleGlobalMouseOver);
         document.addEventListener('mouseout', handleGlobalMouseOut);
+        document.addEventListener('click', handleChannelMentionClick);
 
         return () => {
             document.removeEventListener('mouseover', handleGlobalMouseOver);
             document.removeEventListener('mouseout', handleGlobalMouseOut);
+            document.removeEventListener('click', handleChannelMentionClick);
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
             if (showPopupTimeoutRef.current) clearTimeout(showPopupTimeoutRef.current);
         };

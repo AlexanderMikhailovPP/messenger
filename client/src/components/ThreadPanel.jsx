@@ -124,7 +124,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
         }
     };
 
-    // Handle mention hover in thread panel
+    // Handle mention hover and clicks in thread panel
     useEffect(() => {
         const panel = document.querySelector('.thread-panel-container');
         if (!panel) return;
@@ -170,16 +170,38 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
             }
         };
 
+        // Handle clicks on channel mentions
+        const handleClick = async (e) => {
+            const target = e.target.closest('.mention-channel');
+            if (target) {
+                const channelId = target.getAttribute('data-id');
+                if (channelId) {
+                    try {
+                        const res = await axios.get(`/api/channels/${channelId}`);
+                        if (res.data) {
+                            setCurrentChannel(res.data);
+                            onClose();
+                        }
+                    } catch (err) {
+                        console.error('Failed to navigate to channel:', err);
+                        toast.error('Failed to navigate to channel');
+                    }
+                }
+            }
+        };
+
         panel.addEventListener('mouseover', handleMouseOver);
         panel.addEventListener('mouseout', handleMouseOut);
+        panel.addEventListener('click', handleClick);
 
         return () => {
             panel.removeEventListener('mouseover', handleMouseOver);
             panel.removeEventListener('mouseout', handleMouseOut);
+            panel.removeEventListener('click', handleClick);
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
             if (showPopupTimeoutRef.current) clearTimeout(showPopupTimeoutRef.current);
         };
-    }, [mentionPopup]);
+    }, [mentionPopup, setCurrentChannel, onClose]);
 
     // Handle message to user from popup
     const handleMessageUser = async (targetUser) => {

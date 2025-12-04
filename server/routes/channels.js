@@ -39,6 +39,23 @@ router.post('/', async (req, res) => {
     }
 });
 
+// Get channel by ID
+router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('SELECT * FROM channels WHERE id = ?', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Channel not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(err);
+        }
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Create or get DM channel
 router.post('/dm', async (req, res) => {
     const { currentUserId, targetUserId } = req.body;
