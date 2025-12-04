@@ -34,6 +34,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesContainerRef = useRef(null);
     const [scheduledMessages, setScheduledMessages] = useState([]);
     const [showScheduledPanel, setShowScheduledPanel] = useState(true);
+    const [selectedMessageId, setSelectedMessageId] = useState(null);
 
     // Typing indicator
     const socket = getSocket();
@@ -725,6 +726,12 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative"
+                onClick={(e) => {
+                    // Deselect message when clicking on empty space
+                    if (e.target === e.currentTarget && selectedMessageId) {
+                        setSelectedMessageId(null);
+                    }
+                }}
             >
                 {loading ? (
                     <div className="flex items-center justify-center h-full">
@@ -732,7 +739,17 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     </div>
                 ) : (
                     messages.map((msg) => (
-                        <div key={msg.id} className="flex gap-3 group hover:bg-[#32353b] px-3 py-1 rounded relative">
+                        <div
+                            key={msg.id}
+                            className={`flex gap-3 group hover:bg-[#32353b] px-3 py-1 rounded relative transition-colors ${selectedMessageId === msg.id ? 'bg-[#5865f2]/20 ring-1 ring-[#5865f2]/50' : ''}`}
+                            onDoubleClick={() => setSelectedMessageId(selectedMessageId === msg.id ? null : msg.id)}
+                            onClick={(e) => {
+                                // Deselect when clicking outside of message content
+                                if (selectedMessageId && e.target === e.currentTarget) {
+                                    setSelectedMessageId(null);
+                                }
+                            }}
+                        >
                             {/* Avatar */}
                             <UserAvatar
                                 user={{
