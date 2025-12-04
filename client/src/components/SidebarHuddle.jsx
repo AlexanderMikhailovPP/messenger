@@ -22,6 +22,7 @@ export default function SidebarHuddle() {
     } = useCall();
 
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [expandedTile, setExpandedTile] = useState(null); // { type: 'video' | 'screen', id: string }
     const [callDuration, setCallDuration] = useState(0);
     const localVideoRef = useRef(null);
     const localScreenRef = useRef(null);
@@ -75,7 +76,7 @@ export default function SidebarHuddle() {
     // Fullscreen view
     if (isFullscreen) {
         return (
-            <div className="fixed inset-0 z-50 bg-gradient-to-br from-[#1a1d21] via-[#1e2328] to-[#252a30] flex flex-col">
+            <div className="fixed inset-0 z-[100] bg-gradient-to-br from-[#1a1d21] via-[#1e2328] to-[#252a30] flex flex-col">
                 {/* Subtle colored overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 via-purple-900/5 to-emerald-900/10 pointer-events-none" />
 
@@ -107,17 +108,72 @@ export default function SidebarHuddle() {
                         // Collect all screen shares
                         const screenShares = [];
                         if (isScreenSharing && localScreenStream) {
-                            screenShares.push({ isLocal: true, stream: localScreenStream, username: 'You' });
+                            screenShares.push({ isLocal: true, stream: localScreenStream, username: 'You', id: 'local-screen' });
                         }
                         // Check for remote screen shares
                         participants.forEach(p => {
                             if (!p.isCurrentUser) {
                                 const streams = remoteStreams[p.socketId] || {};
                                 if (streams.screen) {
-                                    screenShares.push({ isLocal: false, stream: streams.screen, username: p.username });
+                                    screenShares.push({ isLocal: false, stream: streams.screen, username: p.username, id: `screen-${p.socketId}` });
                                 }
                             }
                         });
+
+                        // Check if there's an expanded tile
+                        if (expandedTile) {
+                            // Find the expanded content
+                            let expandedContent = null;
+                            let expandedLabel = '';
+
+                            if (expandedTile.type === 'video') {
+                                const participant = participants.find(p =>
+                                    expandedTile.id === (p.isCurrentUser ? 'local-video' : `video-${p.socketId}`)
+                                );
+                                if (participant) {
+                                    const participantStreams = remoteStreams[participant.socketId] || {};
+                                    const videoStream = participant.isCurrentUser
+                                        ? (isVideoOn ? localStream : null)
+                                        : (participantStreams.video || participant.stream);
+                                    expandedContent = videoStream ? (
+                                        <ParticipantVideo stream={videoStream} isLocal={participant.isCurrentUser} />
+                                    ) : null;
+                                    expandedLabel = `${participant.username}${participant.isCurrentUser ? ' (you)' : ''}`;
+                                }
+                            } else if (expandedTile.type === 'screen') {
+                                const share = screenShares.find(s => s.id === expandedTile.id);
+                                if (share) {
+                                    expandedContent = (
+                                        <ScreenShareVideo
+                                            stream={share.stream}
+                                            isLocal={share.isLocal}
+                                            localScreenRef={share.isLocal ? localScreenRef : null}
+                                        />
+                                    );
+                                    expandedLabel = `${share.username}'s screen`;
+                                }
+                            }
+
+                            if (expandedContent) {
+                                return (
+                                    <div className="w-full h-full flex flex-col">
+                                        <div className="flex-1 relative rounded-2xl overflow-hidden bg-black">
+                                            {expandedContent}
+                                            <button
+                                                onClick={() => setExpandedTile(null)}
+                                                className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors"
+                                                title="Exit fullscreen"
+                                            >
+                                                <Minimize2 size={20} className="text-white" />
+                                            </button>
+                                            <div className="absolute bottom-4 left-4 px-3 py-1.5 bg-black/50 rounded-lg">
+                                                <span className="text-white font-medium">{expandedLabel}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                        }
 
                         // Total items = participants + screen shares
                         const totalItems = participants.length + screenShares.length;
@@ -131,7 +187,6 @@ export default function SidebarHuddle() {
 
                         // Avatar sizes: 2x bigger, based on total items
                         const avatarSize = totalItems <= 2 ? 320 : totalItems <= 4 ? 240 : 200;
-                        const fontSize = totalItems <= 2 ? 96 : totalItems <= 4 ? 72 : 56;
 
                         return (
                             <div className={`grid gap-6 ${gridCols} max-w-6xl`}>
@@ -142,11 +197,12 @@ export default function SidebarHuddle() {
                                         ? (isVideoOn ? localStream : null)
                                         : (participantStreams.video || participant.stream);
                                     const hasVideo = participant.isCurrentUser ? isVideoOn : (participant.hasVideo && videoStream);
+                                    const tileId = participant.isCurrentUser ? 'local-video' : `video-${participant.socketId}`;
 
                                     return (
                                         <div
                                             key={participant.userId}
-                                            className="relative flex flex-col items-center"
+                                            className="relative flex flex-col items-center group"
                                         >
                                             {/* Avatar/Video container - square with rounded corners */}
                                             <div
@@ -161,19 +217,27 @@ export default function SidebarHuddle() {
                                                 }}
                                             >
                                                 {hasVideo && videoStream ? (
-                                                    <ParticipantVideo
-                                                        stream={videoStream}
-                                                        isLocal={participant.isCurrentUser}
-                                                    />
-                                                ) : (
-                                                    <div className="w-full h-full bg-gradient-to-br from-[#3a3f47] to-[#2a2f37] flex items-center justify-center">
-                                                        <span
-                                                            className="font-semibold text-white"
-                                                            style={{ fontSize: `${fontSize}px` }}
+                                                    <>
+                                                        <ParticipantVideo
+                                                            stream={videoStream}
+                                                            isLocal={participant.isCurrentUser}
+                                                        />
+                                                        {/* Expand button for video */}
+                                                        <button
+                                                            onClick={() => setExpandedTile({ type: 'video', id: tileId })}
+                                                            className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                            title="Expand"
                                                         >
-                                                            {participant.username?.[0]?.toUpperCase() || '?'}
-                                                        </span>
-                                                    </div>
+                                                            <Maximize2 size={16} className="text-white" />
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <UserAvatar
+                                                        user={{ username: participant.username, avatar_url: participant.avatar_url }}
+                                                        size="4xl"
+                                                        rounded="rounded-none"
+                                                        className="w-full h-full"
+                                                    />
                                                 )}
                                             </div>
 
@@ -194,10 +258,10 @@ export default function SidebarHuddle() {
                                 })}
 
                                 {/* Render screen shares as separate grid items */}
-                                {screenShares.map((share, index) => (
+                                {screenShares.map((share) => (
                                     <div
-                                        key={`screen-${index}`}
-                                        className="relative flex flex-col items-center"
+                                        key={share.id}
+                                        className="relative flex flex-col items-center group"
                                     >
                                         <div
                                             className="relative rounded-2xl overflow-hidden bg-black border border-white/10"
@@ -211,6 +275,14 @@ export default function SidebarHuddle() {
                                                 isLocal={share.isLocal}
                                                 localScreenRef={share.isLocal ? localScreenRef : null}
                                             />
+                                            {/* Expand button for screen share */}
+                                            <button
+                                                onClick={() => setExpandedTile({ type: 'screen', id: share.id })}
+                                                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                title="Expand"
+                                            >
+                                                <Maximize2 size={16} className="text-white" />
+                                            </button>
                                         </div>
                                         <div className="mt-3 flex items-center gap-2">
                                             <Monitor size={16} className="text-green-400" />
@@ -343,11 +415,11 @@ export default function SidebarHuddle() {
                                                 small
                                             />
                                         ) : (
-                                            <div className="w-full h-full bg-gradient-to-br from-[#3a3f47] to-[#2a2f37] flex items-center justify-center">
-                                                <span className="text-sm font-semibold text-white">
-                                                    {participant.username?.[0]?.toUpperCase() || '?'}
-                                                </span>
-                                            </div>
+                                            <UserAvatar
+                                                user={{ username: participant.username, avatar_url: participant.avatar_url }}
+                                                size="lg"
+                                                rounded="rounded-full"
+                                            />
                                         )}
                                     </div>
                                     {participant.isMuted && (
