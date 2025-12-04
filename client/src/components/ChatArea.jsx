@@ -43,6 +43,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const { sendTyping, stopTyping } = useTypingIndicator(socket, currentChannel?.id, user?.username);
     const typingUsers = useTypingUsers(socket, currentChannel?.id);
     const hoverTimeoutRef = useRef(null);
+    const showPopupTimeoutRef = useRef(null);
 
     // Handle channel switching - load draft for new channel
     useEffect(() => {
@@ -255,13 +256,22 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     // Only fetch if we don't have this user or it's a different user
                     // Check if we are already showing this user to avoid re-fetching
                     if (!mentionPopup || mentionPopup.user.id !== parseInt(userId)) {
+                        // Clear any pending show timer
+                        if (showPopupTimeoutRef.current) {
+                            clearTimeout(showPopupTimeoutRef.current);
+                        }
+
                         const rect = target.getBoundingClientRect();
                         // Position 10px above the mention/username, aligned left
                         const position = {
                             x: rect.left,
                             y: rect.top - 10
                         };
-                        fetchUserInfo(userId, position);
+
+                        // Add delay before showing new popup to avoid switching while moving to current popup
+                        showPopupTimeoutRef.current = setTimeout(() => {
+                            fetchUserInfo(userId, position);
+                        }, mentionPopup ? 200 : 0); // 200ms delay if popup already shown, instant otherwise
                     }
                 }
             }
@@ -270,6 +280,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         const handleGlobalMouseOut = (e) => {
             const target = e.target.closest('.mention-user, .message-username');
             if (target) {
+                // Clear pending show timer when leaving
+                if (showPopupTimeoutRef.current) {
+                    clearTimeout(showPopupTimeoutRef.current);
+                    showPopupTimeoutRef.current = null;
+                }
                 // Delay closing to allow moving to popup (longer timeout for smoother UX)
                 hoverTimeoutRef.current = setTimeout(() => {
                     setMentionPopup(null);
@@ -284,6 +299,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             document.removeEventListener('mouseover', handleGlobalMouseOver);
             document.removeEventListener('mouseout', handleGlobalMouseOut);
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            if (showPopupTimeoutRef.current) clearTimeout(showPopupTimeoutRef.current);
         };
     }, [user, setCurrentChannel, mentionPopup]);
 

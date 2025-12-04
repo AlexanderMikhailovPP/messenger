@@ -31,6 +31,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
     const inputRef = useRef(null);
     const editInputRef = useRef(null);
     const hoverTimeoutRef = useRef(null);
+    const showPopupTimeoutRef = useRef(null);
 
     // Fetch thread data and reactions
     useEffect(() => {
@@ -140,9 +141,18 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
                         hoverTimeoutRef.current = null;
                     }
                     if (!mentionPopup || mentionPopup.user.id !== parseInt(userId)) {
+                        // Clear any pending show timer
+                        if (showPopupTimeoutRef.current) {
+                            clearTimeout(showPopupTimeoutRef.current);
+                        }
+
                         const rect = target.getBoundingClientRect();
                         const position = { x: rect.left, y: rect.top - 10 };
-                        fetchUserInfo(userId, position);
+
+                        // Add delay before showing new popup to avoid switching while moving to current popup
+                        showPopupTimeoutRef.current = setTimeout(() => {
+                            fetchUserInfo(userId, position);
+                        }, mentionPopup ? 200 : 0);
                     }
                 }
             }
@@ -151,6 +161,11 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
         const handleMouseOut = (e) => {
             const target = e.target.closest('.mention-user, .message-username');
             if (target) {
+                // Clear pending show timer when leaving
+                if (showPopupTimeoutRef.current) {
+                    clearTimeout(showPopupTimeoutRef.current);
+                    showPopupTimeoutRef.current = null;
+                }
                 hoverTimeoutRef.current = setTimeout(() => {
                     setMentionPopup(null);
                 }, 300);
@@ -164,6 +179,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
             panel.removeEventListener('mouseover', handleMouseOver);
             panel.removeEventListener('mouseout', handleMouseOut);
             if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            if (showPopupTimeoutRef.current) clearTimeout(showPopupTimeoutRef.current);
         };
     }, [mentionPopup]);
 

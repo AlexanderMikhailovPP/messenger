@@ -33,7 +33,8 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
             let adjustedX = position.x;
             // position.y is trigger's top - 10
             // So popup bottom should be at position.y (10px above trigger)
-            let adjustedY = position.y - rect.height;
+            // Add 8px to bring popup closer to trigger
+            let adjustedY = position.y - rect.height + 8;
             let above = true;
 
             // If popup would go above viewport, show below the trigger instead
