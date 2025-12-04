@@ -28,7 +28,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesEndRef = useRef(null);
     const editorRef = useRef(null);
     const { user } = useAuth();
-    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, toggleVideo, isVideoOn, localStream, remoteStreams, incomingCall, clearIncomingCall, participants, connectionStatus } = useCall();
+    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, toggleVideo, isVideoOn, localStream, remoteStreams, participants, connectionStatus } = useCall();
     const [loading, setLoading] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesContainerRef = useRef(null);
@@ -602,7 +602,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 socket.emit('start_call', {
                     channelId: currentChannel.id,
                     targetUserId: currentChannel.otherUserId,
-                    messageId: response.id
+                    messageId: response.id,
+                    callerName: user.username,
+                    callerAvatar: user.avatar_url
                 });
             }
         });
@@ -671,34 +673,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     </button>
                 </div>
             </div>
-
-            {/* Incoming Call Banner */}
-            {incomingCall && !isInCall && (
-                <div className="bg-blue-600 text-white p-3 flex justify-between items-center px-6 shadow-md z-10">
-                    <div className="flex items-center gap-2">
-                        <Headphones size={20} className="animate-pulse" />
-                        <span className="font-medium">Incoming Huddle Invitation</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => {
-                                joinCall(incomingCall.channelId);
-                                clearIncomingCall();
-                                toast.success('Joined huddle!');
-                            }}
-                            className="bg-white text-blue-600 px-4 py-1.5 rounded-full text-sm font-bold hover:bg-gray-100 transition-colors"
-                        >
-                            Join
-                        </button>
-                        <button
-                            onClick={clearIncomingCall}
-                            className="text-white/80 hover:text-white"
-                        >
-                            <X size={20} />
-                        </button>
-                    </div>
-                </div>
-            )}
 
             {/* Huddle Panel */}
             <HuddlePanel

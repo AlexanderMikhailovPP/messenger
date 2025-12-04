@@ -1,10 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { CallProvider } from './context/CallContext';
+import { CallProvider, useCall } from './context/CallContext';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ChatLayout from './components/ChatLayout';
+import IncomingCallModal from './components/IncomingCallModal';
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -16,6 +17,23 @@ function PrivateRoute({ children }) {
     );
   }
   return user ? children : <Navigate to="/login" />;
+}
+
+// Global incoming call modal overlay
+function GlobalIncomingCall() {
+  const { incomingCall, acceptIncomingCall, declineIncomingCall, isInCall } = useCall();
+
+  if (!incomingCall || isInCall) return null;
+
+  return (
+    <IncomingCallModal
+      callerName={incomingCall.callerName}
+      callerAvatar={incomingCall.callerAvatar}
+      channelName={incomingCall.channelName}
+      onAccept={() => acceptIncomingCall(incomingCall.channelId)}
+      onDecline={declineIncomingCall}
+    />
+  );
 }
 
 function App() {
@@ -45,6 +63,7 @@ function App() {
               },
             }}
           />
+          <GlobalIncomingCall />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />

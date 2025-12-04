@@ -4,6 +4,61 @@ import { useAuth } from './AuthContext';
 
 const CallContext = createContext(null);
 
+// Ringtone generator using Web Audio API
+const createRingtone = () => {
+    let audioContext = null;
+    let oscillator = null;
+    let gainNode = null;
+    let isPlaying = false;
+    let intervalId = null;
+
+    const playTone = () => {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        // Create oscillator for ringtone
+        oscillator = audioContext.createOscillator();
+        gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // Pleasant ring tone (two-tone pattern like phone)
+        oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4
+        oscillator.frequency.setValueAtTime(480, audioContext.currentTime + 0.15); // B4 slightly
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    };
+
+    return {
+        start: () => {
+            if (isPlaying) return;
+            isPlaying = true;
+            playTone();
+            // Ring pattern: play, pause, play, pause...
+            intervalId = setInterval(() => {
+                if (isPlaying) playTone();
+            }, 1500);
+        },
+        stop: () => {
+            isPlaying = false;
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            if (oscillator) {
+                try { oscillator.stop(); } catch {}
+                oscillator = null;
+            }
+        }
+    };
+};
+
 // Free TURN servers (for production, consider using your own or a paid service)
 const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -58,6 +113,7 @@ export const CallProvider = ({ children }) => {
     const pendingCandidatesRef = useRef({}); // Queue for ICE candidates before remote description
     const makingOfferRef = useRef({}); // Track if we're currently making an offer
     const ignoreOfferRef = useRef({}); // For polite peer handling
+    const ringtoneRef = useRef(null); // Ringtone instance
 
     // Cleanup function for audio elements
     const cleanupAudioElement = useCallback((socketId) => {
@@ -337,23 +393,22 @@ export const CallProvider = ({ children }) => {
             // Cleanup audio element
             cleanupAudioElement(socketId);
 
+            // Remove remote stream
+            setRemoteStreams(prev => {
+                const newStreams = { ...prev };
+                delete newStreams[socketId];
+                return newStreams;
+            });
+
             setPeers(prev => {
                 const newPeers = { ...prev };
                 delete newPeers[socketId];
                 return newPeers;
             });
 
-            setParticipants(prev => {
-                const updated = prev.filter(p => p.userId !== userId);
+            setParticipants(prev => prev.filter(p => p.userId !== userId));
 
-                // Auto-leave if only current user remains
-                if (updated.length === 1 && updated[0].isCurrentUser) {
-                    console.log('[CallContext] Last participant - auto-leaving');
-                    setTimeout(() => leaveCall(), 500);
-                }
-
-                return updated;
-            });
+            // Note: Don't auto-leave - user can stay in call alone waiting for others
         };
 
         const handleOffer = async (payload) => {
@@ -491,6 +546,28 @@ export const CallProvider = ({ children }) => {
             socket.off('video-update', handleVideoUpdate);
         };
     }, [isInCall, createPeerConnection, cleanupAudioElement]);
+
+    // Ringtone effect - play when incoming call and not in call
+    useEffect(() => {
+        if (incomingCall && !isInCall) {
+            // Initialize ringtone if needed
+            if (!ringtoneRef.current) {
+                ringtoneRef.current = createRingtone();
+            }
+            ringtoneRef.current.start();
+        } else {
+            // Stop ringtone when call is answered/declined or when in call
+            if (ringtoneRef.current) {
+                ringtoneRef.current.stop();
+            }
+        }
+
+        return () => {
+            if (ringtoneRef.current) {
+                ringtoneRef.current.stop();
+            }
+        };
+    }, [incomingCall, isInCall]);
 
     const joinCall = async (channelId) => {
         const socket = getSocket();

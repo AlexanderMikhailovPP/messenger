@@ -196,8 +196,10 @@ module.exports = (io, db) => {
             socket.to(roomId).emit('video-update', { userId, isVideoOn });
         });
 
-        socket.on('start_call', async ({ channelId, targetUserId, messageId }) => {
+        socket.on('start_call', async ({ channelId, targetUserId, messageId, callerName, callerAvatar }) => {
             const userId = socket.data.userId;
+            // Use passed callerName/Avatar or fallback to socket data
+            const finalCallerName = callerName || socket.data.username;
 
             try {
                 // Create huddle session in DB
@@ -224,7 +226,12 @@ module.exports = (io, db) => {
                 }
             }
 
-            const payload = { channelId, callerId: userId };
+            const payload = {
+                channelId,
+                callerId: userId,
+                callerName: finalCallerName,
+                callerAvatar: callerAvatar || null
+            };
 
             if (targetUserId) {
                 // Direct call to user
