@@ -816,9 +816,23 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                 key={msg.id}
                                 className={`flex gap-3 group hover:bg-[#32353b] px-3 py-0.5 rounded relative ${isGrouped ? 'mt-0.5' : 'mt-2'}`}
                             >
-                                {/* Avatar or spacer */}
+                                {/* Avatar or spacer with time for grouped messages */}
                                 {isGrouped ? (
-                                    <div className="w-10 flex-shrink-0" />
+                                    <div
+                                        className="w-10 flex-shrink-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title={new Date(msg.created_at).toLocaleString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: 'numeric',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: true
+                                        }).replace(',', ' at')}
+                                    >
+                                        <span className="text-[10px] text-gray-500">
+                                            {new Date(msg.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false })}
+                                        </span>
+                                    </div>
                                 ) : (
                                     <UserAvatar
                                         user={{
