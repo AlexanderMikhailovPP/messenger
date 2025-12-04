@@ -400,7 +400,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
 
             {/* Changelog Modal */}
             {showChangelog && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
                     <div className="bg-gray-900 text-white rounded-2xl w-[500px] max-h-[80vh] overflow-hidden shadow-2xl border border-gray-700">
                         {/* Header */}
                         <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 relative">
