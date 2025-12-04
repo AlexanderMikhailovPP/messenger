@@ -530,20 +530,35 @@ export const CallProvider = ({ children }) => {
                     return;
                 }
 
-                // If we have a collision and we're polite, rollback our offer
-                if (offerCollision && polite) {
-                    console.log('[CallContext] Rolling back our offer (polite peer)');
-                    await Promise.all([
-                        pc.setLocalDescription({ type: 'rollback' }),
-                        pc.setRemoteDescription(payload.sdp)
-                    ]);
-                } else {
-                    // For renegotiation with stable state, just set remote description
-                    if (pc.signalingState !== 'stable') {
-                        console.log('[CallContext] Non-stable state, rolling back first');
+                // Handle based on signaling state
+                if (pc.signalingState === 'have-local-offer') {
+                    // We already sent an offer - this is a "glare" situation
+                    // Use rollback + setRemoteDescription in parallel (perfect negotiation)
+                    if (polite) {
+                        console.log('[CallContext] Glare detected, rolling back (polite peer)');
                         await pc.setLocalDescription({ type: 'rollback' });
+                        await pc.setRemoteDescription(payload.sdp);
+                    } else {
+                        // Impolite peer ignores incoming offer during glare
+                        console.log('[CallContext] Glare detected, ignoring offer (impolite peer)');
+                        return;
                     }
+                } else if (pc.signalingState === 'stable') {
+                    // Normal case - just set remote description
                     await pc.setRemoteDescription(payload.sdp);
+                } else {
+                    // Other states (have-remote-offer, etc) - try to set remote description
+                    console.log('[CallContext] Unusual state:', pc.signalingState, '- attempting setRemoteDescription');
+                    try {
+                        await pc.setRemoteDescription(payload.sdp);
+                    } catch (e) {
+                        console.error('[CallContext] Failed in unusual state, creating new peer connection');
+                        // Recreate peer connection
+                        pc.close();
+                        pc = createPeerConnection(payload.caller, false, null, null);
+                        if (!pc) return;
+                        await pc.setRemoteDescription(payload.sdp);
+                    }
                 }
 
                 console.log('[CallContext] After setRemoteDescription, transceivers:', pc.getTransceivers().map(t => ({
