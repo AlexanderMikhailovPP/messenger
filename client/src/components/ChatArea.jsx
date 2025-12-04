@@ -323,6 +323,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             });
             setCurrentChannel(res.data);
             setMentionPopup(null);
+            // Notify sidebar to refresh DM list
+            notifyNewDM(res.data.id);
         } catch (err) {
             console.error('Failed to create DM:', err);
             toast.error('Failed to start conversation');
@@ -339,6 +341,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             const dmChannel = res.data;
             setCurrentChannel(dmChannel);
             joinCall(dmChannel.id);
+            // Notify sidebar to refresh DM list
+            notifyNewDM(dmChannel.id);
             toast.success(`Calling ${mentionedUser.username}...`);
         } catch (err) {
             console.error('Failed to start call:', err);
