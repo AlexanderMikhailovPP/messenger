@@ -103,7 +103,7 @@ export const CallProvider = ({ children }) => {
     const [incomingCall, setIncomingCall] = useState(null);
     const [participants, setParticipants] = useState([]);
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
-    const [remoteStreams, setRemoteStreams] = useState({});
+    const [remoteStreams, setRemoteStreams] = useState({}); // socketId -> { video: stream, screen: stream }
 
     const peersRef = useRef({});
     const localStreamRef = useRef(null);
@@ -298,14 +298,38 @@ export const CallProvider = ({ children }) => {
                     console.log('[WebRTC] Setting remoteStream for socketId:', targetSocketId);
                     console.log('[WebRTC] Video track details - width:', event.track.getSettings().width, 'height:', event.track.getSettings().height);
 
-                    // Store stream immediately
+                    // Determine if this is a screen share or camera video
+                    // Screen shares typically have higher resolution and come from a different stream
+                    const trackSettings = event.track.getSettings();
+                    const streamId = stream.id;
+
+                    // Check if we already have a video stream for this participant
+                    // If so, this new one is likely a screen share
                     setRemoteStreams(prev => {
                         console.log('[WebRTC] Previous remoteStreams:', Object.keys(prev));
+                        const existing = prev[targetSocketId] || {};
+
+                        // Determine stream type: if we already have a video stream with a different ID,
+                        // or if this stream has significantly higher resolution (typical for screen share)
+                        const isScreenShare = existing.video && existing.video.id !== streamId;
+                        const isLargeVideo = trackSettings.width && trackSettings.width > 1000;
+
+                        // Also check if screen share typically has higher width (display vs webcam)
+                        // Screen shares from getDisplayMedia usually have much larger dimensions
+                        const streamType = (isScreenShare || isLargeVideo) && existing.video ? 'screen' :
+                                          !existing.video ? 'video' :
+                                          'screen'; // If video exists and new stream arrives, it's screen
+
+                        console.log('[WebRTC] Stream type determined:', streamType, 'streamId:', streamId, 'existingVideoId:', existing.video?.id, 'isLargeVideo:', isLargeVideo);
+
                         const newStreams = {
                             ...prev,
-                            [targetSocketId]: stream
+                            [targetSocketId]: {
+                                ...existing,
+                                [streamType]: stream
+                            }
                         };
-                        console.log('[WebRTC] New remoteStreams:', Object.keys(newStreams));
+                        console.log('[WebRTC] New remoteStreams structure:', Object.keys(newStreams), 'types:', Object.keys(newStreams[targetSocketId] || {}));
                         return newStreams;
                     });
 
@@ -480,7 +504,7 @@ export const CallProvider = ({ children }) => {
             // Cleanup audio element
             cleanupAudioElement(socketId);
 
-            // Remove remote stream
+            // Remove remote streams (both video and screen)
             setRemoteStreams(prev => {
                 const newStreams = { ...prev };
                 delete newStreams[socketId];
@@ -683,6 +707,20 @@ export const CallProvider = ({ children }) => {
                 }
                 return p;
             }));
+
+            // If screen sharing stopped, remove the screen stream from remoteStreams
+            if (!screenState && senderSocketId) {
+                setRemoteStreams(prev => {
+                    if (prev[senderSocketId]) {
+                        const { screen, ...rest } = prev[senderSocketId];
+                        return {
+                            ...prev,
+                            [senderSocketId]: rest
+                        };
+                    }
+                    return prev;
+                });
+            }
         };
 
         socket.on('screen-share-update', handleScreenShareUpdate);

@@ -44,7 +44,8 @@ export default function HuddlePanel({
     }, [localScreenStream, isScreenSharing]);
 
     // Check if anyone has video or screen share on
-    const hasAnyVideo = isVideoOn || isScreenSharing || participants.some(p => !p.isCurrentUser && (p.hasVideo || p.isScreenSharing));
+    const hasAnyVideo = isVideoOn || isScreenSharing || participants.some(p => !p.isCurrentUser && (p.hasVideo || p.isScreenSharing)) ||
+        Object.values(remoteStreams).some(streams => streams?.video || streams?.screen);
 
     // Auto-expand when anyone enables video
     useEffect(() => {
@@ -345,24 +346,29 @@ export default function HuddlePanel({
                                         )}
                                         {pinnedVideo.type === 'remote' && (() => {
                                             const participant = participants.find(p => p.socketId === pinnedVideo.socketId);
-                                            let stream = remoteStreams[pinnedVideo.socketId] || (participant && participant.stream);
-                                            if (!stream) {
-                                                for (const socketId of Object.keys(remoteStreams)) {
-                                                    if (remoteStreams[socketId]) {
-                                                        stream = remoteStreams[socketId];
-                                                        break;
-                                                    }
-                                                }
-                                            }
+                                            const participantStreams = remoteStreams[pinnedVideo.socketId] || {};
+                                            const stream = participantStreams.video || (participant && participant.stream);
                                             return stream ? (
                                                 <VideoElement stream={stream} className="max-w-full max-h-full object-contain" />
                                             ) : (
                                                 <div className="text-gray-400">No video stream</div>
                                             );
                                         })()}
+                                        {pinnedVideo.type === 'remote-screen' && (() => {
+                                            const participantStreams = remoteStreams[pinnedVideo.socketId] || {};
+                                            const stream = participantStreams.screen;
+                                            return stream ? (
+                                                <VideoElement stream={stream} className="max-w-full max-h-full object-contain" />
+                                            ) : (
+                                                <div className="text-gray-400">No screen share stream</div>
+                                            );
+                                        })()}
                                         <div className="absolute bottom-4 left-4 bg-black/60 px-2 py-1 rounded text-sm text-white flex items-center gap-1">
-                                            {pinnedVideo.type === 'local-screen' && <Monitor size={14} />}
-                                            {pinnedVideo.type === 'local' ? 'You' : pinnedVideo.type === 'local-screen' ? 'Your screen' : participants.find(p => p.socketId === pinnedVideo.socketId)?.username || 'Unknown'}
+                                            {(pinnedVideo.type === 'local-screen' || pinnedVideo.type === 'remote-screen') && <Monitor size={14} />}
+                                            {pinnedVideo.type === 'local' ? 'You' :
+                                             pinnedVideo.type === 'local-screen' ? 'Your screen' :
+                                             pinnedVideo.type === 'remote-screen' ? `${participants.find(p => p.socketId === pinnedVideo.socketId)?.username || 'Unknown'}'s screen` :
+                                             participants.find(p => p.socketId === pinnedVideo.socketId)?.username || 'Unknown'}
                                         </div>
                                         <button
                                             onClick={() => setPinnedVideo(null)}
@@ -423,28 +429,23 @@ export default function HuddlePanel({
                                         </div>
                                     </div>
                                 )}
-                                {/* Remote videos */}
-                                {participants.filter(p => !p.isCurrentUser && p.hasVideo).map((participant) => {
-                                    let stream = remoteStreams[participant.socketId];
-                                    if (!stream && participant.stream) {
-                                        stream = participant.stream;
-                                    }
-                                    if (!stream) {
-                                        for (const socketId of Object.keys(remoteStreams)) {
-                                            if (remoteStreams[socketId]) {
-                                                stream = remoteStreams[socketId];
-                                                break;
-                                            }
-                                        }
-                                    }
+                                {/* Remote videos - show camera video for each participant */}
+                                {participants.filter(p => !p.isCurrentUser).map((participant) => {
+                                    // Get streams for this participant (new structure: { video: stream, screen: stream })
+                                    const participantStreams = remoteStreams[participant.socketId] || {};
+                                    const videoStream = participantStreams.video || participant.stream;
+
+                                    // Only render if they have video
+                                    if (!videoStream && !participant.hasVideo) return null;
+
                                     return (
                                         <div
-                                            key={participant.socketId}
+                                            key={`video-${participant.socketId}`}
                                             className={`relative bg-[#2e3136] rounded-lg overflow-hidden cursor-pointer group ${isFullscreen ? 'aspect-video' : 'aspect-video'}`}
                                             onClick={() => handlePinVideo('remote', participant.userId, participant.socketId)}
                                         >
-                                            {stream ? (
-                                                <VideoElement stream={stream} />
+                                            {videoStream ? (
+                                                <VideoElement stream={videoStream} />
                                             ) : (
                                                 <div className="flex items-center justify-center h-full">
                                                     <UserAvatar
@@ -461,6 +462,38 @@ export default function HuddlePanel({
                                                     <MicOff size={12} className="text-white" />
                                                 </div>
                                             )}
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                <Maximize2 size={24} className="text-white" />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {/* Remote screen shares - show screen share for each participant who is sharing */}
+                                {participants.filter(p => !p.isCurrentUser).map((participant) => {
+                                    // Get streams for this participant (new structure: { video: stream, screen: stream })
+                                    const participantStreams = remoteStreams[participant.socketId] || {};
+                                    const screenStream = participantStreams.screen;
+
+                                    // Only render if they have screen share
+                                    if (!screenStream && !participant.isScreenSharing) return null;
+
+                                    return (
+                                        <div
+                                            key={`screen-${participant.socketId}`}
+                                            className={`relative bg-[#2e3136] rounded-lg overflow-hidden cursor-pointer group ${isFullscreen ? 'aspect-video' : 'aspect-video'}`}
+                                            onClick={() => handlePinVideo('remote-screen', participant.userId, participant.socketId)}
+                                        >
+                                            {screenStream ? (
+                                                <VideoElement stream={screenStream} />
+                                            ) : (
+                                                <div className="flex items-center justify-center h-full text-gray-400">
+                                                    <Monitor size={32} />
+                                                </div>
+                                            )}
+                                            <div className="absolute bottom-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-xs text-white flex items-center gap-1">
+                                                <Monitor size={10} />
+                                                {participant.username}'s screen
+                                            </div>
                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                                 <Maximize2 size={24} className="text-white" />
                                             </div>
