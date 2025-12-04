@@ -278,10 +278,12 @@ export const CallProvider = ({ children }) => {
                     createAudioElement(targetSocketId, stream);
                 }
 
-                // Store video stream for rendering
+                // Store video stream for rendering - ALWAYS store it by socketId
                 if (event.track.kind === 'video') {
                     console.log('[WebRTC] Setting remoteStream for socketId:', targetSocketId);
                     console.log('[WebRTC] Video track details - width:', event.track.getSettings().width, 'height:', event.track.getSettings().height);
+
+                    // Store stream immediately
                     setRemoteStreams(prev => {
                         console.log('[WebRTC] Previous remoteStreams:', Object.keys(prev));
                         const newStreams = {
@@ -292,18 +294,34 @@ export const CallProvider = ({ children }) => {
                         return newStreams;
                     });
 
-                    // Update participant video state
+                    // Update participant video state - find by socketId first, then try userId
                     setParticipants(prev => {
-                        console.log('[WebRTC] Participants socketIds:', prev.map(p => p.socketId));
-                        const found = prev.find(p => p.socketId === targetSocketId);
-                        console.log('[WebRTC] Found participant for socketId', targetSocketId, ':', found ? 'yes' : 'NO');
+                        console.log('[WebRTC] Participants:', prev.map(p => ({ socketId: p.socketId, userId: p.userId, username: p.username })));
+
+                        // Try to find participant by socketId
+                        let found = prev.find(p => p.socketId === targetSocketId);
+
+                        // If not found by socketId and we have userId, try by userId
+                        if (!found && targetUserId) {
+                            found = prev.find(p => p.userId === targetUserId);
+                            if (found) {
+                                console.log('[WebRTC] Found participant by userId, updating socketId from', found.socketId, 'to', targetSocketId);
+                            }
+                        }
+
+                        console.log('[WebRTC] Found participant for socketId', targetSocketId, ':', found ? `yes (${found.username})` : 'NO');
+
                         if (!found) {
                             // Participant not yet in list - add them with video info
-                            console.log('[WebRTC] Adding participant for incoming video track:', targetSocketId, targetUsername);
+                            // Get peer info for username
+                            const peerInfo = peersRef.current[targetSocketId];
+                            const username = targetUsername || peerInfo?.username || 'Unknown';
+                            const userId = targetUserId || peerInfo?.userId;
+                            console.log('[WebRTC] Adding participant for incoming video track:', targetSocketId, username);
                             return [...prev, {
-                                userId: targetUserId,
+                                userId: userId,
                                 socketId: targetSocketId,
-                                username: targetUsername,
+                                username: username,
                                 avatarUrl: null,
                                 isMuted: false,
                                 isSpeaking: false,
@@ -312,9 +330,14 @@ export const CallProvider = ({ children }) => {
                                 stream
                             }];
                         }
-                        return prev.map(p =>
-                            p.socketId === targetSocketId ? { ...p, hasVideo: true, stream } : p
-                        );
+
+                        // Update existing participant - ensure socketId is correct
+                        return prev.map(p => {
+                            if (p.socketId === targetSocketId || (targetUserId && p.userId === targetUserId)) {
+                                return { ...p, socketId: targetSocketId, hasVideo: true, stream };
+                            }
+                            return p;
+                        });
                     });
                 }
 
@@ -567,13 +590,18 @@ export const CallProvider = ({ children }) => {
             ));
         };
 
-        const handleVideoUpdate = ({ userId: odId, isVideoOn: videoState }) => {
-            console.log('[CallContext] Received video-update:', { userId: odId, isVideoOn: videoState });
+        const handleVideoUpdate = ({ userId: odId, isVideoOn: videoState, socketId: senderSocketId }) => {
+            console.log('[CallContext] Received video-update:', { userId: odId, isVideoOn: videoState, socketId: senderSocketId });
             setParticipants(prev => {
-                console.log('[CallContext] Current participants:', prev.map(p => ({ userId: p.userId, socketId: p.socketId })));
-                return prev.map(p =>
-                    p.userId === odId ? { ...p, hasVideo: videoState } : p
-                );
+                console.log('[CallContext] Current participants:', prev.map(p => ({ userId: p.userId, socketId: p.socketId, hasVideo: p.hasVideo })));
+                return prev.map(p => {
+                    // Match by userId OR socketId
+                    if (p.userId === odId || (senderSocketId && p.socketId === senderSocketId)) {
+                        console.log('[CallContext] Updating hasVideo for participant:', p.username, 'to', videoState);
+                        return { ...p, hasVideo: videoState };
+                    }
+                    return p;
+                });
             });
         };
 

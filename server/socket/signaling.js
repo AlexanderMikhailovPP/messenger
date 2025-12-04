@@ -193,7 +193,8 @@ module.exports = (io, db) => {
         // Broadcast video state to all participants in the call
         socket.on('video-update', ({ userId, isVideoOn, channelId }) => {
             const roomId = `call_${channelId}`;
-            socket.to(roomId).emit('video-update', { userId, isVideoOn });
+            // Include socketId for better participant matching
+            socket.to(roomId).emit('video-update', { userId, isVideoOn, socketId: socket.id });
         });
 
         socket.on('start_call', async ({ channelId, targetUserId, messageId, callerName, callerAvatar }) => {

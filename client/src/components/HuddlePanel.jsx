@@ -274,23 +274,42 @@ export default function HuddlePanel({
                                 )}
                                 {/* Remote videos */}
                                 {(() => {
-                                    console.log('[HuddlePanel] Rendering remote videos, participants:', participants.map(p => ({ userId: p.userId, socketId: p.socketId, hasVideo: p.hasVideo, isCurrentUser: p.isCurrentUser })));
+                                    console.log('[HuddlePanel] Rendering remote videos, participants:', participants.map(p => ({ userId: p.userId, socketId: p.socketId, hasVideo: p.hasVideo, isCurrentUser: p.isCurrentUser, hasStream: !!p.stream })));
                                     console.log('[HuddlePanel] remoteStreams keys:', Object.keys(remoteStreams));
+                                    console.log('[HuddlePanel] remoteStreams values exist:', Object.keys(remoteStreams).map(k => !!remoteStreams[k]));
                                     return null;
                                 })()}
                                 {participants.filter(p => !p.isCurrentUser && p.hasVideo).map((participant) => {
-                                    // Try to find stream: 1) remoteStreams by socketId, 2) participant.stream, 3) fallback
-                                    let stream = remoteStreams[participant.socketId] || participant.stream;
-                                    if (!stream && Object.keys(remoteStreams).length > 0) {
-                                        // Fallback: if there's only one remote stream and we have only one remote participant with video
-                                        const remoteParticipantsWithVideo = participants.filter(p => !p.isCurrentUser && p.hasVideo);
-                                        const remoteStreamKeys = Object.keys(remoteStreams);
-                                        if (remoteParticipantsWithVideo.length === 1 && remoteStreamKeys.length === 1) {
-                                            console.log('[HuddlePanel] Fallback: using first available stream');
-                                            stream = remoteStreams[remoteStreamKeys[0]];
+                                    // Try to find stream with multiple fallbacks
+                                    // 1) By socketId in remoteStreams
+                                    // 2) participant.stream (stored directly on participant)
+                                    // 3) Fallback to any stream if only one participant with video and one stream
+                                    let stream = remoteStreams[participant.socketId];
+
+                                    // Try participant.stream
+                                    if (!stream && participant.stream) {
+                                        console.log('[HuddlePanel] Using participant.stream for', participant.username);
+                                        stream = participant.stream;
+                                    }
+
+                                    // Aggressive fallback: try to match by userId
+                                    if (!stream) {
+                                        for (const socketId of Object.keys(remoteStreams)) {
+                                            // This is a last resort - just use any available stream if we have video flag
+                                            if (remoteStreams[socketId]) {
+                                                console.log('[HuddlePanel] Aggressive fallback: trying stream from socketId', socketId, 'for participant', participant.username);
+                                                stream = remoteStreams[socketId];
+                                                break;
+                                            }
                                         }
                                     }
-                                    console.log('[HuddlePanel] Participant', participant.username, 'socketId:', participant.socketId, 'stream:', stream ? 'exists' : 'missing', 'participant.stream:', participant.stream ? 'exists' : 'missing', 'remoteStreams keys:', Object.keys(remoteStreams));
+
+                                    console.log('[HuddlePanel] Participant', participant.username,
+                                        'socketId:', participant.socketId,
+                                        'stream found:', stream ? 'YES' : 'NO',
+                                        'participant.stream:', participant.stream ? 'exists' : 'missing',
+                                        'remoteStreams keys:', Object.keys(remoteStreams)
+                                    );
                                     return (
                                         <div key={participant.socketId} className="relative aspect-video bg-[#2e3136] rounded-lg overflow-hidden">
                                             {stream ? (
@@ -449,21 +468,46 @@ function VideoElement({ stream }) {
     useEffect(() => {
         const video = videoRef.current;
         if (video && stream) {
-            console.log('[VideoElement] Setting stream with tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
+            const videoTracks = stream.getVideoTracks();
+            console.log('[VideoElement] Setting stream with video tracks:', videoTracks.map(t => ({
+                kind: t.kind,
+                enabled: t.enabled,
+                readyState: t.readyState,
+                settings: t.getSettings()
+            })));
+
+            // Set srcObject
             video.srcObject = stream;
-            // Try to play and handle any errors
-            video.play().catch(err => {
-                console.warn('[VideoElement] Autoplay failed:', err.message);
-            });
+
+            // Force play after a small delay to ensure DOM is ready
+            const playVideo = () => {
+                video.play().then(() => {
+                    console.log('[VideoElement] Video playing successfully');
+                }).catch(err => {
+                    console.warn('[VideoElement] Autoplay failed:', err.message);
+                    // Try again with muted (browsers may require this)
+                    video.muted = true;
+                    video.play().catch(err2 => {
+                        console.error('[VideoElement] Muted autoplay also failed:', err2.message);
+                    });
+                });
+            };
+
+            // Small delay to ensure stream is ready
+            setTimeout(playVideo, 100);
+
+            // Also try on loadedmetadata
+            video.onloadedmetadata = playVideo;
         }
     }, [stream]);
 
+    // Don't mute remote video - we want to hear them if audio is in the same stream
+    // muted is only needed for LOCAL video to prevent echo
     return (
         <video
             ref={videoRef}
             autoPlay
             playsInline
-            muted
             className="w-full h-full object-cover"
         />
     );
