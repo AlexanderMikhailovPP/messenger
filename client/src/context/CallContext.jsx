@@ -581,61 +581,75 @@ export const CallProvider = ({ children }) => {
             return false;
         }
 
-        if (!navigator.mediaDevices?.getUserMedia) {
-            alert('Audio is not supported. Please use HTTPS.');
-            return false;
+        setConnectionStatus('connecting');
+
+        let stream = null;
+        let microphoneError = null;
+
+        // Try to get microphone, but don't fail if we can't
+        if (navigator.mediaDevices?.getUserMedia) {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: false
+                });
+            } catch (err) {
+                console.warn('[CallContext] Microphone unavailable:', err.message);
+                microphoneError = err;
+            }
         }
 
-        try {
-            setConnectionStatus('connecting');
-
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                },
-                video: false
-            });
-
+        // Join call even without microphone
+        if (stream) {
             localStreamRef.current = stream;
             setLocalStream(stream);
-            setIsInCall(true);
-            setActiveChannelId(channelId);
-            setConnectionStatus('connected');
-
-            // Setup speaking detection
             setupSpeakingDetection(stream);
-
-            // Add current user to participants
-            setParticipants([{
-                userId: user.id,
-                socketId: socket.id,
-                username: user.username,
-                avatarUrl: user.avatar_url,
-                isMuted: false,
-                isSpeaking: false,
-                isCurrentUser: true
-            }]);
-
-            // Join the call room
-            socket.emit('join-room', `call_${channelId}`, user.id);
-
-            console.log('[CallContext] Joined huddle in channel:', channelId);
-            return true;
-        } catch (err) {
-            console.error('[CallContext] Failed to join call:', err);
-            setConnectionStatus('disconnected');
-
-            if (err.name === 'NotAllowedError') {
-                alert('Microphone access denied. Please allow microphone permissions.');
-            } else if (err.name === 'NotFoundError') {
-                alert('No microphone found. Please connect a microphone.');
-            } else {
-                alert('Could not access microphone: ' + err.message);
-            }
-            return false;
+            setIsMuted(false);
+        } else {
+            // No microphone - join as muted listener
+            localStreamRef.current = null;
+            setLocalStream(null);
+            setIsMuted(true);
         }
+
+        setIsInCall(true);
+        setActiveChannelId(channelId);
+        setConnectionStatus('connected');
+
+        // Add current user to participants
+        setParticipants([{
+            userId: user.id,
+            socketId: socket.id,
+            username: user.username,
+            avatarUrl: user.avatar_url,
+            isMuted: !stream, // Muted if no microphone
+            isSpeaking: false,
+            isCurrentUser: true
+        }]);
+
+        // Join the call room
+        socket.emit('join-room', `call_${channelId}`, user.id);
+
+        console.log('[CallContext] Joined huddle in channel:', channelId, stream ? '(with mic)' : '(without mic)');
+
+        // Show warning about microphone after joining
+        if (microphoneError) {
+            setTimeout(() => {
+                if (microphoneError.name === 'NotAllowedError') {
+                    alert('Microphone access denied. You joined as a listener. Allow microphone permissions and rejoin to speak.');
+                } else if (microphoneError.name === 'NotFoundError') {
+                    alert('No microphone found. You joined as a listener.');
+                } else {
+                    alert('Microphone unavailable: ' + microphoneError.message + '. You joined as a listener.');
+                }
+            }, 100);
+        }
+
+        return true;
     };
 
     const leaveCall = useCallback(() => {
@@ -824,11 +838,8 @@ export const CallProvider = ({ children }) => {
     }, []);
 
     const acceptIncomingCall = useCallback(async (channelId) => {
-        const success = await joinCall(channelId);
-        if (success) {
-            clearIncomingCall();
-        }
-        // If failed, keep incomingCall so user can try again or decline
+        clearIncomingCall();
+        await joinCall(channelId);
     }, [clearIncomingCall]);
 
     const declineIncomingCall = useCallback(() => {
