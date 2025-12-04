@@ -87,8 +87,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
                 }, 100);
             } else {
-                // Message in different channel - increment unread
-                incrementUnread(message.channel_id);
+                // Message in different channel - increment unread (pass messageId to prevent duplicates)
+                incrementUnread(message.channel_id, message.id);
                 // Notify about potential new DM (sidebar will refresh DM list)
                 notifyNewDM(message.channel_id);
             }
@@ -109,14 +109,26 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             ));
         };
 
+        // Handle reaction updates from other users
+        const handleReactionUpdated = async ({ messageId }) => {
+            try {
+                const reactionsRes = await axios.get(`/api/reactions/${messageId}/reactions`);
+                setReactions(prev => ({ ...prev, [messageId]: reactionsRes.data }));
+            } catch (err) {
+                console.warn(`Failed to fetch updated reactions for message ${messageId}`, err);
+            }
+        };
+
         socket.on('receive_message', handleNewMessage);
         socket.on('message_updated', handleMessageUpdated);
         socket.on('thread_updated', handleThreadUpdated);
+        socket.on('reaction_updated', handleReactionUpdated);
 
         return () => {
             socket.off('receive_message', handleNewMessage);
             socket.off('message_updated', handleMessageUpdated);
             socket.off('thread_updated', handleThreadUpdated);
+            socket.off('reaction_updated', handleReactionUpdated);
         };
     }, [currentChannel]);
 

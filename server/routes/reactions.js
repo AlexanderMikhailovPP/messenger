@@ -3,8 +3,22 @@ const router = express.Router();
 const db = require('../db');
 const authMiddleware = require('../middleware/auth');
 
+// Store io reference
+let io = null;
+
+// Initialize with socket.io instance
+const initReactions = (socketIo) => {
+    io = socketIo;
+};
+
 // All routes require authentication
 router.use(authMiddleware);
+
+// Helper to get channel ID for a message
+const getMessageChannelId = async (messageId) => {
+    const result = await db.query('SELECT channel_id FROM messages WHERE id = ?', [messageId]);
+    return result.rows[0]?.channel_id;
+};
 
 // Add reaction to a message
 router.post('/:messageId/reactions', async (req, res) => {
@@ -17,6 +31,15 @@ router.post('/:messageId/reactions', async (req, res) => {
             'INSERT INTO reactions (message_id, user_id, emoji) VALUES (?, ?, ?)',
             [messageId, userId, emoji]
         );
+
+        // Emit reaction update to channel
+        if (io) {
+            const channelId = await getMessageChannelId(messageId);
+            if (channelId) {
+                io.to(channelId.toString()).emit('reaction_updated', { messageId: parseInt(messageId) });
+            }
+        }
+
         res.json({ success: true });
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.code === '23505') {
@@ -26,6 +49,15 @@ router.post('/:messageId/reactions', async (req, res) => {
                     'DELETE FROM reactions WHERE message_id = ? AND user_id = ? AND emoji = ?',
                     [messageId, userId, emoji]
                 );
+
+                // Emit reaction update to channel
+                if (io) {
+                    const channelId = await getMessageChannelId(messageId);
+                    if (channelId) {
+                        io.to(channelId.toString()).emit('reaction_updated', { messageId: parseInt(messageId) });
+                    }
+                }
+
                 res.json({ success: true, removed: true });
             } catch (deleteErr) {
                 if (process.env.NODE_ENV !== 'production') {
@@ -84,3 +116,4 @@ router.get('/:messageId/reactions', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.initReactions = initReactions;

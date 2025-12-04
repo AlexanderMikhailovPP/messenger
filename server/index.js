@@ -37,6 +37,7 @@ const channelRoutes = require('./routes/channels');
 const messageRoutes = require('./routes/messages');
 const userRoutes = require('./routes/users');
 const reactionsRoutes = require('./routes/reactions');
+const { initReactions } = require('./routes/reactions');
 const scheduledRoutes = require('./routes/scheduled');
 const db = require('./db');
 
@@ -66,6 +67,9 @@ require('./socket/signaling')(io, db);
 // Initialize message scheduler
 const { initScheduler } = require('./scheduler');
 initScheduler(io);
+
+// Initialize reactions with socket.io
+initReactions(io);
 
 // Apply Socket.IO authentication middleware
 io.use(socketAuth);
