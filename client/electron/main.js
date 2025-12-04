@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, session } = require('electron');
 const path = require('path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
@@ -129,6 +129,22 @@ function createMenu() {
 }
 
 app.whenReady().then(() => {
+    // Auto-grant media permissions (microphone, camera, screen share)
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+        const allowedPermissions = ['media', 'mediaKeySystem', 'geolocation', 'notifications', 'fullscreen', 'pointerLock'];
+        if (allowedPermissions.includes(permission)) {
+            callback(true);
+        } else {
+            callback(false);
+        }
+    });
+
+    // Also handle permission checks
+    session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+        const allowedPermissions = ['media', 'mediaKeySystem', 'geolocation', 'notifications', 'fullscreen', 'pointerLock'];
+        return allowedPermissions.includes(permission);
+    });
+
     createWindow();
     createMenu();
 
