@@ -629,7 +629,7 @@ export const CallProvider = ({ children }) => {
         };
     }, [incomingCall, isInCall]);
 
-    const joinCall = async (channelId) => {
+    const joinCall = useCallback(async (channelId) => {
         try {
             const socket = getSocket();
             if (!socket) {
@@ -638,6 +638,7 @@ export const CallProvider = ({ children }) => {
             }
 
             if (!user) {
+                console.error('[CallContext] joinCall: user is null');
                 alert('Not authenticated. Please log in.');
                 return false;
             }
@@ -722,7 +723,7 @@ export const CallProvider = ({ children }) => {
             alert('Failed to join call. Please try again.');
             return false;
         }
-    };
+    }, [user, isInCall]);
 
     const leaveCall = useCallback(() => {
         const socket = getSocket();
@@ -912,7 +913,7 @@ export const CallProvider = ({ children }) => {
     const acceptIncomingCall = useCallback(async (channelId) => {
         clearIncomingCall();
         await joinCall(channelId);
-    }, [clearIncomingCall]);
+    }, [clearIncomingCall, joinCall]);
 
     const declineIncomingCall = useCallback(() => {
         clearIncomingCall();
