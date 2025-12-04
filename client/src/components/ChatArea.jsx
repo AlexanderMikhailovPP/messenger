@@ -13,7 +13,7 @@ import ThreadPanel from './ThreadPanel';
 import TypingIndicator from './TypingIndicator';
 import { sanitizeHTML } from '../utils/sanitize';
 import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator';
-import { markAsRead, incrementUnread } from '../utils/unreadCounter';
+import { markAsRead, incrementUnread, notifyNewDM } from '../utils/unreadCounter';
 import UserAvatar from './UserAvatar';
 
 export default function ChatArea({ currentChannel, setCurrentChannel, onBack, isMobile }) {
@@ -76,6 +76,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             } else {
                 // Message in different channel - increment unread
                 incrementUnread(message.channel_id);
+                // Notify about potential new DM (sidebar will refresh DM list)
+                notifyNewDM(message.channel_id);
             }
         };
 

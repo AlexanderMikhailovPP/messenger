@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Hash, Plus, ChevronDown, Search, Sparkles, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getUnreadCounts } from '../utils/unreadCounter';
+import { getUnreadCounts, subscribeToUnreadChanges, subscribeToDMUpdates } from '../utils/unreadCounter';
+import { getSocket } from '../socket';
 import UserAvatar from './UserAvatar';
 
 const changelogData = [
@@ -80,19 +81,38 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
     const { user } = useAuth();
     const [unreadCounts, setUnreadCounts] = useState({});
 
+    const fetchDMsCallback = useCallback(async () => {
+        if (!user) return;
+        try {
+            const res = await axios.get(`/api/channels/dms/${user.id}`);
+            setDms(res.data);
+        } catch (error) {
+            console.error('Failed to fetch DMs', error);
+        }
+    }, [user]);
+
     useEffect(() => {
         if (user) {
             fetchChannels();
-            fetchDMs();
+            fetchDMsCallback();
 
-            // Update unread counts periodically
-            const updateUnread = () => setUnreadCounts(getUnreadCounts());
-            updateUnread();
-            const interval = setInterval(updateUnread, 1000); // Every second
+            // Subscribe to unread count changes (instant updates)
+            const unsubscribeUnread = subscribeToUnreadChanges((counts) => {
+                setUnreadCounts(counts);
+            });
+            setUnreadCounts(getUnreadCounts());
 
-            return () => clearInterval(interval);
+            // Subscribe to new DM notifications
+            const unsubscribeDM = subscribeToDMUpdates(() => {
+                fetchDMsCallback();
+            });
+
+            return () => {
+                unsubscribeUnread();
+                unsubscribeDM();
+            };
         }
-    }, [user]);
+    }, [user, fetchDMsCallback]);
 
     const fetchChannels = async () => {
         try {
@@ -106,14 +126,6 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
         }
     };
 
-    const fetchDMs = async () => {
-        try {
-            const res = await axios.get(`/api/channels/dms/${user.id}`);
-            setDms(res.data);
-        } catch (error) {
-            console.error('Failed to fetch DMs', error);
-        }
-    };
 
     const createChannel = async (e) => {
         e.preventDefault();
@@ -216,7 +228,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                                     setCurrentChannel(dmChannel);
                                                     setSearchQuery('');
                                                     setSearchResults({ users: [], channels: [] });
-                                                    fetchDMs();
+                                                    fetchDMsCallback();
                                                 } catch (error) {
                                                     console.error('Failed to open DM', error);
                                                     alert('Failed to open DM');
@@ -246,7 +258,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                 className="mx-3 mt-3 mb-2 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white flex items-center gap-2 text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-purple-500/25"
             >
                 <Sparkles size={16} className="text-yellow-300" />
-                <span>Что нового</span>
+                <span>What's New</span>
                 <span className="ml-auto text-xs bg-white/20 px-1.5 py-0.5 rounded">v1.5</span>
             </button>
 
