@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, MessageCircle, Phone } from 'lucide-react';
 import { useCall } from '../context/CallContext';
 import { useOnlineStatus } from '../context/OnlineStatusContext';
@@ -9,6 +9,8 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
     const { joinCall } = useCall();
     const { getUserStatus } = useOnlineStatus();
     const userStatus = getUserStatus(user.id);
+    const [isAbove, setIsAbove] = useState(true);
+    const [finalPosition, setFinalPosition] = useState({ x: position.x, y: position.y });
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -21,28 +23,30 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
 
-    // Calculate popup position - 10px above the trigger element
+    // Calculate popup position - 10px above/below the trigger element
     useEffect(() => {
         if (popupRef.current) {
             const popup = popupRef.current;
             const rect = popup.getBoundingClientRect();
             const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
 
             let adjustedX = position.x;
-            // Position popup so its bottom is 10px above the trigger (position.y is already rect.top - 10)
+            // position.y is trigger's top - 10
+            // So popup bottom should be at position.y (10px above trigger)
             let adjustedY = position.y - rect.height;
-
-            // Flip horizontally if too close to right edge
-            if (adjustedX + rect.width > viewportWidth - 20) {
-                adjustedX = viewportWidth - rect.width - 20;
-            }
+            let above = true;
 
             // If popup would go above viewport, show below the trigger instead
             if (adjustedY < 10) {
                 // position.y is (rect.top - 10), so trigger rect.top = position.y + 10
                 // Show popup 10px below the trigger bottom (assume trigger height ~20px)
                 adjustedY = position.y + 10 + 20 + 10;
+                above = false;
+            }
+
+            // Flip horizontally if too close to right edge
+            if (adjustedX + rect.width > viewportWidth - 20) {
+                adjustedX = viewportWidth - rect.width - 20;
             }
 
             // Ensure not off-screen left
@@ -50,8 +54,8 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
                 adjustedX = 10;
             }
 
-            popup.style.left = `${adjustedX}px`;
-            popup.style.top = `${adjustedY}px`;
+            setIsAbove(above);
+            setFinalPosition({ x: adjustedX, y: adjustedY });
         }
     }, [position]);
 
@@ -71,12 +75,25 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
         <div
             ref={popupRef}
             className="fixed z-50"
-            style={{ left: position.x, top: position.y }}
+            style={{ left: finalPosition.x, top: finalPosition.y }}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >
-            {/* Invisible bridge to connect popup with trigger element below */}
-            <div className="absolute left-0 bottom-[-8px] w-full h-3" />
+            {/* Invisible bridge to connect popup with trigger element */}
+            {/* Bridge extends from popup edge toward the trigger */}
+            {isAbove ? (
+                // Popup is above trigger - bridge extends down from bottom of popup
+                <div
+                    className="absolute left-0 w-full pointer-events-auto"
+                    style={{ bottom: -20, height: 25 }}
+                />
+            ) : (
+                // Popup is below trigger - bridge extends up from top of popup
+                <div
+                    className="absolute left-0 w-full pointer-events-auto"
+                    style={{ top: -20, height: 25 }}
+                />
+            )}
             <div className="bg-[#1a1d21] rounded-xl shadow-2xl border border-gray-700/50 w-[340px] overflow-hidden font-sans">
             <div className="p-5">
                 <div className="flex gap-4">
