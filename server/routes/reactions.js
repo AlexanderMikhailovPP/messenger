@@ -36,7 +36,7 @@ router.post('/:messageId/reactions', async (req, res) => {
         if (io) {
             const channelId = await getMessageChannelId(messageId);
             if (channelId) {
-                io.to(channelId.toString()).emit('reaction_updated', { messageId: parseInt(messageId) });
+                io.to(channelId).emit('reaction_updated', { messageId: parseInt(messageId) });
             }
         }
 
@@ -54,7 +54,7 @@ router.post('/:messageId/reactions', async (req, res) => {
                 if (io) {
                     const channelId = await getMessageChannelId(messageId);
                     if (channelId) {
-                        io.to(channelId.toString()).emit('reaction_updated', { messageId: parseInt(messageId) });
+                        io.to(channelId).emit('reaction_updated', { messageId: parseInt(messageId) });
                     }
                 }
 
