@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Hash, Plus, LogOut, Sparkles, X, Video, Mic, Clock, Type, MessageSquare, Users } from 'lucide-react';
+import { Hash, Plus, LogOut, Sparkles, X, Video, Mic, Clock, Type, MessageSquare, Users, FileEdit } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getDrafts } from '../utils/drafts';
 
 const changelogData = [
     {
@@ -83,7 +84,16 @@ export default function Sidebar({ currentChannel, setCurrentChannel }) {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showChangelog, setShowChangelog] = useState(false);
     const [newChannelName, setNewChannelName] = useState('');
+    const [drafts, setDrafts] = useState({});
     const { user, logout } = useAuth();
+
+    // Update drafts state periodically
+    useEffect(() => {
+        const updateDrafts = () => setDrafts(getDrafts());
+        updateDrafts();
+        const interval = setInterval(updateDrafts, 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         fetchChannels();
@@ -147,7 +157,10 @@ export default function Sidebar({ currentChannel, setCurrentChannel }) {
                                     }`}
                             >
                                 <Hash size={16} />
-                                <span className="truncate">{channel.name}</span>
+                                <span className="truncate flex-1">{channel.name}</span>
+                                {drafts[channel.id] && (
+                                    <FileEdit size={14} className="text-orange-400 flex-shrink-0" title="Черновик" />
+                                )}
                             </button>
                         </li>
                     ))}

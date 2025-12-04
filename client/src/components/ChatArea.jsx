@@ -14,6 +14,7 @@ import TypingIndicator from './TypingIndicator';
 import { sanitizeHTML } from '../utils/sanitize';
 import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator';
 import { markAsRead, incrementUnread, notifyNewDM } from '../utils/unreadCounter';
+import { getDraft, saveDraft, deleteDraft } from '../utils/drafts';
 import UserAvatar from './UserAvatar';
 
 export default function ChatArea({ currentChannel, setCurrentChannel, onBack, isMobile }) {
@@ -34,6 +35,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesContainerRef = useRef(null);
     const [scheduledMessages, setScheduledMessages] = useState([]);
     const [showScheduledPanel, setShowScheduledPanel] = useState(true);
+    const prevChannelRef = useRef(null);
 
     // Typing indicator
     const socket = getSocket();
@@ -41,8 +43,26 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const typingUsers = useTypingUsers(socket, currentChannel?.id);
     const hoverTimeoutRef = useRef(null);
 
+    // Handle channel switching - save draft from previous channel, load draft for new channel
     useEffect(() => {
         if (currentChannel) {
+            // Save draft from previous channel before switching
+            if (prevChannelRef.current && prevChannelRef.current !== currentChannel.id) {
+                saveDraft(prevChannelRef.current, newMessage);
+            }
+
+            // Load draft for new channel
+            const draft = getDraft(currentChannel.id);
+            setNewMessage(draft);
+
+            // Update editor content
+            if (editorRef.current) {
+                editorRef.current.innerHTML = draft;
+            }
+
+            // Update previous channel ref
+            prevChannelRef.current = currentChannel.id;
+
             const controller = new AbortController();
             const socket = getSocket();
 
@@ -482,6 +502,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
         setNewMessage('');
         setAttachments([]);
+        deleteDraft(currentChannel.id);
         if (editorRef.current) {
             editorRef.current.innerHTML = '';
         }
