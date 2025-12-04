@@ -108,6 +108,8 @@ export const CallProvider = ({ children }) => {
     const localStreamRef = useRef(null);
     const localVideoRef = useRef(null);
     const screenShareTrackRef = useRef(null);
+    const videoSendersRef = useRef({}); // socketId -> RTCRtpSender for camera video
+    const screenSendersRef = useRef({}); // socketId -> RTCRtpSender for screen share
     const audioContextRef = useRef(null);
     const analyserRef = useRef(null);
     const speakingIntervalRef = useRef(null);
@@ -889,6 +891,10 @@ export const CallProvider = ({ children }) => {
         peersRef.current = {};
         setPeers({});
 
+        // Clear sender refs
+        videoSendersRef.current = {};
+        screenSendersRef.current = {};
+
         // Reset state
         setIsInCall(false);
         setActiveChannelId(null);
@@ -955,7 +961,7 @@ export const CallProvider = ({ children }) => {
                     localStreamRef.current.addTrack(videoTrack);
                 }
 
-                // Add video track to all peer connections and manually trigger renegotiation
+                // Add video track to all peer connections and save senders
                 const peerSocketIds = Object.keys(peersRef.current);
                 console.log('[CallContext] Adding video track to peers:', peerSocketIds);
                 for (const socketId of peerSocketIds) {
@@ -963,15 +969,17 @@ export const CallProvider = ({ children }) => {
                     if (peer?.peerConnection && localStreamRef.current) {
                         const pc = peer.peerConnection;
                         console.log('[CallContext] Adding video track to peer:', socketId, 'signalingState:', pc.signalingState);
-                        pc.addTrack(videoTrack, localStreamRef.current);
+                        const sender = pc.addTrack(videoTrack, localStreamRef.current);
+                        // Save sender reference for later removal
+                        videoSendersRef.current[socketId] = sender;
 
-                        // Manually trigger renegotiation since onnegotiationneeded may not fire
+                        // Manually trigger renegotiation
                         console.log('[CallContext] Manually triggering renegotiation for:', socketId);
                         (async () => {
                             try {
                                 const offer = await pc.createOffer();
                                 await pc.setLocalDescription(offer);
-                                console.log('[CallContext] Sending video offer to:', socketId, 'SDP has video:', offer.sdp.includes('m=video'));
+                                console.log('[CallContext] Sending video offer to:', socketId);
                                 socket.emit('offer', {
                                     target: socketId,
                                     caller: socket.id,
@@ -1026,17 +1034,18 @@ export const CallProvider = ({ children }) => {
                     localStreamRef.current.removeTrack(localVideoRef.current);
                 }
 
-                // Remove video track from all peer connections
-                // onnegotiationneeded will fire automatically and handle renegotiation
+                // Remove video track from all peer connections using saved senders
                 const peerSocketIds = Object.keys(peersRef.current);
                 for (const socketId of peerSocketIds) {
                     const peer = peersRef.current[socketId];
-                    if (peer?.peerConnection) {
-                        const senders = peer.peerConnection.getSenders();
-                        const videoSender = senders.find(s => s.track?.kind === 'video');
-                        if (videoSender) {
-                            peer.peerConnection.removeTrack(videoSender);
+                    const sender = videoSendersRef.current[socketId];
+                    if (peer?.peerConnection && sender) {
+                        try {
+                            peer.peerConnection.removeTrack(sender);
+                        } catch (err) {
+                            console.warn('[CallContext] Error removing video sender:', err);
                         }
+                        delete videoSendersRef.current[socketId];
                     }
                 }
 
@@ -1084,15 +1093,17 @@ export const CallProvider = ({ children }) => {
                     stopScreenShare();
                 };
 
-                // Add screen track to all peer connections
+                // Add screen track to all peer connections and save senders
                 const peerSocketIds = Object.keys(peersRef.current);
                 console.log('[CallContext] Adding screen track to peers:', peerSocketIds);
                 for (const socketId of peerSocketIds) {
                     const peer = peersRef.current[socketId];
-                    if (peer?.peerConnection && localStreamRef.current) {
+                    if (peer?.peerConnection) {
                         const pc = peer.peerConnection;
                         console.log('[CallContext] Adding screen track to peer:', socketId);
-                        pc.addTrack(screenTrack, screenStream);
+                        const sender = pc.addTrack(screenTrack, screenStream);
+                        // Save sender reference for later removal
+                        screenSendersRef.current[socketId] = sender;
 
                         // Manually trigger renegotiation
                         (async () => {
@@ -1147,16 +1158,18 @@ export const CallProvider = ({ children }) => {
         if (screenShareTrackRef.current) {
             screenShareTrackRef.current.stop();
 
-            // Remove screen track from all peer connections
+            // Remove screen track from all peer connections using saved senders
             const peerSocketIds = Object.keys(peersRef.current);
             for (const socketId of peerSocketIds) {
                 const peer = peersRef.current[socketId];
-                if (peer?.peerConnection) {
-                    const senders = peer.peerConnection.getSenders();
-                    const screenSender = senders.find(s => s.track === screenShareTrackRef.current);
-                    if (screenSender) {
-                        peer.peerConnection.removeTrack(screenSender);
+                const sender = screenSendersRef.current[socketId];
+                if (peer?.peerConnection && sender) {
+                    try {
+                        peer.peerConnection.removeTrack(sender);
+                    } catch (err) {
+                        console.warn('[CallContext] Error removing screen sender:', err);
                     }
+                    delete screenSendersRef.current[socketId];
                 }
             }
 
