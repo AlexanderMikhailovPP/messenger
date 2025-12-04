@@ -85,9 +85,12 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     // Scroll to bottom instantly when messages are loaded (channel change)
     useEffect(() => {
         if (!loading && messages.length > 0 && messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'instant' });
+            // Use setTimeout to ensure DOM is fully rendered
+            setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+            }, 0);
         }
-    }, [loading, currentChannel?.id]);
+    }, [loading, messages.length, currentChannel?.id]);
 
     useEffect(() => {
         const socket = getSocket();
