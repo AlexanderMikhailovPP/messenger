@@ -261,7 +261,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                         const popupHeight = 220;
                         const position = {
                             x: rect.left,
-                            y: rect.top - popupHeight - 8
+                            y: rect.top - popupHeight - 4
                         };
                         fetchUserInfo(userId, position);
                     }
@@ -1140,7 +1140,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             {/* Input Area */}
             <div className="p-5 pt-0 pb-6">
                 <div
-                    className="rounded-xl bg-[#222529] transition-all relative"
+                    className="rounded-xl bg-[#222529] border border-gray-600 transition-all relative"
                     onFocus={() => {
                         setTimeout(() => {
                             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

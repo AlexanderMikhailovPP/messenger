@@ -78,7 +78,7 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
             onMouseLeave={onMouseLeave}
         >
             {/* Invisible bridge to connect popup with trigger element below */}
-            <div className="absolute left-0 -bottom-3 w-full h-4" />
+            <div className="absolute left-0 bottom-[-8px] w-full h-3" />
             <div className="bg-[#1a1d21] rounded-xl shadow-2xl border border-gray-700/50 w-[340px] overflow-hidden font-sans">
             <div className="p-5">
                 <div className="flex gap-4">

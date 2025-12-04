@@ -773,7 +773,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     return (
         <div className="relative">
             {/* Toolbar */}
-            <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-700">
+            <div className="flex items-center gap-1 px-3 py-2">
                 <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Bold" />
                 <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Italic" />
                 <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Underline" />
@@ -877,7 +877,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
             {/* Attachments Preview */}
             {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 px-3 py-2 border-t border-gray-700">
+                <div className="flex flex-wrap gap-2 px-3 py-2">
                     {attachments.map((file, index) => (
                         <div key={index} className="relative group flex items-center gap-2 bg-[#2b2d31] rounded-lg px-3 py-2">
                             {file.type?.startsWith('image/') ? (
@@ -909,7 +909,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             )}
 
             {/* Action Bar */}
-            <div className="flex items-center justify-between p-2 border-t border-gray-700">
+            <div className="flex items-center justify-between p-2">
                 <div className="flex items-center gap-1">
                     {/* File attachment */}
                     <button
