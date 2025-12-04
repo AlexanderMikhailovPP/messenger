@@ -256,10 +256,12 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     // Check if we are already showing this user to avoid re-fetching
                     if (!mentionPopup || mentionPopup.user.id !== parseInt(userId)) {
                         const rect = target.getBoundingClientRect();
-                        // Position below the mention, centered horizontally
+                        // Position above the mention, aligned left
+                        // Popup height is approximately 220px
+                        const popupHeight = 220;
                         const position = {
-                            x: rect.left + (rect.width / 2) - 160, // Center 320px popup (approx)
-                            y: rect.bottom + 5
+                            x: rect.left,
+                            y: rect.top - popupHeight - 8
                         };
                         fetchUserInfo(userId, position);
                     }
@@ -270,10 +272,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         const handleGlobalMouseOut = (e) => {
             const target = e.target.closest('.mention-user, .message-username');
             if (target) {
-                // Delay closing to allow moving to popup
+                // Delay closing to allow moving to popup (longer timeout for smoother UX)
                 hoverTimeoutRef.current = setTimeout(() => {
                     setMentionPopup(null);
-                }, 500);
+                }, 300);
             }
         };
 

@@ -69,11 +69,14 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
     return (
         <div
             ref={popupRef}
-            className="fixed z-50 bg-[#1a1d21] rounded-xl shadow-2xl border border-gray-700/50 w-[340px] overflow-hidden font-sans"
+            className="fixed z-50"
             style={{ left: position.x, top: position.y }}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >
+            {/* Invisible bridge to connect popup with trigger element below */}
+            <div className="absolute left-0 -bottom-3 w-full h-4" />
+            <div className="bg-[#1a1d21] rounded-xl shadow-2xl border border-gray-700/50 w-[340px] overflow-hidden font-sans">
             <div className="p-5">
                 <div className="flex gap-4">
                     {/* Avatar */}
@@ -127,6 +130,7 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
                         </button>
                     )}
                 </div>
+            </div>
             </div>
         </div>
     );
