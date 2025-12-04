@@ -937,18 +937,25 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             <span className="text-sm text-gray-300">Huddle</span>
                                             {/* Show participant avatars if call is active in this channel */}
                                             {activeChannelId === currentChannel.id && participants.length > 0 && (
-                                                <div className="flex items-center -space-x-1.5 ml-1">
+                                                <div className="flex items-center ml-1">
                                                     {participants.slice(0, 4).map((p, idx) => (
-                                                        <div key={p.userId} className="relative" style={{ zIndex: 10 - idx }}>
+                                                        <div
+                                                            key={p.userId}
+                                                            className="rounded-full ring-2 ring-[#2f3136]"
+                                                            style={{ zIndex: 10 - idx, marginLeft: idx > 0 ? '-6px' : '0' }}
+                                                        >
                                                             <UserAvatar
                                                                 user={{ username: p.username, avatar_url: p.avatarUrl }}
                                                                 size="xs"
-                                                                className="ring-2 ring-[#2f3136]"
+                                                                rounded="rounded-full"
                                                             />
                                                         </div>
                                                     ))}
                                                     {participants.length > 4 && (
-                                                        <div className="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white ring-2 ring-[#2f3136]">
+                                                        <div
+                                                            className="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white ring-2 ring-[#2f3136]"
+                                                            style={{ marginLeft: '-6px', zIndex: 6 }}
+                                                        >
                                                             +{participants.length - 4}
                                                         </div>
                                                     )}
@@ -1191,7 +1198,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             )}
 
             {/* Input Area */}
-            <div className="p-5 pt-0 pb-4">
+            <div className="px-5 pb-4 pt-1">
+                {/* Typing Indicator - fixed height container to prevent jumping */}
+                <div className="h-5 flex items-center">
+                    <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
+                </div>
                 <div
                     className="rounded-xl bg-[#222529] border border-gray-600 transition-all relative"
                     onFocus={() => {
@@ -1224,8 +1235,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                         onRemoveAttachment={handleRemoveAttachment}
                     />
                 </div>
-                {/* Typing Indicator */}
-                <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
             </div>
 
             {/* User Mention Popup */}

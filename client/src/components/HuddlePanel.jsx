@@ -80,42 +80,6 @@ export default function HuddlePanel({
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Keyboard shortcuts for mute (M key), video (V key), screen share (S key), fullscreen (F key), exit pinned (Escape)
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            // Don't trigger if typing in an input
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
-                return;
-            }
-            if (e.key === 'm' || e.key === 'M') {
-                onToggleMute();
-            }
-            if (e.key === 'v' || e.key === 'V') {
-                onToggleVideo();
-            }
-            if (e.key === 's' || e.key === 'S') {
-                onToggleScreenShare();
-            }
-            if (e.key === 'f' || e.key === 'F') {
-                setIsFullscreen(prev => !prev);
-                if (!isExpanded) setIsExpanded(true);
-            }
-            if (e.key === 'Escape') {
-                if (pinnedVideo) {
-                    setPinnedVideo(null);
-                } else if (isFullscreen) {
-                    setIsFullscreen(false);
-                }
-            }
-        };
-
-        if (isInCall) {
-            window.addEventListener('keydown', handleKeyDown);
-        }
-
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isInCall, onToggleMute, onToggleVideo, onToggleScreenShare, isExpanded, isFullscreen, pinnedVideo]);
-
     // Toggle fullscreen mode
     const toggleFullscreen = () => {
         setIsFullscreen(prev => !prev);
@@ -226,7 +190,7 @@ export default function HuddlePanel({
                                         ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                                         : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                                 }`}
-                                title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
+                                title={isMuted ? 'Unmute' : 'Mute'}
                             >
                                 {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
                                 <span>{isMuted ? 'Unmute' : 'Mute'}</span>
@@ -239,7 +203,7 @@ export default function HuddlePanel({
                                         ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                                         : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                                 }`}
-                                title={isVideoOn ? 'Turn off video (V)' : 'Turn on video (V)'}
+                                title={isVideoOn ? 'Turn off video' : 'Turn on video'}
                             >
                                 {isVideoOn ? <Video size={16} /> : <VideoOff size={16} />}
                             </button>
@@ -251,7 +215,7 @@ export default function HuddlePanel({
                                         ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                                         : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                                 }`}
-                                title={isScreenSharing ? 'Stop sharing (S)' : 'Share screen (S)'}
+                                title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
                             >
                                 {isScreenSharing ? <MonitorOff size={16} /> : <Monitor size={16} />}
                             </button>
@@ -299,7 +263,7 @@ export default function HuddlePanel({
                             <button
                                 onClick={toggleFullscreen}
                                 className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                                title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
+                                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
                             >
                                 {isFullscreen ? (
                                     <Minimize2 size={16} className="text-gray-400" />
@@ -584,7 +548,7 @@ export default function HuddlePanel({
                                         ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30'
                                         : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                                 }`}
-                                title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
+                                title={isMuted ? 'Unmute' : 'Mute'}
                             >
                                 {isMuted ? <MicOff size={18} /> : <Mic size={18} />}
                                 <span>{isMuted ? 'Unmute' : 'Mute'}</span>
@@ -597,7 +561,7 @@ export default function HuddlePanel({
                                         ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30'
                                         : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                                 }`}
-                                title={isVideoOn ? 'Turn off video (V)' : 'Turn on video (V)'}
+                                title={isVideoOn ? 'Turn off video' : 'Turn on video'}
                             >
                                 {isVideoOn ? <Video size={18} /> : <VideoOff size={18} />}
                             </button>
@@ -609,7 +573,7 @@ export default function HuddlePanel({
                                         ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
                                         : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                                 }`}
-                                title={isScreenSharing ? 'Stop sharing (S)' : 'Share screen (S)'}
+                                title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
                             >
                                 {isScreenSharing ? <MonitorOff size={18} /> : <Monitor size={18} />}
                             </button>
@@ -623,18 +587,6 @@ export default function HuddlePanel({
                             </button>
                         </div>
 
-                        {/* Keyboard shortcut hint */}
-                        <div className="mt-2 text-center">
-                            <span className="text-xs text-gray-500">
-                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">M</kbd> mute
-                                {' · '}
-                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">V</kbd> video
-                                {' · '}
-                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">S</kbd> screen
-                                {' · '}
-                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">F</kbd> fullscreen
-                            </span>
-                        </div>
                     </div>
                 </div>
             )}
