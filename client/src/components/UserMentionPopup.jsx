@@ -11,6 +11,7 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
     const userStatus = getUserStatus(user.id);
     const [isAbove, setIsAbove] = useState(true);
     const [finalPosition, setFinalPosition] = useState({ x: position.x, y: position.y });
+    const [isPositioned, setIsPositioned] = useState(false);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -57,6 +58,7 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
 
             setIsAbove(above);
             setFinalPosition({ x: adjustedX, y: adjustedY });
+            setIsPositioned(true);
         }
     }, [position]);
 
@@ -76,23 +78,28 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
         <div
             ref={popupRef}
             className="fixed z-50"
-            style={{ left: finalPosition.x, top: finalPosition.y }}
+            style={{
+                left: finalPosition.x,
+                top: finalPosition.y,
+                opacity: isPositioned ? 1 : 0,
+                pointerEvents: isPositioned ? 'auto' : 'none'
+            }}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >
             {/* Invisible bridge to connect popup with trigger element */}
-            {/* Bridge extends from popup edge toward the trigger */}
+            {/* Bridge extends from popup edge toward the trigger - larger for easier hover */}
             {isAbove ? (
                 // Popup is above trigger - bridge extends down from bottom of popup
                 <div
                     className="absolute left-0 w-full pointer-events-auto"
-                    style={{ bottom: -20, height: 25 }}
+                    style={{ bottom: -35, height: 40 }}
                 />
             ) : (
                 // Popup is below trigger - bridge extends up from top of popup
                 <div
                     className="absolute left-0 w-full pointer-events-auto"
-                    style={{ top: -20, height: 25 }}
+                    style={{ top: -35, height: 40 }}
                 />
             )}
             <div className="bg-[#1a1d21] rounded-xl shadow-2xl border border-gray-700/50 w-[340px] overflow-hidden font-sans">

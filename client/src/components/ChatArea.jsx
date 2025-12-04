@@ -288,7 +288,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 // Delay closing to allow moving to popup (longer timeout for smoother UX)
                 hoverTimeoutRef.current = setTimeout(() => {
                     setMentionPopup(null);
-                }, 300);
+                }, 500);
             }
         };
 
