@@ -898,15 +898,32 @@ export const CallProvider = ({ children }) => {
                     localStreamRef.current.addTrack(videoTrack);
                 }
 
-                // Add video track to all peer connections
-                // onnegotiationneeded will fire automatically and handle renegotiation
+                // Add video track to all peer connections and manually trigger renegotiation
                 const peerSocketIds = Object.keys(peersRef.current);
                 console.log('[CallContext] Adding video track to peers:', peerSocketIds);
                 for (const socketId of peerSocketIds) {
                     const peer = peersRef.current[socketId];
                     if (peer?.peerConnection && localStreamRef.current) {
-                        console.log('[CallContext] Adding video track to peer:', socketId, 'signalingState:', peer.peerConnection.signalingState);
-                        peer.peerConnection.addTrack(videoTrack, localStreamRef.current);
+                        const pc = peer.peerConnection;
+                        console.log('[CallContext] Adding video track to peer:', socketId, 'signalingState:', pc.signalingState);
+                        pc.addTrack(videoTrack, localStreamRef.current);
+
+                        // Manually trigger renegotiation since onnegotiationneeded may not fire
+                        console.log('[CallContext] Manually triggering renegotiation for:', socketId);
+                        (async () => {
+                            try {
+                                const offer = await pc.createOffer();
+                                await pc.setLocalDescription(offer);
+                                console.log('[CallContext] Sending video offer to:', socketId, 'SDP has video:', offer.sdp.includes('m=video'));
+                                socket.emit('offer', {
+                                    target: socketId,
+                                    caller: socket.id,
+                                    sdp: pc.localDescription
+                                });
+                            } catch (err) {
+                                console.error('[CallContext] Failed to create video offer:', err);
+                            }
+                        })();
                     }
                 }
 
