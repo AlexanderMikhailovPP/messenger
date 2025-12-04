@@ -74,29 +74,29 @@ export default function UserAvatar({ user, size = 'md', className = '', showStat
             </div>
             {showStatus && (
                 <span
-                    className="absolute bottom-[-1px] right-[-1px] rounded-full box-content"
+                    className="absolute bottom-[-2px] right-[-2px] rounded-full box-content"
                     style={{
-                        width: '6px',
-                        height: '6px',
+                        width: '7px',
+                        height: '7px',
                         // Determine status: use new status prop if provided, fallback to legacy isOnline
                         ...(status === 'active' || (!status && isOnline)
                             ? {
                                 // Active: solid green circle
                                 backgroundColor: '#2BAC76',
-                                border: '1px solid #1f2225'
+                                border: '2px solid #1f2225'
                               }
                             : status === 'away'
                             ? {
                                 // Away: hollow green circle with sidebar background fill
                                 backgroundColor: '#1f2225',
                                 border: '1.5px solid #2BAC76',
-                                outline: '1px solid #1f2225'
+                                outline: '2px solid #1f2225'
                               }
                             : {
                                 // Offline: hollow gray circle with sidebar background fill
                                 backgroundColor: '#1f2225',
                                 border: '1.5px solid #616061',
-                                outline: '1px solid #1f2225'
+                                outline: '2px solid #1f2225'
                               }
                         )
                     }}
