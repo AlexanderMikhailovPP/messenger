@@ -7,7 +7,7 @@ const isDev = import.meta.env.DEV;
 
 // In web production, use relative paths (same origin)
 // In Electron, use the full URL
-const PRODUCTION_API_URL = import.meta.env.VITE_API_URL || 'https://messenger-production-a37a.up.railway.app';
+const PRODUCTION_API_URL = import.meta.env.VITE_API_URL || 'https://touch.up.railway.app';
 
 // For web: empty string (same origin), for Electron: full URL
 export const API_URL = isElectron ? PRODUCTION_API_URL : (isDev ? '' : '');
