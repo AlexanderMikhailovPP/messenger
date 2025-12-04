@@ -9,8 +9,41 @@ export function OnlineStatusProvider({ children }) {
     // Map of userId -> status ('active' | 'away')
     const [userStatuses, setUserStatuses] = useState({});
     const [myStatus, setMyStatus] = useState('active');
+    const [socketConnected, setSocketConnected] = useState(false);
     const lastActivityRef = useRef(Date.now());
     const awayTimerRef = useRef(null);
+
+    // Detect socket connection
+    useEffect(() => {
+        const checkSocket = () => {
+            const socket = getSocket();
+            if (socket && socket.connected) {
+                setSocketConnected(true);
+            }
+        };
+
+        // Check immediately
+        checkSocket();
+
+        // Also poll periodically until connected (socket might connect later)
+        const interval = setInterval(() => {
+            const socket = getSocket();
+            if (socket) {
+                if (socket.connected) {
+                    setSocketConnected(true);
+                    clearInterval(interval);
+                } else {
+                    // Listen for connect event
+                    socket.once('connect', () => {
+                        setSocketConnected(true);
+                        clearInterval(interval);
+                    });
+                }
+            }
+        }, 100);
+
+        return () => clearInterval(interval);
+    }, []);
 
     // Track user activity
     useEffect(() => {
@@ -59,16 +92,19 @@ export function OnlineStatusProvider({ children }) {
         };
     }, [myStatus]);
 
+    // Set up socket event listeners when socket is connected
     useEffect(() => {
+        if (!socketConnected) return;
+
         const socket = getSocket();
         if (!socket) return;
 
         // Receive initial list of online users with statuses
         const handleOnlineUsers = (statuses) => {
-            // statuses is now an object: { odId: 'active' | 'away' }
+            // statuses is now an object: { userId: 'active' | 'away' }
             const normalizedStatuses = {};
-            Object.entries(statuses).forEach(([odId, status]) => {
-                normalizedStatuses[Number(odId)] = status;
+            Object.entries(statuses).forEach(([userId, status]) => {
+                normalizedStatuses[Number(userId)] = status;
             });
             setUserStatuses(normalizedStatuses);
         };
@@ -103,13 +139,16 @@ export function OnlineStatusProvider({ children }) {
         socket.on('user_offline', handleUserOffline);
         socket.on('user_status_changed', handleStatusChanged);
 
+        // Request current online users (in case we missed the initial event)
+        socket.emit('get_online_users');
+
         return () => {
             socket.off('online_users', handleOnlineUsers);
             socket.off('user_online', handleUserOnline);
             socket.off('user_offline', handleUserOffline);
             socket.off('user_status_changed', handleStatusChanged);
         };
-    }, []);
+    }, [socketConnected]);
 
     // Returns 'active', 'away', or 'offline'
     const getUserStatus = useCallback((userId) => {

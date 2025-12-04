@@ -128,6 +128,11 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Allow clients to request current online users (for late joiners)
+    socket.on('get_online_users', () => {
+        socket.emit('online_users', getUserStatuses());
+    });
+
     socket.on('send_message', async (data, callback) => {
         // Always use authenticated userId from socket for security
         const { content, channelId, threadId } = data;

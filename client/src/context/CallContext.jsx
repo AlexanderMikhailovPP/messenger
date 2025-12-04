@@ -208,9 +208,11 @@ export const CallProvider = ({ children }) => {
         // Handle negotiation needed - perfect negotiation pattern
         pc.onnegotiationneeded = async () => {
             try {
-                console.log(`[WebRTC] Negotiation needed for ${targetSocketId}, polite=${polite}`);
+                console.log(`[WebRTC] Negotiation needed for ${targetSocketId}, polite=${polite}, signalingState=${pc.signalingState}`);
+                console.log(`[WebRTC] Local tracks:`, localStreamRef.current?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled })));
                 makingOfferRef.current[targetSocketId] = true;
                 await pc.setLocalDescription();
+                console.log(`[WebRTC] Sending offer to ${targetSocketId}, sdp type:`, pc.localDescription?.type);
                 socket.emit('offer', {
                     target: targetSocketId,
                     caller: socket.id,
@@ -267,6 +269,7 @@ export const CallProvider = ({ children }) => {
             console.log('[WebRTC] Received remote track from:', targetSocketId, 'kind:', event.track.kind, 'stream:', event.streams[0]?.id);
             const stream = event.streams[0];
             console.log('[WebRTC] Track enabled:', event.track.enabled, 'readyState:', event.track.readyState);
+            console.log('[WebRTC] Stream tracks:', stream?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
 
             if (stream) {
                 // Create audio element for playback (audio tracks)
@@ -277,17 +280,22 @@ export const CallProvider = ({ children }) => {
                 // Store video stream for rendering
                 if (event.track.kind === 'video') {
                     console.log('[WebRTC] Setting remoteStream for socketId:', targetSocketId);
+                    console.log('[WebRTC] Video track details - width:', event.track.getSettings().width, 'height:', event.track.getSettings().height);
                     setRemoteStreams(prev => {
                         console.log('[WebRTC] Previous remoteStreams:', Object.keys(prev));
-                        return {
+                        const newStreams = {
                             ...prev,
                             [targetSocketId]: stream
                         };
+                        console.log('[WebRTC] New remoteStreams:', Object.keys(newStreams));
+                        return newStreams;
                     });
 
                     // Update participant video state
                     setParticipants(prev => {
                         console.log('[WebRTC] Participants socketIds:', prev.map(p => p.socketId));
+                        const found = prev.find(p => p.socketId === targetSocketId);
+                        console.log('[WebRTC] Found participant for socketId', targetSocketId, ':', found ? 'yes' : 'NO');
                         return prev.map(p =>
                             p.socketId === targetSocketId ? { ...p, hasVideo: true, stream } : p
                         );
@@ -344,7 +352,8 @@ export const CallProvider = ({ children }) => {
         const handleUserConnected = (userId, socketId, username) => {
             console.log('[CallContext] User connected:', { userId, socketId, username });
 
-            if (!isInCall && !localStreamRef.current) {
+            // Only process if we're in a call
+            if (!isInCall) {
                 console.log('[CallContext] Not in call, ignoring user-connected');
                 return;
             }
@@ -367,18 +376,19 @@ export const CallProvider = ({ children }) => {
         };
 
         // Handle existing participants when joining a room
-        const handleExistingParticipants = (participants) => {
-            console.log('[CallContext] Existing participants in room:', participants);
+        const handleExistingParticipants = (existingParticipantsList) => {
+            console.log('[CallContext] Existing participants in room:', existingParticipantsList);
 
-            if (!localStreamRef.current) {
-                console.log('[CallContext] No local stream, ignoring existing-participants');
+            // Allow joining without local stream (listener mode) - only check if in call
+            if (!isInCall) {
+                console.log('[CallContext] Not in call, ignoring existing-participants');
                 return;
             }
 
             // Create peer connections to all existing participants
             // We are NOT the initiator - we wait for them to send us offers
             // Actually, we should be the initiator since we just joined
-            for (const participant of participants) {
+            for (const participant of existingParticipantsList) {
                 console.log('[CallContext] Creating peer connection to existing participant:', participant.username);
 
                 createPeerConnection(participant.socketId, true, participant.userId, participant.username);
@@ -542,9 +552,13 @@ export const CallProvider = ({ children }) => {
         };
 
         const handleVideoUpdate = ({ userId: odId, isVideoOn: videoState }) => {
-            setParticipants(prev => prev.map(p =>
-                p.userId === odId ? { ...p, hasVideo: videoState } : p
-            ));
+            console.log('[CallContext] Received video-update:', { userId: odId, isVideoOn: videoState });
+            setParticipants(prev => {
+                console.log('[CallContext] Current participants:', prev.map(p => ({ userId: p.userId, socketId: p.socketId })));
+                return prev.map(p =>
+                    p.userId === odId ? { ...p, hasVideo: videoState } : p
+                );
+            });
         };
 
         socket.on('user-connected', handleUserConnected);
@@ -822,9 +836,11 @@ export const CallProvider = ({ children }) => {
                 // Add video track to all peer connections
                 // onnegotiationneeded will fire automatically and handle renegotiation
                 const peerSocketIds = Object.keys(peersRef.current);
+                console.log('[CallContext] Adding video track to peers:', peerSocketIds);
                 for (const socketId of peerSocketIds) {
                     const peer = peersRef.current[socketId];
                     if (peer?.peerConnection && localStreamRef.current) {
+                        console.log('[CallContext] Adding video track to peer:', socketId, 'signalingState:', peer.peerConnection.signalingState);
                         peer.peerConnection.addTrack(videoTrack, localStreamRef.current);
                     }
                 }
@@ -842,6 +858,7 @@ export const CallProvider = ({ children }) => {
 
                 // Broadcast video state to others
                 if (socket && activeChannelId) {
+                    console.log('[CallContext] Broadcasting video-update: true');
                     socket.emit('video-update', {
                         userId: user?.id,
                         isVideoOn: true,

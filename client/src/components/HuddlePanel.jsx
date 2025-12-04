@@ -274,13 +274,23 @@ export default function HuddlePanel({
                                 )}
                                 {/* Remote videos */}
                                 {(() => {
-                                    console.log('[HuddlePanel] Rendering remote videos, participants:', participants.map(p => ({ socketId: p.socketId, hasVideo: p.hasVideo, isCurrentUser: p.isCurrentUser })));
+                                    console.log('[HuddlePanel] Rendering remote videos, participants:', participants.map(p => ({ userId: p.userId, socketId: p.socketId, hasVideo: p.hasVideo, isCurrentUser: p.isCurrentUser })));
                                     console.log('[HuddlePanel] remoteStreams keys:', Object.keys(remoteStreams));
                                     return null;
                                 })()}
                                 {participants.filter(p => !p.isCurrentUser && p.hasVideo).map((participant) => {
-                                    const stream = remoteStreams[participant.socketId];
-                                    console.log('[HuddlePanel] Participant', participant.username, 'stream:', stream ? 'exists' : 'missing');
+                                    // Try to find stream by socketId first, then by any matching stream if only one remote participant
+                                    let stream = remoteStreams[participant.socketId];
+                                    if (!stream && Object.keys(remoteStreams).length > 0) {
+                                        // Fallback: if there's only one remote stream and we have only one remote participant with video
+                                        const remoteParticipantsWithVideo = participants.filter(p => !p.isCurrentUser && p.hasVideo);
+                                        const remoteStreamKeys = Object.keys(remoteStreams);
+                                        if (remoteParticipantsWithVideo.length === 1 && remoteStreamKeys.length === 1) {
+                                            console.log('[HuddlePanel] Fallback: using first available stream');
+                                            stream = remoteStreams[remoteStreamKeys[0]];
+                                        }
+                                    }
+                                    console.log('[HuddlePanel] Participant', participant.username, 'socketId:', participant.socketId, 'stream:', stream ? 'exists' : 'missing', 'remoteStreams keys:', Object.keys(remoteStreams));
                                     return (
                                         <div key={participant.socketId} className="relative aspect-video bg-[#2e3136] rounded-lg overflow-hidden">
                                             {stream ? (

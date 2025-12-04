@@ -820,7 +820,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     onInput={handleInput}
                     onKeyDown={handleKeyDown}
                     dir="ltr"
-                    className="w-full px-3 py-2 max-h-[200px] overflow-y-auto overflow-x-hidden bg-transparent text-gray-200 focus:outline-none leading-normal break-words"
+                    className="w-full min-w-0 px-3 py-2 max-h-[200px] overflow-y-auto overflow-x-hidden bg-transparent text-gray-200 focus:outline-none leading-normal break-words whitespace-pre-wrap [word-break:break-word]"
                     data-placeholder={placeholder}
                     suppressContentEditableWarning
                 />
