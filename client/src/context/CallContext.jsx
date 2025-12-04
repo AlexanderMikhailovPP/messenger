@@ -271,6 +271,7 @@ export const CallProvider = ({ children }) => {
                 return;
             }
 
+            // Create peer connection - we are the initiator since we were here first
             createPeerConnection(socketId, true, userId, username);
 
             setParticipants(prev => {
@@ -285,6 +286,38 @@ export const CallProvider = ({ children }) => {
                     isCurrentUser: false
                 }];
             });
+        };
+
+        // Handle existing participants when joining a room
+        const handleExistingParticipants = (participants) => {
+            console.log('[CallContext] Existing participants in room:', participants);
+
+            if (!localStreamRef.current) {
+                console.log('[CallContext] No local stream, ignoring existing-participants');
+                return;
+            }
+
+            // Create peer connections to all existing participants
+            // We are NOT the initiator - we wait for them to send us offers
+            // Actually, we should be the initiator since we just joined
+            for (const participant of participants) {
+                console.log('[CallContext] Creating peer connection to existing participant:', participant.username);
+
+                createPeerConnection(participant.socketId, true, participant.userId, participant.username);
+
+                setParticipants(prev => {
+                    if (prev.some(p => p.userId === participant.userId)) return prev;
+                    return [...prev, {
+                        userId: participant.userId,
+                        socketId: participant.socketId,
+                        username: participant.username,
+                        avatarUrl: null,
+                        isMuted: false,
+                        isSpeaking: false,
+                        isCurrentUser: false
+                    }];
+                });
+            }
         };
 
         const handleIncomingCall = (payload) => {
@@ -437,6 +470,7 @@ export const CallProvider = ({ children }) => {
         };
 
         socket.on('user-connected', handleUserConnected);
+        socket.on('existing-participants', handleExistingParticipants);
         socket.on('incoming_call', handleIncomingCall);
         socket.on('user-disconnected', handleUserDisconnected);
         socket.on('offer', handleOffer);
@@ -447,6 +481,7 @@ export const CallProvider = ({ children }) => {
 
         return () => {
             socket.off('user-connected', handleUserConnected);
+            socket.off('existing-participants', handleExistingParticipants);
             socket.off('incoming_call', handleIncomingCall);
             socket.off('user-disconnected', handleUserDisconnected);
             socket.off('offer', handleOffer);

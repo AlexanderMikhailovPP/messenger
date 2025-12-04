@@ -33,7 +33,34 @@ module.exports = (io, db) => {
                 }
             }
 
-            // Notify others in the room
+            // Get existing participants in the room BEFORE notifying others
+            const room = io.sockets.adapter.rooms.get(roomId);
+            const existingParticipants = [];
+
+            if (room) {
+                for (const socketId of room) {
+                    if (socketId !== socket.id) {
+                        const existingSocket = io.sockets.sockets.get(socketId);
+                        if (existingSocket) {
+                            existingParticipants.push({
+                                socketId: socketId,
+                                userId: existingSocket.data.userId,
+                                username: existingSocket.data.username
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Send list of existing participants to the new user
+            if (existingParticipants.length > 0) {
+                if (isDev) {
+                    console.log(`[Signaling] Sending existing participants to ${username}:`, existingParticipants);
+                }
+                socket.emit('existing-participants', existingParticipants);
+            }
+
+            // Notify others in the room about the new user
             socket.to(roomId).emit('user-connected', userId, socket.id, username);
 
             const handleDisconnect = async () => {
