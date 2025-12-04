@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff, ChevronUp, ChevronDown, X, Phone, PhoneOff, Headphones } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, ChevronUp, ChevronDown, X, Phone, PhoneOff, Headphones, Monitor, MonitorOff } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 export default function HuddlePanel({
@@ -9,8 +9,10 @@ export default function HuddlePanel({
     isInCall,
     isMuted,
     isVideoOn,
+    isScreenSharing,
     onToggleMute,
     onToggleVideo,
+    onToggleScreenShare,
     onLeave,
     participants = [],
     localStream,
@@ -29,8 +31,8 @@ export default function HuddlePanel({
         }
     }, [localStream, isVideoOn]);
 
-    // Check if anyone has video on
-    const hasAnyVideo = isVideoOn || participants.some(p => !p.isCurrentUser && p.hasVideo);
+    // Check if anyone has video or screen share on
+    const hasAnyVideo = isVideoOn || isScreenSharing || participants.some(p => !p.isCurrentUser && (p.hasVideo || p.isScreenSharing));
 
     // Auto-expand when anyone enables video
     useEffect(() => {
@@ -65,7 +67,7 @@ export default function HuddlePanel({
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Keyboard shortcuts for mute (M key) and video (V key)
+    // Keyboard shortcuts for mute (M key), video (V key), screen share (S key)
     useEffect(() => {
         const handleKeyDown = (e) => {
             // Don't trigger if typing in an input
@@ -78,6 +80,9 @@ export default function HuddlePanel({
             if (e.key === 'v' || e.key === 'V') {
                 onToggleVideo();
             }
+            if (e.key === 's' || e.key === 'S') {
+                onToggleScreenShare();
+            }
         };
 
         if (isInCall) {
@@ -85,7 +90,7 @@ export default function HuddlePanel({
         }
 
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isInCall, onToggleMute, onToggleVideo]);
+    }, [isInCall, onToggleMute, onToggleVideo, onToggleScreenShare]);
 
     if (!isInCall) return null;
 
@@ -191,6 +196,18 @@ export default function HuddlePanel({
                                 title={isVideoOn ? 'Turn off video (V)' : 'Turn on video (V)'}
                             >
                                 {isVideoOn ? <Video size={16} /> : <VideoOff size={16} />}
+                            </button>
+
+                            <button
+                                onClick={onToggleScreenShare}
+                                className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium text-sm transition-all ${
+                                    isScreenSharing
+                                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                        : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
+                                }`}
+                                title={isScreenSharing ? 'Stop sharing (S)' : 'Share screen (S)'}
+                            >
+                                {isScreenSharing ? <MonitorOff size={16} /> : <Monitor size={16} />}
                             </button>
 
                             <button
@@ -396,6 +413,11 @@ export default function HuddlePanel({
                                                 <Video size={12} />
                                             </span>
                                         )}
+                                        {participant.isScreenSharing && (
+                                            <span className="flex items-center gap-1 text-green-400 ml-2">
+                                                <Monitor size={12} />
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -431,6 +453,18 @@ export default function HuddlePanel({
                             </button>
 
                             <button
+                                onClick={onToggleScreenShare}
+                                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg font-medium text-sm transition-all ${
+                                    isScreenSharing
+                                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
+                                        : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
+                                }`}
+                                title={isScreenSharing ? 'Stop sharing (S)' : 'Share screen (S)'}
+                            >
+                                {isScreenSharing ? <MonitorOff size={18} /> : <Monitor size={18} />}
+                            </button>
+
+                            <button
                                 onClick={onLeave}
                                 className="flex items-center justify-center gap-2 py-2.5 px-5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors"
                             >
@@ -442,9 +476,11 @@ export default function HuddlePanel({
                         {/* Keyboard shortcut hint */}
                         <div className="mt-2 text-center">
                             <span className="text-xs text-gray-500">
-                                Press <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">M</kbd> to toggle mute
+                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">M</kbd> mute
                                 {' · '}
-                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">V</kbd> for video
+                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">V</kbd> video
+                                {' · '}
+                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">S</kbd> screen
                             </span>
                         </div>
                     </div>

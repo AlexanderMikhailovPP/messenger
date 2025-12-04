@@ -96,6 +96,7 @@ export const CallProvider = ({ children }) => {
     const [peers, setPeers] = useState({});
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOn, setIsVideoOn] = useState(false);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [activeChannelId, setActiveChannelId] = useState(null);
     const [activeChannelInfo, setActiveChannelInfo] = useState(null); // { name, displayName, type }
     const [incomingCall, setIncomingCall] = useState(null);
@@ -106,6 +107,7 @@ export const CallProvider = ({ children }) => {
     const peersRef = useRef({});
     const localStreamRef = useRef(null);
     const localVideoRef = useRef(null);
+    const screenShareTrackRef = useRef(null);
     const audioContextRef = useRef(null);
     const analyserRef = useRef(null);
     const speakingIntervalRef = useRef(null);
@@ -668,6 +670,19 @@ export const CallProvider = ({ children }) => {
         socket.on('mute-update', handleMuteUpdate);
         socket.on('video-update', handleVideoUpdate);
 
+        const handleScreenShareUpdate = ({ userId: odId, isScreenSharing: screenState, socketId: senderSocketId }) => {
+            console.log('[CallContext] Received screen-share-update:', { userId: odId, isScreenSharing: screenState, socketId: senderSocketId });
+            setParticipants(prev => prev.map(p => {
+                if (p.userId === odId || (senderSocketId && p.socketId === senderSocketId)) {
+                    console.log('[CallContext] Updating isScreenSharing for participant:', p.username, 'to', screenState);
+                    return { ...p, isScreenSharing: screenState };
+                }
+                return p;
+            }));
+        };
+
+        socket.on('screen-share-update', handleScreenShareUpdate);
+
         return () => {
             socket.off('user-connected', handleUserConnected);
             socket.off('existing-participants', handleExistingParticipants);
@@ -678,6 +693,7 @@ export const CallProvider = ({ children }) => {
             socket.off('ice-candidate', handleIceCandidate);
             socket.off('mute-update', handleMuteUpdate);
             socket.off('video-update', handleVideoUpdate);
+            socket.off('screen-share-update', handleScreenShareUpdate);
         };
     }, [isInCall, createPeerConnection, cleanupAudioElement, user]);
 
@@ -854,6 +870,12 @@ export const CallProvider = ({ children }) => {
             localVideoRef.current = null;
         }
 
+        // Stop screen share track if exists
+        if (screenShareTrackRef.current) {
+            screenShareTrackRef.current.stop();
+            screenShareTrackRef.current = null;
+        }
+
         // Cleanup speaking detection
         cleanupSpeakingDetection();
 
@@ -873,6 +895,7 @@ export const CallProvider = ({ children }) => {
         setActiveChannelInfo(null);
         setIsMuted(false);
         setIsVideoOn(false);
+        setIsScreenSharing(false);
         setParticipants([]);
         setRemoteStreams({});
         setConnectionStatus('disconnected');
@@ -1039,6 +1062,126 @@ export const CallProvider = ({ children }) => {
         }
     }, [isVideoOn, activeChannelId, user?.id]);
 
+    const toggleScreenShare = useCallback(async () => {
+        const socket = getSocket();
+
+        if (!isScreenSharing) {
+            // Start screen sharing
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        cursor: 'always',
+                        displaySurface: 'monitor'
+                    },
+                    audio: false
+                });
+
+                const screenTrack = screenStream.getVideoTracks()[0];
+
+                // Handle when user stops sharing via browser UI
+                screenTrack.onended = () => {
+                    console.log('[CallContext] Screen share ended by user');
+                    stopScreenShare();
+                };
+
+                // Add screen track to all peer connections
+                const peerSocketIds = Object.keys(peersRef.current);
+                console.log('[CallContext] Adding screen track to peers:', peerSocketIds);
+                for (const socketId of peerSocketIds) {
+                    const peer = peersRef.current[socketId];
+                    if (peer?.peerConnection && localStreamRef.current) {
+                        const pc = peer.peerConnection;
+                        console.log('[CallContext] Adding screen track to peer:', socketId);
+                        pc.addTrack(screenTrack, screenStream);
+
+                        // Manually trigger renegotiation
+                        (async () => {
+                            try {
+                                const offer = await pc.createOffer();
+                                await pc.setLocalDescription(offer);
+                                socket.emit('offer', {
+                                    target: socketId,
+                                    caller: socket.id,
+                                    sdp: pc.localDescription
+                                });
+                            } catch (err) {
+                                console.error('[CallContext] Failed to create screen share offer:', err);
+                            }
+                        })();
+                    }
+                }
+
+                screenShareTrackRef.current = screenTrack;
+                setIsScreenSharing(true);
+
+                // Update local participant state
+                setParticipants(prev => prev.map(p =>
+                    p.isCurrentUser ? { ...p, isScreenSharing: true } : p
+                ));
+
+                // Broadcast screen share state to others
+                if (socket && activeChannelId) {
+                    socket.emit('screen-share-update', {
+                        userId: user?.id,
+                        isScreenSharing: true,
+                        channelId: activeChannelId
+                    });
+                }
+
+                console.log('[CallContext] Screen sharing enabled');
+            } catch (err) {
+                console.error('[CallContext] Failed to start screen sharing:', err);
+                if (err.name !== 'NotAllowedError') {
+                    alert('Could not start screen sharing: ' + err.message);
+                }
+            }
+        } else {
+            // Stop screen sharing
+            stopScreenShare();
+        }
+    }, [isScreenSharing, activeChannelId, user?.id]);
+
+    const stopScreenShare = useCallback(() => {
+        const socket = getSocket();
+
+        if (screenShareTrackRef.current) {
+            screenShareTrackRef.current.stop();
+
+            // Remove screen track from all peer connections
+            const peerSocketIds = Object.keys(peersRef.current);
+            for (const socketId of peerSocketIds) {
+                const peer = peersRef.current[socketId];
+                if (peer?.peerConnection) {
+                    const senders = peer.peerConnection.getSenders();
+                    const screenSender = senders.find(s => s.track === screenShareTrackRef.current);
+                    if (screenSender) {
+                        peer.peerConnection.removeTrack(screenSender);
+                    }
+                }
+            }
+
+            screenShareTrackRef.current = null;
+        }
+
+        setIsScreenSharing(false);
+
+        // Update local participant state
+        setParticipants(prev => prev.map(p =>
+            p.isCurrentUser ? { ...p, isScreenSharing: false } : p
+        ));
+
+        // Broadcast screen share state to others
+        if (socket && activeChannelId) {
+            socket.emit('screen-share-update', {
+                userId: user?.id,
+                isScreenSharing: false,
+                channelId: activeChannelId
+            });
+        }
+
+        console.log('[CallContext] Screen sharing disabled');
+    }, [activeChannelId, user?.id]);
+
     const clearIncomingCall = useCallback(() => {
         setIncomingCall(null);
     }, []);
@@ -1063,6 +1206,8 @@ export const CallProvider = ({ children }) => {
             isMuted,
             toggleVideo,
             isVideoOn,
+            toggleScreenShare,
+            isScreenSharing,
             remoteStreams,
             activeChannelId,
             activeChannelInfo,

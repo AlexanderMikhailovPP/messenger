@@ -197,6 +197,12 @@ module.exports = (io, db) => {
             socket.to(roomId).emit('video-update', { userId, isVideoOn, socketId: socket.id });
         });
 
+        // Broadcast screen share state to all participants in the call
+        socket.on('screen-share-update', ({ userId, isScreenSharing, channelId }) => {
+            const roomId = `call_${channelId}`;
+            socket.to(roomId).emit('screen-share-update', { userId, isScreenSharing, socketId: socket.id });
+        });
+
         socket.on('start_call', async ({ channelId, targetUserId, messageId, callerName, callerAvatar }) => {
             const userId = socket.data.userId;
             // Use passed callerName/Avatar or fallback to socket data

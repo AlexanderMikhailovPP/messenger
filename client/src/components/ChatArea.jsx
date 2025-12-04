@@ -29,7 +29,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesEndRef = useRef(null);
     const editorRef = useRef(null);
     const { user } = useAuth();
-    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, toggleVideo, isVideoOn, localStream, remoteStreams, participants, connectionStatus, activeChannelId, activeChannelInfo } = useCall();
+    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, toggleVideo, isVideoOn, toggleScreenShare, isScreenSharing, localStream, remoteStreams, participants, connectionStatus, activeChannelId, activeChannelInfo } = useCall();
     const [loading, setLoading] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesContainerRef = useRef(null);
@@ -821,8 +821,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 isInCall={isInCall}
                 isMuted={isMuted}
                 isVideoOn={isVideoOn}
+                isScreenSharing={isScreenSharing}
                 onToggleMute={toggleMute}
                 onToggleVideo={toggleVideo}
+                onToggleScreenShare={toggleScreenShare}
                 onLeave={leaveCall}
                 participants={participants}
                 localStream={localStream}
