@@ -502,6 +502,9 @@ export const CallProvider = ({ children }) => {
                 // Check if we already have a peer connection (renegotiation case)
                 let pc = peersRef.current[payload.caller]?.peerConnection;
                 const polite = peersRef.current[payload.caller]?.polite ?? true;
+                const isRenegotiation = !!pc;
+
+                console.log('[CallContext] isRenegotiation:', isRenegotiation, 'polite:', polite);
 
                 if (!pc) {
                     // New connection - we're the polite peer (responder)
@@ -509,14 +512,21 @@ export const CallProvider = ({ children }) => {
                     if (!pc) return;
                 }
 
-                // Perfect negotiation: handle "glare" (both sides sending offers)
-                const offerCollision = makingOfferRef.current[payload.caller] ||
-                    (pc.signalingState !== 'stable');
+                console.log('[CallContext] Current signalingState:', pc.signalingState);
+                console.log('[CallContext] makingOffer:', makingOfferRef.current[payload.caller]);
 
+                // Perfect negotiation: handle "glare" (both sides sending offers)
+                // Only consider it a collision if we're actively making an offer
+                const offerCollision = makingOfferRef.current[payload.caller] === true;
+
+                console.log('[CallContext] offerCollision:', offerCollision);
+
+                // For renegotiation (adding video), always accept the offer
+                // Only ignore if we're ACTIVELY making our own offer at the same time
                 ignoreOfferRef.current[payload.caller] = !polite && offerCollision;
 
                 if (ignoreOfferRef.current[payload.caller]) {
-                    console.log('[CallContext] Ignoring colliding offer (impolite peer)');
+                    console.log('[CallContext] Ignoring colliding offer (impolite peer making offer)');
                     return;
                 }
 
@@ -528,6 +538,11 @@ export const CallProvider = ({ children }) => {
                         pc.setRemoteDescription(payload.sdp)
                     ]);
                 } else {
+                    // For renegotiation with stable state, just set remote description
+                    if (pc.signalingState !== 'stable') {
+                        console.log('[CallContext] Non-stable state, rolling back first');
+                        await pc.setLocalDescription({ type: 'rollback' });
+                    }
                     await pc.setRemoteDescription(payload.sdp);
                 }
 
