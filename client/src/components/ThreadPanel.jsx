@@ -3,6 +3,7 @@ import { X, Send, Hash, MessageSquare, Smile, Plus, Pencil, Trash2, MoreHorizont
 import axios from 'axios';
 import { getSocket } from '../socket';
 import { useAuth } from '../context/AuthContext';
+import { useCall } from '../context/CallContext';
 import UserAvatar from './UserAvatar';
 import QuickEmojiPicker from './QuickEmojiPicker';
 import UserMentionPopup from './UserMentionPopup';
@@ -11,6 +12,7 @@ import toast from 'react-hot-toast';
 
 export default function ThreadPanel({ parentMessage, channelName, onClose, setCurrentChannel }) {
     const { user } = useAuth();
+    const { joinCall } = useCall();
     const [replies, setReplies] = useState([]);
     const [newReply, setNewReply] = useState('');
     const [loading, setLoading] = useState(true);
@@ -164,9 +166,10 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
                     clearTimeout(showPopupTimeoutRef.current);
                     showPopupTimeoutRef.current = null;
                 }
+                // Delay closing to allow moving to popup (longer timeout for smoother UX)
                 hoverTimeoutRef.current = setTimeout(() => {
                     setMentionPopup(null);
-                }, 300);
+                }, 500);
             }
         };
 
@@ -214,6 +217,25 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
             onClose();
         } catch (err) {
             toast.error('Failed to open DM');
+        }
+    };
+
+    // Handle call to user from popup (huddle)
+    const handleCallUser = async (targetUser) => {
+        try {
+            const res = await axios.post('/api/channels/dm', {
+                currentUserId: user.id,
+                targetUserId: targetUser.id
+            });
+            setCurrentChannel(res.data);
+            setMentionPopup(null);
+            onClose();
+            // Start call after switching to DM
+            setTimeout(() => {
+                joinCall(res.data.id, res.data.displayName || res.data.name);
+            }, 100);
+        } catch (err) {
+            toast.error('Failed to start huddle');
         }
     };
 
@@ -780,6 +802,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
                     position={mentionPopup.position}
                     onClose={() => setMentionPopup(null)}
                     onMessage={handleMessageUser}
+                    onCall={handleCallUser}
                     onMouseEnter={() => {
                         if (hoverTimeoutRef.current) {
                             clearTimeout(hoverTimeoutRef.current);
@@ -789,7 +812,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
                     onMouseLeave={() => {
                         hoverTimeoutRef.current = setTimeout(() => {
                             setMentionPopup(null);
-                        }, 300);
+                        }, 500);
                     }}
                 />
             )}
