@@ -280,6 +280,16 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         const handleGlobalMouseOut = (e) => {
             const target = e.target.closest('.mention-user, .message-username');
             if (target) {
+                // Check if mouse is moving to the popup - if so, don't close
+                const relatedTarget = e.relatedTarget;
+                if (relatedTarget) {
+                    // Check if moving to popup or its children
+                    const popup = document.querySelector('.user-mention-popup');
+                    if (popup && (popup.contains(relatedTarget) || popup === relatedTarget)) {
+                        return; // Don't close, mouse is moving to popup
+                    }
+                }
+
                 // Clear pending show timer when leaving
                 if (showPopupTimeoutRef.current) {
                     clearTimeout(showPopupTimeoutRef.current);

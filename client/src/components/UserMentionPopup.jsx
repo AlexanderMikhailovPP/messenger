@@ -77,7 +77,7 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
     return (
         <div
             ref={popupRef}
-            className="fixed z-50"
+            className="fixed z-50 user-mention-popup"
             style={{
                 left: finalPosition.x,
                 top: finalPosition.y,
