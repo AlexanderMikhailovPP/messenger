@@ -27,13 +27,14 @@ export default function IncomingCallModal({
                     <div className="relative mx-auto w-24 h-24 mb-4">
                         <div className="absolute inset-0 rounded-full bg-green-500/20 animate-ping" />
                         <div className="absolute inset-2 rounded-full bg-green-500/30 animate-pulse" />
-                        <div className="relative w-full h-full">
+                        <div className="relative w-full h-full flex items-center justify-center">
                             <UserAvatar
                                 user={{
                                     username: callerName || 'Unknown',
                                     avatar_url: callerAvatar
                                 }}
-                                size="xl"
+                                size="3xl"
+                                rounded="rounded-full"
                             />
                         </div>
                     </div>
