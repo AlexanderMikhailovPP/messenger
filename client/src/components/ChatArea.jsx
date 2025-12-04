@@ -256,12 +256,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     // Check if we are already showing this user to avoid re-fetching
                     if (!mentionPopup || mentionPopup.user.id !== parseInt(userId)) {
                         const rect = target.getBoundingClientRect();
-                        // Position above the mention, aligned left
-                        // Popup height is approximately 220px
-                        const popupHeight = 220;
+                        // Position 10px above the mention/username, aligned left
                         const position = {
                             x: rect.left,
-                            y: rect.top - popupHeight - 4
+                            y: rect.top - 10
                         };
                         fetchUserInfo(userId, position);
                     }

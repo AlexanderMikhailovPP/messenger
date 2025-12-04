@@ -3,13 +3,16 @@ import { X, Send, Hash, MessageSquare, Smile, Plus, Pencil, Trash2, MoreHorizont
 import axios from 'axios';
 import { getSocket } from '../socket';
 import { useAuth } from '../context/AuthContext';
+import { useChannel } from '../context/ChannelContext';
 import UserAvatar from './UserAvatar';
 import QuickEmojiPicker from './QuickEmojiPicker';
+import UserMentionPopup from './UserMentionPopup';
 import { sanitizeHTML } from '../utils/sanitize';
 import toast from 'react-hot-toast';
 
 export default function ThreadPanel({ parentMessage, channelName, onClose }) {
     const { user } = useAuth();
+    const { setCurrentChannel } = useChannel();
     const [replies, setReplies] = useState([]);
     const [newReply, setNewReply] = useState('');
     const [loading, setLoading] = useState(true);
@@ -23,9 +26,11 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
     const [mentionResults, setMentionResults] = useState([]);
     const [showMentions, setShowMentions] = useState(false);
     const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+    const [mentionPopup, setMentionPopup] = useState(null);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const editInputRef = useRef(null);
+    const hoverTimeoutRef = useRef(null);
 
     // Fetch thread data and reactions
     useEffect(() => {
@@ -109,6 +114,69 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
             editInputRef.current.setSelectionRange(editContent.length, editContent.length);
         }
     }, [editingMessage]);
+
+    // Fetch user info for mention popup
+    const fetchUserInfo = async (userId, position) => {
+        try {
+            const res = await axios.get(`/api/users/${userId}`);
+            setMentionPopup({ user: res.data, position });
+        } catch (err) {
+            console.error('Failed to fetch user info:', err);
+        }
+    };
+
+    // Handle mention hover in thread panel
+    useEffect(() => {
+        const panel = document.querySelector('.thread-panel-container');
+        if (!panel) return;
+
+        const handleMouseOver = (e) => {
+            const target = e.target.closest('.mention-user, .message-username');
+            if (target) {
+                const userId = target.getAttribute('data-id');
+                if (userId) {
+                    if (hoverTimeoutRef.current) {
+                        clearTimeout(hoverTimeoutRef.current);
+                        hoverTimeoutRef.current = null;
+                    }
+                    if (!mentionPopup || mentionPopup.user.id !== parseInt(userId)) {
+                        const rect = target.getBoundingClientRect();
+                        const position = { x: rect.left, y: rect.top - 10 };
+                        fetchUserInfo(userId, position);
+                    }
+                }
+            }
+        };
+
+        const handleMouseOut = (e) => {
+            const target = e.target.closest('.mention-user, .message-username');
+            if (target) {
+                hoverTimeoutRef.current = setTimeout(() => {
+                    setMentionPopup(null);
+                }, 300);
+            }
+        };
+
+        panel.addEventListener('mouseover', handleMouseOver);
+        panel.addEventListener('mouseout', handleMouseOut);
+
+        return () => {
+            panel.removeEventListener('mouseover', handleMouseOver);
+            panel.removeEventListener('mouseout', handleMouseOut);
+            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+        };
+    }, [mentionPopup]);
+
+    // Handle message to user from popup
+    const handleMessageUser = async (targetUser) => {
+        try {
+            const res = await axios.post('/api/channels/dm', { targetUserId: targetUser.id });
+            setCurrentChannel(res.data);
+            onClose();
+        } catch (err) {
+            toast.error('Failed to open DM');
+        }
+    };
 
     // Add reaction (optimistic)
     const addReaction = async (messageId, emoji) => {
@@ -507,7 +575,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
     if (!parentMessage) return null;
 
     return (
-        <div className="w-[400px] bg-[#2b2d31] border-l border-[#1e1f22] flex flex-col h-full">
+        <div className="thread-panel-container w-[400px] bg-[#2b2d31] border-l border-[#1e1f22] flex flex-col h-full">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1f22]">
                 <div className="flex items-center gap-2">
@@ -633,6 +701,27 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
                         />
                     </div>
                 </div>
+            )}
+
+            {/* User Mention Popup */}
+            {mentionPopup && (
+                <UserMentionPopup
+                    user={mentionPopup.user}
+                    position={mentionPopup.position}
+                    onClose={() => setMentionPopup(null)}
+                    onMessage={handleMessageUser}
+                    onMouseEnter={() => {
+                        if (hoverTimeoutRef.current) {
+                            clearTimeout(hoverTimeoutRef.current);
+                            hoverTimeoutRef.current = null;
+                        }
+                    }}
+                    onMouseLeave={() => {
+                        hoverTimeoutRef.current = setTimeout(() => {
+                            setMentionPopup(null);
+                        }, 300);
+                    }}
+                />
             )}
         </div>
     );

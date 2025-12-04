@@ -21,7 +21,7 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [onClose]);
 
-    // Calculate popup position with flip logic to stay within viewport
+    // Calculate popup position - 10px above the trigger element
     useEffect(() => {
         if (popupRef.current) {
             const popup = popupRef.current;
@@ -30,26 +30,24 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
             const viewportHeight = window.innerHeight;
 
             let adjustedX = position.x;
-            let adjustedY = position.y;
+            // Position popup so its bottom is 10px above the trigger (position.y is already rect.top - 10)
+            let adjustedY = position.y - rect.height;
 
             // Flip horizontally if too close to right edge
-            if (position.x + rect.width > viewportWidth - 20) {
-                adjustedX = position.x - rect.width;
+            if (adjustedX + rect.width > viewportWidth - 20) {
+                adjustedX = viewportWidth - rect.width - 20;
             }
 
-            // Flip vertically if too close to bottom
-            if (position.y + rect.height > viewportHeight - 20) {
-                adjustedY = position.y - rect.height;
+            // If popup would go above viewport, show below the trigger instead
+            if (adjustedY < 10) {
+                // position.y is (rect.top - 10), so trigger rect.top = position.y + 10
+                // Show popup 10px below the trigger bottom (assume trigger height ~20px)
+                adjustedY = position.y + 10 + 20 + 10;
             }
 
             // Ensure not off-screen left
-            if (adjustedX < 20) {
-                adjustedX = 20;
-            }
-
-            // Ensure not off-screen top
-            if (adjustedY < 20) {
-                adjustedY = 20;
+            if (adjustedX < 10) {
+                adjustedX = 10;
             }
 
             popup.style.left = `${adjustedX}px`;
