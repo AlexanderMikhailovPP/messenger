@@ -206,7 +206,10 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
     // Handle message to user from popup
     const handleMessageUser = async (targetUser) => {
         try {
-            const res = await axios.post('/api/channels/dm', { targetUserId: targetUser.id });
+            const res = await axios.post('/api/channels/dm', {
+                currentUserId: user.id,
+                targetUserId: targetUser.id
+            });
             setCurrentChannel(res.data);
             onClose();
         } catch (err) {
@@ -312,13 +315,17 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
             return;
         }
 
+        // Convert mentions to HTML before sending
+        const processedContent = processMentionsToHtml(trimmed);
+
         socket.emit('send_message', {
-            content: trimmed,
+            content: processedContent,
             channelId: parentMessage.channel_id,
             threadId: parentMessage.id
         });
 
         setNewReply('');
+        setInsertedMentions([]); // Clear mentions after sending
     };
 
     const handleKeyDown = (e) => {
@@ -370,6 +377,9 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
         }
     };
 
+    // Store inserted mentions for later processing
+    const [insertedMentions, setInsertedMentions] = useState([]);
+
     // Insert mention into input
     const insertMention = (item) => {
         const textarea = inputRef.current;
@@ -395,6 +405,15 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
         const newText = before + mentionText + ' ' + after;
 
         setNewReply(newText);
+
+        // Store the mention for later HTML conversion
+        setInsertedMentions(prev => [...prev, {
+            type: mentionType,
+            id: item.id,
+            text: mentionText,
+            name: mentionType === '@' ? item.username : item.name
+        }]);
+
         setShowMentions(false);
         setMentionQuery('');
         setMentionType(null);
@@ -407,6 +426,20 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
             textarea.focus();
             textarea.setSelectionRange(newPos, newPos);
         }, 0);
+    };
+
+    // Convert plain text mentions to HTML
+    const processMentionsToHtml = (text) => {
+        let processedText = text;
+
+        // Process stored mentions (from autocomplete)
+        insertedMentions.forEach(mention => {
+            const mentionClass = mention.type === '@' ? 'mention-user' : 'mention-channel';
+            const html = `<span class="${mentionClass}" data-id="${mention.id}" data-type="${mention.type === '@' ? 'user' : 'channel'}">${mention.text}</span>`;
+            processedText = processedText.replace(mention.text, html);
+        });
+
+        return processedText;
     };
 
     // Handle @ mentions in input
