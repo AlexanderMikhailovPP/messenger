@@ -55,6 +55,9 @@ export const CallProvider = ({ children }) => {
     const speakingIntervalRef = useRef(null);
     const audioElementsRef = useRef({});
     const videoElementsRef = useRef({});
+    const pendingCandidatesRef = useRef({}); // Queue for ICE candidates before remote description
+    const makingOfferRef = useRef({}); // Track if we're currently making an offer
+    const ignoreOfferRef = useRef({}); // For polite peer handling
 
     // Cleanup function for audio elements
     const cleanupAudioElement = useCallback((socketId) => {
@@ -125,29 +128,59 @@ export const CallProvider = ({ children }) => {
         analyserRef.current = null;
     }, []);
 
-    // Create peer connection with proper error handling
+    // Create peer connection with proper error handling and perfect negotiation
     const createPeerConnection = useCallback((targetSocketId, isInitiator, targetUserId, targetUsername) => {
         const socket = getSocket();
         if (!socket) return null;
+
+        // Determine polite peer - the one who joined later (non-initiator) is polite
+        // Polite peer will rollback their offer if they receive an offer while making one
+        const polite = !isInitiator;
 
         // Close existing connection if any
         if (peersRef.current[targetSocketId]?.peerConnection) {
             peersRef.current[targetSocketId].peerConnection.close();
         }
 
+        // Initialize pending candidates queue
+        pendingCandidatesRef.current[targetSocketId] = [];
+        makingOfferRef.current[targetSocketId] = false;
+        ignoreOfferRef.current[targetSocketId] = false;
+
         const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+        // Handle negotiation needed - perfect negotiation pattern
+        pc.onnegotiationneeded = async () => {
+            try {
+                console.log(`[WebRTC] Negotiation needed for ${targetSocketId}, polite=${polite}`);
+                makingOfferRef.current[targetSocketId] = true;
+                await pc.setLocalDescription();
+                socket.emit('offer', {
+                    target: targetSocketId,
+                    caller: socket.id,
+                    sdp: pc.localDescription
+                });
+            } catch (err) {
+                console.error('[WebRTC] Error in negotiationneeded:', err);
+            } finally {
+                makingOfferRef.current[targetSocketId] = false;
+            }
+        };
 
         // Connection state monitoring
         pc.onconnectionstatechange = () => {
             console.log(`[WebRTC] Connection state (${targetSocketId}):`, pc.connectionState);
-            if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-                console.log('[WebRTC] Connection lost, attempting reconnect...');
-                // Could implement reconnection logic here
+            if (pc.connectionState === 'failed') {
+                console.log('[WebRTC] Connection failed, restarting ICE...');
+                pc.restartIce();
             }
         };
 
         pc.oniceconnectionstatechange = () => {
             console.log(`[WebRTC] ICE state (${targetSocketId}):`, pc.iceConnectionState);
+            if (pc.iceConnectionState === 'failed') {
+                pc.restartIce();
+            }
         };
 
         pc.onicegatheringstatechange = () => {
@@ -209,7 +242,8 @@ export const CallProvider = ({ children }) => {
         peersRef.current[targetSocketId] = {
             peerConnection: pc,
             userId: targetUserId,
-            username: targetUsername
+            username: targetUsername,
+            polite: polite
         };
 
         setPeers(prev => ({
@@ -221,47 +255,8 @@ export const CallProvider = ({ children }) => {
             }
         }));
 
-        // If initiator, create and send offer
-        if (isInitiator) {
-            (async () => {
-                try {
-                    const offer = await pc.createOffer();
-                    await pc.setLocalDescription(offer);
-                    socket.emit('offer', {
-                        target: targetSocketId,
-                        caller: socket.id,
-                        sdp: pc.localDescription
-                    });
-                } catch (err) {
-                    console.error('[WebRTC] Error creating offer:', err);
-                }
-            })();
-        }
-
         return pc;
     }, [createAudioElement]);
-
-    // Renegotiate connection after track changes
-    const renegotiate = useCallback(async (targetSocketId) => {
-        const socket = getSocket();
-        const peer = peersRef.current[targetSocketId];
-        if (!socket || !peer?.peerConnection) return;
-
-        const pc = peer.peerConnection;
-
-        try {
-            console.log('[WebRTC] Renegotiating with:', targetSocketId);
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket.emit('offer', {
-                target: targetSocketId,
-                caller: socket.id,
-                sdp: pc.localDescription
-            });
-        } catch (err) {
-            console.error('[WebRTC] Renegotiation error:', err);
-        }
-    }, []);
 
     // Socket event handlers
     useEffect(() => {
@@ -334,14 +329,43 @@ export const CallProvider = ({ children }) => {
 
                 // Check if we already have a peer connection (renegotiation case)
                 let pc = peersRef.current[payload.caller]?.peerConnection;
+                const polite = peersRef.current[payload.caller]?.polite ?? true;
 
                 if (!pc) {
-                    // New connection
+                    // New connection - we're the polite peer (responder)
                     pc = createPeerConnection(payload.caller, false, null, null);
                     if (!pc) return;
                 }
 
-                await pc.setRemoteDescription(payload.sdp);
+                // Perfect negotiation: handle "glare" (both sides sending offers)
+                const offerCollision = makingOfferRef.current[payload.caller] ||
+                    (pc.signalingState !== 'stable');
+
+                ignoreOfferRef.current[payload.caller] = !polite && offerCollision;
+
+                if (ignoreOfferRef.current[payload.caller]) {
+                    console.log('[CallContext] Ignoring colliding offer (impolite peer)');
+                    return;
+                }
+
+                // If we have a collision and we're polite, rollback our offer
+                if (offerCollision && polite) {
+                    console.log('[CallContext] Rolling back our offer (polite peer)');
+                    await Promise.all([
+                        pc.setLocalDescription({ type: 'rollback' }),
+                        pc.setRemoteDescription(payload.sdp)
+                    ]);
+                } else {
+                    await pc.setRemoteDescription(payload.sdp);
+                }
+
+                // Process any pending ICE candidates
+                const pending = pendingCandidatesRef.current[payload.caller] || [];
+                for (const candidate of pending) {
+                    await pc.addIceCandidate(candidate);
+                }
+                pendingCandidatesRef.current[payload.caller] = [];
+
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
 
@@ -363,6 +387,13 @@ export const CallProvider = ({ children }) => {
                 const peer = peersRef.current[payload.caller];
                 if (peer?.peerConnection) {
                     await peer.peerConnection.setRemoteDescription(payload.sdp);
+
+                    // Process any pending ICE candidates
+                    const pending = pendingCandidatesRef.current[payload.caller] || [];
+                    for (const candidate of pending) {
+                        await peer.peerConnection.addIceCandidate(candidate);
+                    }
+                    pendingCandidatesRef.current[payload.caller] = [];
                 }
             } catch (err) {
                 console.error('[CallContext] Error handling answer:', err);
@@ -372,11 +403,24 @@ export const CallProvider = ({ children }) => {
         const handleIceCandidate = async (payload) => {
             try {
                 const peer = peersRef.current[payload.caller];
-                if (peer?.peerConnection && payload.candidate) {
-                    await peer.peerConnection.addIceCandidate(payload.candidate);
+                if (!payload.candidate) return;
+
+                // If we don't have remote description yet, queue the candidate
+                if (!peer?.peerConnection || !peer.peerConnection.remoteDescription) {
+                    console.log('[CallContext] Queueing ICE candidate for:', payload.caller);
+                    if (!pendingCandidatesRef.current[payload.caller]) {
+                        pendingCandidatesRef.current[payload.caller] = [];
+                    }
+                    pendingCandidatesRef.current[payload.caller].push(payload.candidate);
+                    return;
                 }
+
+                await peer.peerConnection.addIceCandidate(payload.candidate);
             } catch (err) {
-                console.error('[CallContext] Error handling ICE candidate:', err);
+                // Ignore errors for candidates that arrive after connection is established
+                if (err.name !== 'InvalidStateError') {
+                    console.error('[CallContext] Error handling ICE candidate:', err);
+                }
             }
         };
 
@@ -574,14 +618,13 @@ export const CallProvider = ({ children }) => {
                     localStreamRef.current.addTrack(videoTrack);
                 }
 
-                // Add video track to all peer connections and renegotiate
+                // Add video track to all peer connections
+                // onnegotiationneeded will fire automatically and handle renegotiation
                 const peerSocketIds = Object.keys(peersRef.current);
                 for (const socketId of peerSocketIds) {
                     const peer = peersRef.current[socketId];
                     if (peer?.peerConnection && localStreamRef.current) {
                         peer.peerConnection.addTrack(videoTrack, localStreamRef.current);
-                        // Renegotiate to update SDP with new video track
-                        await renegotiate(socketId);
                     }
                 }
 
@@ -605,7 +648,7 @@ export const CallProvider = ({ children }) => {
                     });
                 }
 
-                console.log('[CallContext] Video enabled and renegotiated with', peerSocketIds.length, 'peers');
+                console.log('[CallContext] Video enabled for', peerSocketIds.length, 'peers');
             } catch (err) {
                 console.error('[CallContext] Failed to enable video:', err);
                 if (err.name === 'NotAllowedError') {
@@ -626,7 +669,8 @@ export const CallProvider = ({ children }) => {
                     localStreamRef.current.removeTrack(localVideoRef.current);
                 }
 
-                // Remove video track from all peer connections and renegotiate
+                // Remove video track from all peer connections
+                // onnegotiationneeded will fire automatically and handle renegotiation
                 const peerSocketIds = Object.keys(peersRef.current);
                 for (const socketId of peerSocketIds) {
                     const peer = peersRef.current[socketId];
@@ -636,13 +680,11 @@ export const CallProvider = ({ children }) => {
                         if (videoSender) {
                             peer.peerConnection.removeTrack(videoSender);
                         }
-                        // Renegotiate to update SDP
-                        await renegotiate(socketId);
                     }
                 }
 
                 localVideoRef.current = null;
-                console.log('[CallContext] Video disabled and renegotiated with', peerSocketIds.length, 'peers');
+                console.log('[CallContext] Video disabled for', peerSocketIds.length, 'peers');
             }
 
             setIsVideoOn(false);
@@ -661,7 +703,7 @@ export const CallProvider = ({ children }) => {
                 });
             }
         }
-    }, [isVideoOn, activeChannelId, user?.id, renegotiate]);
+    }, [isVideoOn, activeChannelId, user?.id]);
 
     const clearIncomingCall = useCallback(() => {
         setIncomingCall(null);
