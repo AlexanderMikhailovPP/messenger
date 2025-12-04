@@ -149,8 +149,28 @@ io.on('connection', (socket) => {
                     lastReply: fullMessage
                 });
             } else {
-                // Broadcast to channel
+                // Broadcast to channel (for users who have joined the channel)
                 io.to(channelId).emit('receive_message', fullMessage);
+
+                // Also send to user's personal rooms for unread notifications
+                // Get channel info to check if it's a DM
+                const channelRes = await db.query('SELECT * FROM channels WHERE id = ?', [channelId]);
+                const channel = channelRes.rows[0];
+
+                if (channel && channel.type === 'dm') {
+                    // DM channel - send to both users' personal rooms
+                    const parts = channel.name.split('_'); // dm_userId1_userId2
+                    const userId1 = parts[1];
+                    const userId2 = parts[2];
+
+                    // Emit to both users' personal rooms (they may not have joined the channel room)
+                    io.to(userId1).emit('receive_message', fullMessage);
+                    io.to(userId2).emit('receive_message', fullMessage);
+
+                    if (isDev) {
+                        console.log(`[DM] Message sent to personal rooms: ${userId1}, ${userId2}`);
+                    }
+                }
             }
 
             if (callback) {

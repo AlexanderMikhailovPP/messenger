@@ -30,6 +30,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const emojiButtonRef = useRef(null);
     const previewAudioRef = useRef(null);
     const scheduleMenuRef = useRef(null);
+    const savedSelectionRef = useRef(null);
     const { user } = useAuth();
 
     // Close schedule menu when clicking outside
@@ -234,11 +235,31 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
     };
 
+    // Save current selection/caret position
+    const saveSelection = () => {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            savedSelectionRef.current = selection.getRangeAt(0).cloneRange();
+        }
+    };
+
+    // Restore saved selection/caret position
+    const restoreSelection = () => {
+        if (savedSelectionRef.current && editorRef.current) {
+            editorRef.current.focus();
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(savedSelectionRef.current);
+        }
+    };
+
     // Insert emoji at cursor position
     const insertEmoji = (emoji) => {
         if (!editorRef.current) return;
 
-        editorRef.current.focus();
+        // Restore the saved selection before inserting
+        restoreSelection();
+
         document.execCommand('insertText', false, emoji);
 
         if (editorRef.current) {
@@ -904,6 +925,10 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     <div className="relative" ref={emojiButtonRef}>
                         <button
                             type="button"
+                            onMouseDown={(e) => {
+                                // Save selection before click removes focus
+                                saveSelection();
+                            }}
                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                             className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded-full transition-colors"
                             title="Add emoji"

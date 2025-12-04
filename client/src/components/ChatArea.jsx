@@ -68,7 +68,13 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
         const handleNewMessage = (message) => {
             if (currentChannel && message.channel_id === currentChannel.id) {
-                setMessages((prev) => [...prev, message]);
+                // Prevent duplicate messages (can happen when receiving via both channel and personal room)
+                setMessages((prev) => {
+                    if (prev.some(m => m.id === message.id)) {
+                        return prev;
+                    }
+                    return [...prev, message];
+                });
                 // Scroll to bottom for new messages in current channel
                 setTimeout(() => {
                     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
