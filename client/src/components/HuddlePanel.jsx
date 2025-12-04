@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff, ChevronUp, ChevronDown, X, Phone, PhoneOff, Headphones, Monitor, MonitorOff } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, ChevronUp, ChevronDown, PhoneOff, Headphones, Monitor, MonitorOff, Maximize2, Minimize2, X } from 'lucide-react';
 import UserAvatar from './UserAvatar';
 
 export default function HuddlePanel({
@@ -20,9 +20,12 @@ export default function HuddlePanel({
     connectionStatus = 'connected'
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [pinnedVideo, setPinnedVideo] = useState(null); // { type: 'local' | 'remote', participantId?, socketId? }
     const [callDuration, setCallDuration] = useState(0);
     const localVideoRef = useRef(null);
     const remoteVideoRefs = useRef({});
+    const panelRef = useRef(null);
 
     // Attach local video stream to video element
     useEffect(() => {
@@ -67,7 +70,7 @@ export default function HuddlePanel({
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Keyboard shortcuts for mute (M key), video (V key), screen share (S key)
+    // Keyboard shortcuts for mute (M key), video (V key), screen share (S key), fullscreen (F key), exit pinned (Escape)
     useEffect(() => {
         const handleKeyDown = (e) => {
             // Don't trigger if typing in an input
@@ -83,6 +86,17 @@ export default function HuddlePanel({
             if (e.key === 's' || e.key === 'S') {
                 onToggleScreenShare();
             }
+            if (e.key === 'f' || e.key === 'F') {
+                setIsFullscreen(prev => !prev);
+                if (!isExpanded) setIsExpanded(true);
+            }
+            if (e.key === 'Escape') {
+                if (pinnedVideo) {
+                    setPinnedVideo(null);
+                } else if (isFullscreen) {
+                    setIsFullscreen(false);
+                }
+            }
         };
 
         if (isInCall) {
@@ -90,7 +104,22 @@ export default function HuddlePanel({
         }
 
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isInCall, onToggleMute, onToggleVideo, onToggleScreenShare]);
+    }, [isInCall, onToggleMute, onToggleVideo, onToggleScreenShare, isExpanded, isFullscreen, pinnedVideo]);
+
+    // Toggle fullscreen mode
+    const toggleFullscreen = () => {
+        setIsFullscreen(prev => !prev);
+        if (!isExpanded) setIsExpanded(true);
+    };
+
+    // Pin/unpin video
+    const handlePinVideo = (type, participantId = null, socketId = null) => {
+        if (pinnedVideo && pinnedVideo.type === type && pinnedVideo.participantId === participantId) {
+            setPinnedVideo(null);
+        } else {
+            setPinnedVideo({ type, participantId, socketId });
+        }
+    };
 
     if (!isInCall) return null;
 
@@ -99,7 +128,14 @@ export default function HuddlePanel({
     const totalCount = participants.length;
 
     return (
-        <div className="fixed bottom-5 right-5 z-50 font-sans">
+        <div
+            ref={panelRef}
+            className={`fixed z-50 font-sans transition-all duration-300 ${
+                isFullscreen
+                    ? 'inset-0 bottom-0 right-0'
+                    : 'bottom-5 right-5'
+            }`}
+        >
             {/* Minimized State - Slack-style compact bar */}
             {!isExpanded && (
                 <div
@@ -225,8 +261,10 @@ export default function HuddlePanel({
             {/* Expanded State - Full participant list */}
             {isExpanded && (
                 <div
-                    className="bg-[#1a1d21] text-white rounded-xl shadow-2xl border border-[#565856]/30 overflow-hidden flex flex-col"
-                    style={{ width: hasAnyVideo ? '500px' : '340px', maxHeight: hasAnyVideo ? '600px' : '480px' }}
+                    className={`bg-[#1a1d21] text-white shadow-2xl border border-[#565856]/30 overflow-hidden flex flex-col ${
+                        isFullscreen ? 'w-full h-full rounded-none' : 'rounded-xl'
+                    }`}
+                    style={isFullscreen ? {} : { width: hasAnyVideo ? '500px' : '340px', maxHeight: hasAnyVideo ? '600px' : '480px' }}
                 >
                     {/* Green huddle indicator bar */}
                     <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
@@ -249,29 +287,81 @@ export default function HuddlePanel({
                         </div>
                         <div className="flex items-center gap-1">
                             <button
-                                onClick={() => setIsExpanded(false)}
+                                onClick={toggleFullscreen}
                                 className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                                title="Minimize"
+                                title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
                             >
-                                <ChevronDown size={16} className="text-gray-400" />
+                                {isFullscreen ? (
+                                    <Minimize2 size={16} className="text-gray-400" />
+                                ) : (
+                                    <Maximize2 size={16} className="text-gray-400" />
+                                )}
                             </button>
-                            <button
-                                onClick={onLeave}
-                                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                                title="Leave huddle"
-                            >
-                                <X size={16} className="text-gray-400" />
-                            </button>
+                            {!isFullscreen && (
+                                <button
+                                    onClick={() => setIsExpanded(false)}
+                                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                                    title="Minimize"
+                                >
+                                    <ChevronDown size={16} className="text-gray-400" />
+                                </button>
+                            )}
                         </div>
                     </div>
 
                     {/* Video Grid - only shown when someone has video on */}
                     {hasAnyVideo && (
-                        <div className="p-3 border-b border-[#565856]/30">
-                            <div className="grid grid-cols-2 gap-2">
+                        <div className={`p-3 border-b border-[#565856]/30 ${isFullscreen ? 'flex-1 flex flex-col' : ''}`}>
+                            {/* Pinned video overlay */}
+                            {pinnedVideo && (
+                                <div className="absolute inset-0 z-10 bg-black/95 flex flex-col">
+                                    <div className="flex-1 relative flex items-center justify-center p-4">
+                                        {pinnedVideo.type === 'local' && localStream && (
+                                            <video
+                                                ref={localVideoRef}
+                                                autoPlay
+                                                playsInline
+                                                muted
+                                                className="max-w-full max-h-full object-contain transform scale-x-[-1]"
+                                            />
+                                        )}
+                                        {pinnedVideo.type === 'remote' && (() => {
+                                            const participant = participants.find(p => p.socketId === pinnedVideo.socketId);
+                                            let stream = remoteStreams[pinnedVideo.socketId] || (participant && participant.stream);
+                                            if (!stream) {
+                                                for (const socketId of Object.keys(remoteStreams)) {
+                                                    if (remoteStreams[socketId]) {
+                                                        stream = remoteStreams[socketId];
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            return stream ? (
+                                                <VideoElement stream={stream} className="max-w-full max-h-full object-contain" />
+                                            ) : (
+                                                <div className="text-gray-400">No video stream</div>
+                                            );
+                                        })()}
+                                        <div className="absolute bottom-4 left-4 bg-black/60 px-2 py-1 rounded text-sm text-white">
+                                            {pinnedVideo.type === 'local' ? 'You' : participants.find(p => p.socketId === pinnedVideo.socketId)?.username || 'Unknown'}
+                                        </div>
+                                        <button
+                                            onClick={() => setPinnedVideo(null)}
+                                            className="absolute top-4 right-4 p-2 bg-black/60 hover:bg-black/80 rounded-lg transition-colors"
+                                            title="Unpin (Esc)"
+                                        >
+                                            <X size={20} className="text-white" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            <div className={`grid gap-2 ${isFullscreen ? 'grid-cols-3 flex-1' : 'grid-cols-2'}`}>
                                 {/* Local video */}
                                 {isVideoOn && localStream && (
-                                    <div className="relative aspect-video bg-[#2e3136] rounded-lg overflow-hidden">
+                                    <div
+                                        className={`relative bg-[#2e3136] rounded-lg overflow-hidden cursor-pointer group ${isFullscreen ? 'aspect-video' : 'aspect-video'}`}
+                                        onClick={() => handlePinVideo('local')}
+                                    >
                                         <video
                                             ref={localVideoRef}
                                             autoPlay
@@ -287,48 +377,31 @@ export default function HuddlePanel({
                                                 <MicOff size={12} className="text-white" />
                                             </div>
                                         )}
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                            <Maximize2 size={24} className="text-white" />
+                                        </div>
                                     </div>
                                 )}
                                 {/* Remote videos */}
-                                {(() => {
-                                    console.log('[HuddlePanel] Rendering remote videos, participants:', participants.map(p => ({ userId: p.userId, socketId: p.socketId, hasVideo: p.hasVideo, isCurrentUser: p.isCurrentUser, hasStream: !!p.stream })));
-                                    console.log('[HuddlePanel] remoteStreams keys:', Object.keys(remoteStreams));
-                                    console.log('[HuddlePanel] remoteStreams values exist:', Object.keys(remoteStreams).map(k => !!remoteStreams[k]));
-                                    return null;
-                                })()}
                                 {participants.filter(p => !p.isCurrentUser && p.hasVideo).map((participant) => {
-                                    // Try to find stream with multiple fallbacks
-                                    // 1) By socketId in remoteStreams
-                                    // 2) participant.stream (stored directly on participant)
-                                    // 3) Fallback to any stream if only one participant with video and one stream
                                     let stream = remoteStreams[participant.socketId];
-
-                                    // Try participant.stream
                                     if (!stream && participant.stream) {
-                                        console.log('[HuddlePanel] Using participant.stream for', participant.username);
                                         stream = participant.stream;
                                     }
-
-                                    // Aggressive fallback: try to match by userId
                                     if (!stream) {
                                         for (const socketId of Object.keys(remoteStreams)) {
-                                            // This is a last resort - just use any available stream if we have video flag
                                             if (remoteStreams[socketId]) {
-                                                console.log('[HuddlePanel] Aggressive fallback: trying stream from socketId', socketId, 'for participant', participant.username);
                                                 stream = remoteStreams[socketId];
                                                 break;
                                             }
                                         }
                                     }
-
-                                    console.log('[HuddlePanel] Participant', participant.username,
-                                        'socketId:', participant.socketId,
-                                        'stream found:', stream ? 'YES' : 'NO',
-                                        'participant.stream:', participant.stream ? 'exists' : 'missing',
-                                        'remoteStreams keys:', Object.keys(remoteStreams)
-                                    );
                                     return (
-                                        <div key={participant.socketId} className="relative aspect-video bg-[#2e3136] rounded-lg overflow-hidden">
+                                        <div
+                                            key={participant.socketId}
+                                            className={`relative bg-[#2e3136] rounded-lg overflow-hidden cursor-pointer group ${isFullscreen ? 'aspect-video' : 'aspect-video'}`}
+                                            onClick={() => handlePinVideo('remote', participant.userId, participant.socketId)}
+                                        >
                                             {stream ? (
                                                 <VideoElement stream={stream} />
                                             ) : (
@@ -347,6 +420,9 @@ export default function HuddlePanel({
                                                     <MicOff size={12} className="text-white" />
                                                 </div>
                                             )}
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                                <Maximize2 size={24} className="text-white" />
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -481,6 +557,8 @@ export default function HuddlePanel({
                                 <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">V</kbd> video
                                 {' · '}
                                 <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">S</kbd> screen
+                                {' · '}
+                                <kbd className="px-1.5 py-0.5 bg-[#2e3136] rounded text-gray-400 font-mono text-xs">F</kbd> fullscreen
                             </span>
                         </div>
                     </div>
