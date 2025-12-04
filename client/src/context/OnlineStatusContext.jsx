@@ -12,19 +12,20 @@ export function OnlineStatusProvider({ children }) {
 
         // Receive initial list of online users
         const handleOnlineUsers = (userIds) => {
-            setOnlineUsers(new Set(userIds));
+            // Convert all IDs to numbers for consistent comparison
+            setOnlineUsers(new Set(userIds.map(id => Number(id))));
         };
 
         // User came online
         const handleUserOnline = ({ userId }) => {
-            setOnlineUsers(prev => new Set([...prev, userId]));
+            setOnlineUsers(prev => new Set([...prev, Number(userId)]));
         };
 
         // User went offline
         const handleUserOffline = ({ userId }) => {
             setOnlineUsers(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(userId);
+                newSet.delete(Number(userId));
                 return newSet;
             });
         };
@@ -41,7 +42,7 @@ export function OnlineStatusProvider({ children }) {
     }, []);
 
     const isUserOnline = useCallback((userId) => {
-        return onlineUsers.has(userId);
+        return onlineUsers.has(Number(userId));
     }, [onlineUsers]);
 
     return (

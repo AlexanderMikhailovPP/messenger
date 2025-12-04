@@ -97,10 +97,10 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
                         <div className="flex items-center gap-2">
                             <h3 className="text-lg font-bold text-white truncate">{user.username}</h3>
                             <div
-                                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                                className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                     isOnline
                                         ? 'bg-[#5DA87F]'
-                                        : 'bg-[#1a1d21] border border-gray-500'
+                                        : 'bg-transparent border-[1.5px] border-gray-500'
                                 }`}
                                 title={isOnline ? 'Online' : 'Offline'}
                             />
