@@ -103,90 +103,127 @@ export default function SidebarHuddle() {
 
                 {/* Participants Grid */}
                 <div className="relative flex-1 flex items-center justify-center p-8 overflow-auto">
-                    <div className={`grid gap-6 ${
-                        totalCount === 1 ? 'grid-cols-1' :
-                        totalCount === 2 ? 'grid-cols-2' :
-                        totalCount <= 4 ? 'grid-cols-2' :
-                        totalCount <= 6 ? 'grid-cols-3' :
-                        'grid-cols-4'
-                    } max-w-5xl`}>
-                        {participants.map((participant) => {
-                            const participantStreams = remoteStreams[participant.socketId] || {};
-                            const videoStream = participant.isCurrentUser
-                                ? (isVideoOn ? localStream : null)
-                                : (participantStreams.video || participant.stream);
-                            const hasVideo = participant.isCurrentUser ? isVideoOn : (participant.hasVideo && videoStream);
+                    {(() => {
+                        // Collect all screen shares
+                        const screenShares = [];
+                        if (isScreenSharing && localScreenStream) {
+                            screenShares.push({ isLocal: true, stream: localScreenStream, username: 'You' });
+                        }
+                        // Check for remote screen shares
+                        participants.forEach(p => {
+                            if (!p.isCurrentUser) {
+                                const streams = remoteStreams[p.socketId] || {};
+                                if (streams.screen) {
+                                    screenShares.push({ isLocal: false, stream: streams.screen, username: p.username });
+                                }
+                            }
+                        });
 
-                            return (
-                                <div
-                                    key={participant.userId}
-                                    className="relative flex flex-col items-center"
-                                >
-                                    {/* Avatar/Video container */}
-                                    <div
-                                        className={`relative rounded-full overflow-hidden transition-all duration-200 ${
-                                            participant.isSpeaking && !participant.isMuted
-                                                ? 'ring-4 ring-green-500 ring-offset-4 ring-offset-[#1a1d21]'
-                                                : ''
-                                        }`}
-                                        style={{
-                                            width: totalCount <= 2 ? '160px' : totalCount <= 4 ? '120px' : '100px',
-                                            height: totalCount <= 2 ? '160px' : totalCount <= 4 ? '120px' : '100px'
-                                        }}
-                                    >
-                                        {hasVideo && videoStream ? (
-                                            <ParticipantVideo
-                                                stream={videoStream}
-                                                isLocal={participant.isCurrentUser}
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full bg-gradient-to-br from-[#3a3f47] to-[#2a2f37] flex items-center justify-center">
-                                                <span
-                                                    className="font-semibold text-white"
-                                                    style={{
-                                                        fontSize: totalCount <= 2 ? '48px' : totalCount <= 4 ? '36px' : '28px'
-                                                    }}
-                                                >
-                                                    {participant.username?.[0]?.toUpperCase() || '?'}
+                        // Total items = participants + screen shares
+                        const totalItems = participants.length + screenShares.length;
+
+                        // Calculate grid columns based on total items
+                        const gridCols = totalItems === 1 ? 'grid-cols-1' :
+                            totalItems === 2 ? 'grid-cols-2' :
+                            totalItems <= 4 ? 'grid-cols-2' :
+                            totalItems <= 6 ? 'grid-cols-3' :
+                            'grid-cols-4';
+
+                        // Avatar sizes: 2x bigger, based on total items
+                        const avatarSize = totalItems <= 2 ? 320 : totalItems <= 4 ? 240 : 200;
+                        const fontSize = totalItems <= 2 ? 96 : totalItems <= 4 ? 72 : 56;
+
+                        return (
+                            <div className={`grid gap-6 ${gridCols} max-w-6xl`}>
+                                {/* Render participants */}
+                                {participants.map((participant) => {
+                                    const participantStreams = remoteStreams[participant.socketId] || {};
+                                    const videoStream = participant.isCurrentUser
+                                        ? (isVideoOn ? localStream : null)
+                                        : (participantStreams.video || participant.stream);
+                                    const hasVideo = participant.isCurrentUser ? isVideoOn : (participant.hasVideo && videoStream);
+
+                                    return (
+                                        <div
+                                            key={participant.userId}
+                                            className="relative flex flex-col items-center"
+                                        >
+                                            {/* Avatar/Video container - square with rounded corners */}
+                                            <div
+                                                className={`relative rounded-2xl overflow-hidden transition-all duration-200 ${
+                                                    participant.isSpeaking && !participant.isMuted
+                                                        ? 'ring-4 ring-green-500 ring-offset-4 ring-offset-[#1a1d21]'
+                                                        : ''
+                                                }`}
+                                                style={{
+                                                    width: `${avatarSize}px`,
+                                                    height: `${avatarSize}px`
+                                                }}
+                                            >
+                                                {hasVideo && videoStream ? (
+                                                    <ParticipantVideo
+                                                        stream={videoStream}
+                                                        isLocal={participant.isCurrentUser}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full bg-gradient-to-br from-[#3a3f47] to-[#2a2f37] flex items-center justify-center">
+                                                        <span
+                                                            className="font-semibold text-white"
+                                                            style={{ fontSize: `${fontSize}px` }}
+                                                        >
+                                                            {participant.username?.[0]?.toUpperCase() || '?'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Name and status */}
+                                            <div className="mt-3 flex items-center gap-2">
+                                                <span className="text-white font-medium text-base">
+                                                    {participant.username}
+                                                    {participant.isCurrentUser && <span className="text-gray-500 ml-1">(you)</span>}
                                                 </span>
+                                                {participant.isMuted && (
+                                                    <div className="bg-red-500/20 p-1 rounded-full">
+                                                        <MicOff size={14} className="text-red-400" />
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    );
+                                })}
 
-                                    {/* Name and status */}
-                                    <div className="mt-3 flex items-center gap-2">
-                                        <span className="text-white font-medium text-sm">
-                                            {participant.username}
-                                            {participant.isCurrentUser && <span className="text-gray-500 ml-1">(you)</span>}
-                                        </span>
-                                        {participant.isMuted && (
-                                            <div className="bg-red-500/20 p-1 rounded-full">
-                                                <MicOff size={12} className="text-red-400" />
-                                            </div>
-                                        )}
+                                {/* Render screen shares as separate grid items */}
+                                {screenShares.map((share, index) => (
+                                    <div
+                                        key={`screen-${index}`}
+                                        className="relative flex flex-col items-center"
+                                    >
+                                        <div
+                                            className="relative rounded-2xl overflow-hidden bg-black border border-white/10"
+                                            style={{
+                                                width: `${avatarSize}px`,
+                                                height: `${avatarSize}px`
+                                            }}
+                                        >
+                                            <ScreenShareVideo
+                                                stream={share.stream}
+                                                isLocal={share.isLocal}
+                                                localScreenRef={share.isLocal ? localScreenRef : null}
+                                            />
+                                        </div>
+                                        <div className="mt-3 flex items-center gap-2">
+                                            <Monitor size={16} className="text-green-400" />
+                                            <span className="text-white font-medium text-base">
+                                                {share.username}'s screen
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </div>
-
-                {/* Screen share preview */}
-                {isScreenSharing && localScreenStream && (
-                    <div className="absolute top-20 right-4 w-64 aspect-video bg-black rounded-lg overflow-hidden shadow-xl border border-white/10">
-                        <video
-                            ref={localScreenRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="w-full h-full object-contain"
-                        />
-                        <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
-                            <Monitor size={12} />
-                            Your screen
-                        </div>
-                    </div>
-                )}
 
                 {/* Controls - at the bottom */}
                 <div className="relative p-6 border-t border-white/10 bg-black/20">
@@ -407,6 +444,29 @@ function ParticipantVideo({ stream, isLocal, small }) {
             playsInline
             muted={isLocal}
             className={`w-full h-full object-cover ${isLocal ? 'transform scale-x-[-1]' : ''}`}
+        />
+    );
+}
+
+// Helper component for screen share video
+function ScreenShareVideo({ stream, isLocal, localScreenRef }) {
+    const videoRef = useRef(null);
+
+    useEffect(() => {
+        const ref = localScreenRef || videoRef;
+        if (ref.current && stream) {
+            ref.current.srcObject = stream;
+            ref.current.play().catch(() => {});
+        }
+    }, [stream, localScreenRef]);
+
+    return (
+        <video
+            ref={localScreenRef || videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-contain"
         />
     );
 }

@@ -560,11 +560,12 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
             >
                 <UserAvatar
                     user={{ username: msg.username, avatar_url: msg.avatar_url }}
-                    size={isParent ? 'md' : 'sm'}
+                    size="lg"
+                    className="mt-1"
                 />
                 <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2">
-                        <span className={`font-medium text-white ${isParent ? '' : 'text-sm'}`}>{msg.username}</span>
+                        <span className="font-semibold text-white hover:underline cursor-pointer message-username" data-id={msg.user_id}>{msg.username}</span>
                         <span className="text-xs text-gray-500">
                             {isParent ? `${formatDate(msg.created_at)} at ` : ''}{formatTime(msg.created_at)}
                         </span>
@@ -592,7 +593,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
                         </div>
                     ) : (
                         <div
-                            className={`text-gray-300 ${isParent ? 'text-sm' : 'text-sm'} break-words`}
+                            className="text-[15px] text-gray-300 leading-relaxed break-words"
                             dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
                         />
                     )}
