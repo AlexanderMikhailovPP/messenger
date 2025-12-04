@@ -18,6 +18,11 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
     const [editingMessage, setEditingMessage] = useState(null);
     const [editContent, setEditContent] = useState('');
     const [showActions, setShowActions] = useState(null);
+    const [mentionQuery, setMentionQuery] = useState('');
+    const [mentionType, setMentionType] = useState(null);
+    const [mentionResults, setMentionResults] = useState([]);
+    const [showMentions, setShowMentions] = useState(false);
+    const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const editInputRef = useRef(null);
@@ -213,7 +218,25 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
     };
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (showMentions && mentionResults.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSelectedMentionIndex((prev) =>
+                    prev < mentionResults.length - 1 ? prev + 1 : 0
+                );
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSelectedMentionIndex((prev) =>
+                    prev > 0 ? prev - 1 : mentionResults.length - 1
+                );
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
+                insertMention(mentionResults[selectedMentionIndex]);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setShowMentions(false);
+            }
+        } else if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSubmit(e);
         }
@@ -228,10 +251,94 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
         }
     };
 
+    // Search mentions
+    const searchMentions = async (query, type) => {
+        try {
+            const res = await axios.get(`/api/users/search?q=${encodeURIComponent(query || ' ')}`);
+            if (type === '@') {
+                setMentionResults(res.data.users || []);
+            } else if (type === '#') {
+                setMentionResults(res.data.channels || []);
+            }
+        } catch (error) {
+            console.error('Failed to search mentions', error);
+            setMentionResults([]);
+        }
+    };
+
+    // Insert mention into input
+    const insertMention = (item) => {
+        const textarea = inputRef.current;
+        if (!textarea) return;
+
+        const cursorPos = textarea.selectionStart;
+        const text = newReply;
+
+        // Find the @ or # position before cursor
+        let triggerPos = -1;
+        for (let i = cursorPos - 1; i >= 0; i--) {
+            if (text[i] === mentionType) {
+                triggerPos = i;
+                break;
+            }
+        }
+
+        if (triggerPos === -1) return;
+
+        const mentionText = mentionType === '@' ? `@${item.username}` : `#${item.name}`;
+        const before = text.substring(0, triggerPos);
+        const after = text.substring(cursorPos);
+        const newText = before + mentionText + ' ' + after;
+
+        setNewReply(newText);
+        setShowMentions(false);
+        setMentionQuery('');
+        setMentionType(null);
+        setMentionResults([]);
+        setSelectedMentionIndex(0);
+
+        // Set cursor after mention
+        setTimeout(() => {
+            const newPos = triggerPos + mentionText.length + 1;
+            textarea.focus();
+            textarea.setSelectionRange(newPos, newPos);
+        }, 0);
+    };
+
     // Handle @ mentions in input
     const handleInputChange = (e) => {
         const value = e.target.value;
+        const cursorPos = e.target.selectionStart;
         setNewReply(value);
+
+        // Check for @ or # trigger
+        let foundTrigger = null;
+        let triggerPos = -1;
+
+        for (let i = cursorPos - 1; i >= 0; i--) {
+            const char = value[i];
+            if (char === '@' || char === '#') {
+                if (i === 0 || value[i - 1] === ' ' || value[i - 1] === '\n') {
+                    foundTrigger = char;
+                    triggerPos = i;
+                    break;
+                }
+            } else if (char === ' ' || char === '\n') {
+                break;
+            }
+        }
+
+        if (foundTrigger && triggerPos >= 0) {
+            const query = value.substring(triggerPos + 1, cursorPos);
+            setMentionType(foundTrigger);
+            setMentionQuery(query);
+            setShowMentions(true);
+            searchMentions(query, foundTrigger);
+        } else {
+            setShowMentions(false);
+            setMentionQuery('');
+            setMentionType(null);
+        }
     };
 
     const formatTime = (dateString) => {
@@ -452,6 +559,43 @@ export default function ThreadPanel({ parentMessage, channelName, onClose }) {
             {/* Reply Input */}
             <div className="p-4 border-t border-[#1e1f22]">
                 <form onSubmit={handleSubmit} className="relative">
+                    {/* Mention Autocomplete Dropdown */}
+                    {showMentions && mentionResults.length > 0 && (
+                        <div className="absolute bottom-full left-0 w-full bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50 mb-1">
+                            <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-700">
+                                {mentionType === '@' ? 'Mention User' : 'Mention Channel'}
+                            </div>
+                            {mentionResults.map((item, index) => (
+                                <div
+                                    key={item.id}
+                                    className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${index === selectedMentionIndex
+                                        ? 'bg-blue-600/30 text-blue-400'
+                                        : 'hover:bg-blue-600/20 hover:text-blue-400 text-gray-300'
+                                    }`}
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        insertMention(item);
+                                    }}
+                                    onMouseEnter={() => setSelectedMentionIndex(index)}
+                                >
+                                    {mentionType === '@' ? (
+                                        <>
+                                            <UserAvatar
+                                                user={{ username: item.username, avatar_url: item.avatar_url }}
+                                                size="xs"
+                                            />
+                                            <span className="text-sm font-medium">@{item.username}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Hash size={16} className="text-gray-400" />
+                                            <span className="text-sm font-medium">#{item.name}</span>
+                                        </>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     <textarea
                         ref={inputRef}
                         value={newReply}
