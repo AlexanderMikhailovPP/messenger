@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MonitorOff, Headphones, Maximize2, Minimize2 } from 'lucide-react';
 import { useCall } from '../context/CallContext';
 import UserAvatar from './UserAvatar';
@@ -76,7 +76,7 @@ export default function SidebarHuddle() {
     // Fullscreen view
     if (isFullscreen) {
         return (
-            <div className="fixed inset-0 z-[100] bg-gradient-to-br from-[#1a1d21] via-[#1e2328] to-[#252a30] flex flex-col">
+            <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-[#1a1d21] via-[#1e2328] to-[#252a30] flex flex-col">
                 {/* Subtle colored overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 via-purple-900/5 to-emerald-900/10 pointer-events-none" />
 
@@ -232,11 +232,10 @@ export default function SidebarHuddle() {
                                                         </button>
                                                     </>
                                                 ) : (
-                                                    <UserAvatar
-                                                        user={{ username: participant.username, avatar_url: participant.avatar_url }}
-                                                        size="4xl"
-                                                        rounded="rounded-none"
-                                                        className="w-full h-full"
+                                                    <HuddleAvatar
+                                                        username={participant.username}
+                                                        avatarUrl={participant.avatar_url}
+                                                        fontSize={totalItems <= 2 ? 96 : totalItems <= 4 ? 72 : 56}
                                                     />
                                                 )}
                                             </div>
@@ -540,5 +539,62 @@ function ScreenShareVideo({ stream, isLocal, localScreenRef }) {
             muted
             className="w-full h-full object-contain"
         />
+    );
+}
+
+// Avatar colors for consistency
+const AVATAR_COLORS = [
+    'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500',
+    'bg-lime-500', 'bg-green-500', 'bg-emerald-500', 'bg-teal-500',
+    'bg-cyan-500', 'bg-sky-500', 'bg-blue-500', 'bg-indigo-500',
+    'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500', 'bg-rose-500',
+];
+
+// Helper component for huddle avatar with dynamic sizing
+function HuddleAvatar({ username, avatarUrl, fontSize }) {
+    const colorClass = useMemo(() => {
+        if (!username) return 'bg-gray-500';
+        let hash = 0;
+        for (let i = 0; i < username.length; i++) {
+            hash = username.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+    }, [username]);
+
+    const initial = username?.[0]?.toUpperCase() || '?';
+
+    if (avatarUrl) {
+        return (
+            <div className="w-full h-full">
+                <img
+                    src={avatarUrl}
+                    alt={username}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                    }}
+                />
+                <div
+                    className={`w-full h-full items-center justify-center hidden ${colorClass}`}
+                    style={{ fontSize: `${fontSize}px` }}
+                >
+                    <span className="font-semibold text-white">{initial}</span>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className={`w-full h-full flex items-center justify-center ${colorClass}`}
+        >
+            <span
+                className="font-semibold text-white"
+                style={{ fontSize: `${fontSize}px` }}
+            >
+                {initial}
+            </span>
+        </div>
     );
 }
