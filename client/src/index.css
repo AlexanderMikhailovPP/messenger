@@ -26,6 +26,18 @@ body {
     @apply bg-[#1a1d21] text-gray-200;
 }
 
+/* Disable text selection on UI elements (sidebar, headers, buttons) */
+button,
+nav,
+aside,
+header,
+.sidebar,
+[role="navigation"],
+[role="button"] {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 /* Rich text formatting in messages */
 .text-gray-300 b,
 .text-gray-300 strong {

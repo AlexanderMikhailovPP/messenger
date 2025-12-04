@@ -115,7 +115,7 @@ export default function Sidebar({ currentChannel, setCurrentChannel }) {
     };
 
     return (
-        <div className="w-64 bg-gray-900 text-gray-300 flex flex-col h-full">
+        <div className="w-64 bg-gray-900 text-gray-300 flex flex-col h-full select-none">
             <div className="p-4 border-b border-gray-700 font-bold text-white flex justify-between items-center">
                 <span>CorpMessenger</span>
             </div>
