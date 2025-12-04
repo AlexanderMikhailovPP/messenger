@@ -97,6 +97,7 @@ export const CallProvider = ({ children }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOn, setIsVideoOn] = useState(false);
     const [activeChannelId, setActiveChannelId] = useState(null);
+    const [activeChannelInfo, setActiveChannelInfo] = useState(null); // { name, displayName, type }
     const [incomingCall, setIncomingCall] = useState(null);
     const [participants, setParticipants] = useState([]);
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
@@ -296,6 +297,21 @@ export const CallProvider = ({ children }) => {
                         console.log('[WebRTC] Participants socketIds:', prev.map(p => p.socketId));
                         const found = prev.find(p => p.socketId === targetSocketId);
                         console.log('[WebRTC] Found participant for socketId', targetSocketId, ':', found ? 'yes' : 'NO');
+                        if (!found) {
+                            // Participant not yet in list - add them with video info
+                            console.log('[WebRTC] Adding participant for incoming video track:', targetSocketId, targetUsername);
+                            return [...prev, {
+                                userId: targetUserId,
+                                socketId: targetSocketId,
+                                username: targetUsername,
+                                avatarUrl: null,
+                                isMuted: false,
+                                isSpeaking: false,
+                                isCurrentUser: false,
+                                hasVideo: true,
+                                stream
+                            }];
+                        }
                         return prev.map(p =>
                             p.socketId === targetSocketId ? { ...p, hasVideo: true, stream } : p
                         );
@@ -643,7 +659,7 @@ export const CallProvider = ({ children }) => {
         };
     }, [incomingCall, isInCall]);
 
-    const joinCall = useCallback(async (channelId) => {
+    const joinCall = useCallback(async (channelId, channelInfo = null) => {
         try {
             const socket = getSocket();
             if (!socket) {
@@ -699,6 +715,7 @@ export const CallProvider = ({ children }) => {
 
             setIsInCall(true);
             setActiveChannelId(channelId);
+            setActiveChannelInfo(channelInfo);
             setConnectionStatus('connected');
 
             // Add current user to participants
@@ -772,6 +789,7 @@ export const CallProvider = ({ children }) => {
         // Reset state
         setIsInCall(false);
         setActiveChannelId(null);
+        setActiveChannelInfo(null);
         setIsMuted(false);
         setIsVideoOn(false);
         setParticipants([]);
@@ -949,6 +967,7 @@ export const CallProvider = ({ children }) => {
             isVideoOn,
             remoteStreams,
             activeChannelId,
+            activeChannelInfo,
             incomingCall,
             clearIncomingCall,
             acceptIncomingCall,

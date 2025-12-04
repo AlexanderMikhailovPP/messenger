@@ -279,8 +279,8 @@ export default function HuddlePanel({
                                     return null;
                                 })()}
                                 {participants.filter(p => !p.isCurrentUser && p.hasVideo).map((participant) => {
-                                    // Try to find stream by socketId first, then by any matching stream if only one remote participant
-                                    let stream = remoteStreams[participant.socketId];
+                                    // Try to find stream: 1) remoteStreams by socketId, 2) participant.stream, 3) fallback
+                                    let stream = remoteStreams[participant.socketId] || participant.stream;
                                     if (!stream && Object.keys(remoteStreams).length > 0) {
                                         // Fallback: if there's only one remote stream and we have only one remote participant with video
                                         const remoteParticipantsWithVideo = participants.filter(p => !p.isCurrentUser && p.hasVideo);
@@ -290,7 +290,7 @@ export default function HuddlePanel({
                                             stream = remoteStreams[remoteStreamKeys[0]];
                                         }
                                     }
-                                    console.log('[HuddlePanel] Participant', participant.username, 'socketId:', participant.socketId, 'stream:', stream ? 'exists' : 'missing', 'remoteStreams keys:', Object.keys(remoteStreams));
+                                    console.log('[HuddlePanel] Participant', participant.username, 'socketId:', participant.socketId, 'stream:', stream ? 'exists' : 'missing', 'participant.stream:', participant.stream ? 'exists' : 'missing', 'remoteStreams keys:', Object.keys(remoteStreams));
                                     return (
                                         <div key={participant.socketId} className="relative aspect-video bg-[#2e3136] rounded-lg overflow-hidden">
                                             {stream ? (
@@ -447,8 +447,14 @@ function VideoElement({ stream }) {
     const videoRef = useRef(null);
 
     useEffect(() => {
-        if (videoRef.current && stream) {
-            videoRef.current.srcObject = stream;
+        const video = videoRef.current;
+        if (video && stream) {
+            console.log('[VideoElement] Setting stream with tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
+            video.srcObject = stream;
+            // Try to play and handle any errors
+            video.play().catch(err => {
+                console.warn('[VideoElement] Autoplay failed:', err.message);
+            });
         }
     }, [stream]);
 
@@ -457,6 +463,7 @@ function VideoElement({ stream }) {
             ref={videoRef}
             autoPlay
             playsInline
+            muted
             className="w-full h-full object-cover"
         />
     );

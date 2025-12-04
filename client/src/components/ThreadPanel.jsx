@@ -3,16 +3,14 @@ import { X, Send, Hash, MessageSquare, Smile, Plus, Pencil, Trash2, MoreHorizont
 import axios from 'axios';
 import { getSocket } from '../socket';
 import { useAuth } from '../context/AuthContext';
-import { useChannel } from '../context/ChannelContext';
 import UserAvatar from './UserAvatar';
 import QuickEmojiPicker from './QuickEmojiPicker';
 import UserMentionPopup from './UserMentionPopup';
 import { sanitizeHTML } from '../utils/sanitize';
 import toast from 'react-hot-toast';
 
-export default function ThreadPanel({ parentMessage, channelName, onClose }) {
+export default function ThreadPanel({ parentMessage, channelName, onClose, setCurrentChannel }) {
     const { user } = useAuth();
-    const { setCurrentChannel } = useChannel();
     const [replies, setReplies] = useState([]);
     const [newReply, setNewReply] = useState('');
     const [loading, setLoading] = useState(true);

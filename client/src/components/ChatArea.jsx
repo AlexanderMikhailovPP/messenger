@@ -29,7 +29,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesEndRef = useRef(null);
     const editorRef = useRef(null);
     const { user } = useAuth();
-    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, toggleVideo, isVideoOn, localStream, remoteStreams, participants, connectionStatus } = useCall();
+    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, toggleVideo, isVideoOn, localStream, remoteStreams, participants, connectionStatus, activeChannelId, activeChannelInfo } = useCall();
     const [loading, setLoading] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesContainerRef = useRef(null);
@@ -358,7 +358,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             });
             const dmChannel = res.data;
             setCurrentChannel(dmChannel);
-            joinCall(dmChannel.id);
+            joinCall(dmChannel.id, {
+                name: dmChannel.name,
+                displayName: dmChannel.displayName,
+                type: dmChannel.type
+            });
             // Notify sidebar to refresh DM list
             notifyNewDM(dmChannel.id);
             toast.success(`Calling ${mentionedUser.username}...`);
@@ -708,7 +712,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             return;
         }
 
-        joinCall(currentChannel.id);
+        joinCall(currentChannel.id, {
+            name: currentChannel.name,
+            displayName: currentChannel.displayName,
+            type: currentChannel.type
+        });
 
         socket.emit('send_message', {
             content: '📞 Started a huddle',
@@ -797,9 +805,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
             {/* Huddle Panel */}
             <HuddlePanel
-                channelId={currentChannel?.id}
-                channelName={currentChannel?.displayName || currentChannel?.name || 'Unknown'}
-                channelType={currentChannel?.type || 'channel'}
+                channelId={activeChannelId}
+                channelName={activeChannelInfo?.displayName || activeChannelInfo?.name || 'Unknown'}
+                channelType={activeChannelInfo?.type || 'channel'}
                 isInCall={isInCall}
                 isMuted={isMuted}
                 isVideoOn={isVideoOn}
@@ -918,7 +926,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                                 <div className="text-xs text-gray-400">Click to join the conversation</div>
                                             </div>
                                             <button
-                                                onClick={() => joinCall(currentChannel.id)}
+                                                onClick={() => joinCall(currentChannel.id, {
+                                                    name: currentChannel.name,
+                                                    displayName: currentChannel.displayName,
+                                                    type: currentChannel.type
+                                                })}
                                                 className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded transition-colors"
                                             >
                                                 Join
@@ -1215,6 +1227,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     parentMessage={activeThread}
                     channelName={currentChannel?.name}
                     onClose={() => setActiveThread(null)}
+                    setCurrentChannel={setCurrentChannel}
                 />
             )}
         </div>
