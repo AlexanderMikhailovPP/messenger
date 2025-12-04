@@ -267,10 +267,19 @@ export const CallProvider = ({ children }) => {
         };
 
         pc.ontrack = (event) => {
+            console.log('[WebRTC] =================== ONTRACK EVENT ===================');
             console.log('[WebRTC] Received remote track from:', targetSocketId, 'kind:', event.track.kind, 'stream:', event.streams[0]?.id);
-            const stream = event.streams[0];
+            let stream = event.streams[0];
             console.log('[WebRTC] Track enabled:', event.track.enabled, 'readyState:', event.track.readyState);
             console.log('[WebRTC] Stream tracks:', stream?.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
+            console.log('[WebRTC] Event streams count:', event.streams.length);
+            console.log('[WebRTC] Track id:', event.track.id);
+
+            // If no stream provided (can happen with some browsers), create one from the track
+            if (!stream && event.track) {
+                console.log('[WebRTC] No stream in event, creating stream from track');
+                stream = new MediaStream([event.track]);
+            }
 
             if (stream) {
                 // Create audio element for playback (audio tracks)
@@ -485,7 +494,10 @@ export const CallProvider = ({ children }) => {
 
         const handleOffer = async (payload) => {
             try {
+                console.log('[CallContext] =================== RECEIVED OFFER ===================');
                 console.log('[CallContext] Received offer from:', payload.caller);
+                console.log('[CallContext] SDP type:', payload.sdp?.type);
+                console.log('[CallContext] SDP has video:', payload.sdp?.sdp?.includes('m=video'));
 
                 // Check if we already have a peer connection (renegotiation case)
                 let pc = peersRef.current[payload.caller]?.peerConnection;
@@ -518,6 +530,13 @@ export const CallProvider = ({ children }) => {
                 } else {
                     await pc.setRemoteDescription(payload.sdp);
                 }
+
+                console.log('[CallContext] After setRemoteDescription, transceivers:', pc.getTransceivers().map(t => ({
+                    mid: t.mid,
+                    direction: t.direction,
+                    currentDirection: t.currentDirection,
+                    kind: t.receiver?.track?.kind
+                })));
 
                 // Process any pending ICE candidates
                 const pending = pendingCandidatesRef.current[payload.caller] || [];
