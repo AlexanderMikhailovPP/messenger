@@ -24,6 +24,7 @@
 
 body {
     @apply bg-[#1a1d21] text-gray-200;
+    font-family: 'Lato', sans-serif;
 }
 
 /* Disable text selection on UI elements (sidebar, headers, buttons) */
