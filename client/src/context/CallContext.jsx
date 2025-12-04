@@ -97,6 +97,7 @@ export const CallProvider = ({ children }) => {
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOn, setIsVideoOn] = useState(false);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [localScreenStream, setLocalScreenStream] = useState(null); // Separate stream for screen share preview
     const [activeChannelId, setActiveChannelId] = useState(null);
     const [activeChannelInfo, setActiveChannelInfo] = useState(null); // { name, displayName, type }
     const [incomingCall, setIncomingCall] = useState(null);
@@ -108,6 +109,7 @@ export const CallProvider = ({ children }) => {
     const localStreamRef = useRef(null);
     const localVideoRef = useRef(null);
     const screenShareTrackRef = useRef(null);
+    const screenStreamRef = useRef(null); // Store screen stream for cleanup
     const videoSendersRef = useRef({}); // socketId -> RTCRtpSender for camera video
     const screenSendersRef = useRef({}); // socketId -> RTCRtpSender for screen share
     const audioContextRef = useRef(null);
@@ -877,6 +879,8 @@ export const CallProvider = ({ children }) => {
             screenShareTrackRef.current.stop();
             screenShareTrackRef.current = null;
         }
+        screenStreamRef.current = null;
+        setLocalScreenStream(null);
 
         // Cleanup speaking detection
         cleanupSpeakingDetection();
@@ -1087,10 +1091,55 @@ export const CallProvider = ({ children }) => {
 
                 const screenTrack = screenStream.getVideoTracks()[0];
 
+                // Store the screen stream for local preview
+                screenStreamRef.current = screenStream;
+                setLocalScreenStream(screenStream);
+
                 // Handle when user stops sharing via browser UI
+                // Use a ref-based approach to avoid closure issues
                 screenTrack.onended = () => {
                     console.log('[CallContext] Screen share ended by user');
-                    stopScreenShare();
+                    // Call stopScreenShare directly using current state
+                    if (screenShareTrackRef.current) {
+                        screenShareTrackRef.current.stop();
+                    }
+
+                    // Remove screen track from all peer connections
+                    const peerSocketIds = Object.keys(peersRef.current);
+                    for (const socketId of peerSocketIds) {
+                        const peer = peersRef.current[socketId];
+                        const sender = screenSendersRef.current[socketId];
+                        if (peer?.peerConnection && sender) {
+                            try {
+                                peer.peerConnection.removeTrack(sender);
+                            } catch (err) {
+                                console.warn('[CallContext] Error removing screen sender:', err);
+                            }
+                            delete screenSendersRef.current[socketId];
+                        }
+                    }
+
+                    screenShareTrackRef.current = null;
+                    screenStreamRef.current = null;
+                    setLocalScreenStream(null);
+                    setIsScreenSharing(false);
+
+                    // Update local participant state
+                    setParticipants(prev => prev.map(p =>
+                        p.isCurrentUser ? { ...p, isScreenSharing: false } : p
+                    ));
+
+                    // Broadcast screen share state to others
+                    const currentSocket = getSocket();
+                    if (currentSocket && activeChannelId) {
+                        currentSocket.emit('screen-share-update', {
+                            userId: user?.id,
+                            isScreenSharing: false,
+                            channelId: activeChannelId
+                        });
+                    }
+
+                    console.log('[CallContext] Screen sharing disabled via browser UI');
                 };
 
                 // Add screen track to all peer connections and save senders
@@ -1101,6 +1150,7 @@ export const CallProvider = ({ children }) => {
                     if (peer?.peerConnection) {
                         const pc = peer.peerConnection;
                         console.log('[CallContext] Adding screen track to peer:', socketId);
+                        // Use the screen stream (not localStreamRef) so it stays separate from camera
                         const sender = pc.addTrack(screenTrack, screenStream);
                         // Save sender reference for later removal
                         screenSendersRef.current[socketId] = sender;
@@ -1176,6 +1226,10 @@ export const CallProvider = ({ children }) => {
             screenShareTrackRef.current = null;
         }
 
+        // Clear screen stream for preview
+        screenStreamRef.current = null;
+        setLocalScreenStream(null);
+
         setIsScreenSharing(false);
 
         // Update local participant state
@@ -1212,6 +1266,7 @@ export const CallProvider = ({ children }) => {
         <CallContext.Provider value={{
             isInCall,
             localStream,
+            localScreenStream,
             peers,
             joinCall,
             leaveCall,

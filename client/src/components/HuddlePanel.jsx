@@ -16,6 +16,7 @@ export default function HuddlePanel({
     onLeave,
     participants = [],
     localStream,
+    localScreenStream,
     remoteStreams = {},
     connectionStatus = 'connected'
 }) {
@@ -24,6 +25,7 @@ export default function HuddlePanel({
     const [pinnedVideo, setPinnedVideo] = useState(null); // { type: 'local' | 'remote', participantId?, socketId? }
     const [callDuration, setCallDuration] = useState(0);
     const localVideoRef = useRef(null);
+    const localScreenRef = useRef(null);
     const remoteVideoRefs = useRef({});
     const panelRef = useRef(null);
 
@@ -33,6 +35,13 @@ export default function HuddlePanel({
             localVideoRef.current.srcObject = localStream;
         }
     }, [localStream, isVideoOn]);
+
+    // Attach local screen stream to video element
+    useEffect(() => {
+        if (localScreenRef.current && localScreenStream && isScreenSharing) {
+            localScreenRef.current.srcObject = localScreenStream;
+        }
+    }, [localScreenStream, isScreenSharing]);
 
     // Check if anyone has video or screen share on
     const hasAnyVideo = isVideoOn || isScreenSharing || participants.some(p => !p.isCurrentUser && (p.hasVideo || p.isScreenSharing));
@@ -325,6 +334,15 @@ export default function HuddlePanel({
                                                 className="max-w-full max-h-full object-contain transform scale-x-[-1]"
                                             />
                                         )}
+                                        {pinnedVideo.type === 'local-screen' && localScreenStream && (
+                                            <video
+                                                ref={localScreenRef}
+                                                autoPlay
+                                                playsInline
+                                                muted
+                                                className="max-w-full max-h-full object-contain"
+                                            />
+                                        )}
                                         {pinnedVideo.type === 'remote' && (() => {
                                             const participant = participants.find(p => p.socketId === pinnedVideo.socketId);
                                             let stream = remoteStreams[pinnedVideo.socketId] || (participant && participant.stream);
@@ -342,8 +360,9 @@ export default function HuddlePanel({
                                                 <div className="text-gray-400">No video stream</div>
                                             );
                                         })()}
-                                        <div className="absolute bottom-4 left-4 bg-black/60 px-2 py-1 rounded text-sm text-white">
-                                            {pinnedVideo.type === 'local' ? 'You' : participants.find(p => p.socketId === pinnedVideo.socketId)?.username || 'Unknown'}
+                                        <div className="absolute bottom-4 left-4 bg-black/60 px-2 py-1 rounded text-sm text-white flex items-center gap-1">
+                                            {pinnedVideo.type === 'local-screen' && <Monitor size={14} />}
+                                            {pinnedVideo.type === 'local' ? 'You' : pinnedVideo.type === 'local-screen' ? 'Your screen' : participants.find(p => p.socketId === pinnedVideo.socketId)?.username || 'Unknown'}
                                         </div>
                                         <button
                                             onClick={() => setPinnedVideo(null)}
@@ -377,6 +396,28 @@ export default function HuddlePanel({
                                                 <MicOff size={12} className="text-white" />
                                             </div>
                                         )}
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                            <Maximize2 size={24} className="text-white" />
+                                        </div>
+                                    </div>
+                                )}
+                                {/* Local screen share preview */}
+                                {isScreenSharing && localScreenStream && (
+                                    <div
+                                        className={`relative bg-[#2e3136] rounded-lg overflow-hidden cursor-pointer group ${isFullscreen ? 'aspect-video' : 'aspect-video'}`}
+                                        onClick={() => handlePinVideo('local-screen')}
+                                    >
+                                        <video
+                                            ref={localScreenRef}
+                                            autoPlay
+                                            playsInline
+                                            muted
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute bottom-1 left-1 bg-black/60 px-1.5 py-0.5 rounded text-xs text-white flex items-center gap-1">
+                                            <Monitor size={10} />
+                                            Your screen
+                                        </div>
                                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                                             <Maximize2 size={24} className="text-white" />
                                         </div>
