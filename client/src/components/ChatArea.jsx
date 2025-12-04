@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 import QuickEmojiPicker from './QuickEmojiPicker';
 import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
-import HuddlePanel from './HuddlePanel';
 import ThreadPanel from './ThreadPanel';
 import TypingIndicator from './TypingIndicator';
 import { sanitizeHTML } from '../utils/sanitize';
@@ -29,7 +28,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesEndRef = useRef(null);
     const editorRef = useRef(null);
     const { user } = useAuth();
-    const { isInCall, joinCall, leaveCall, toggleMute, isMuted, toggleVideo, isVideoOn, toggleScreenShare, isScreenSharing, localStream, localScreenStream, remoteStreams, participants, connectionStatus, activeChannelId, activeChannelInfo } = useCall();
+    const { isInCall, joinCall, participants, activeChannelId, activeChannelInfo } = useCall();
     const [loading, setLoading] = useState(false);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const messagesContainerRef = useRef(null);
@@ -833,26 +832,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                     </button>
                 </div>
             </div>
-
-            {/* Huddle Panel */}
-            <HuddlePanel
-                channelId={activeChannelId}
-                channelName={activeChannelInfo?.displayName || activeChannelInfo?.name || 'Unknown'}
-                channelType={activeChannelInfo?.type || 'channel'}
-                isInCall={isInCall}
-                isMuted={isMuted}
-                isVideoOn={isVideoOn}
-                isScreenSharing={isScreenSharing}
-                onToggleMute={toggleMute}
-                onToggleVideo={toggleVideo}
-                onToggleScreenShare={toggleScreenShare}
-                onLeave={leaveCall}
-                participants={participants}
-                localStream={localStream}
-                localScreenStream={localScreenStream}
-                remoteStreams={remoteStreams}
-                connectionStatus={connectionStatus}
-            />
 
             {/* Messages Container */}
             <div

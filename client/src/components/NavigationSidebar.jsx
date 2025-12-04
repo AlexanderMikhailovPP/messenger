@@ -6,6 +6,7 @@ import { useOnlineStatus } from '../context/OnlineStatusContext';
 import { getUnreadCounts, subscribeToUnreadChanges, subscribeToDMUpdates } from '../utils/unreadCounter';
 import { getSocket } from '../socket';
 import UserAvatar from './UserAvatar';
+import SidebarHuddle from './SidebarHuddle';
 
 const changelogData = [
     {
@@ -362,6 +363,9 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                     </>
                 )}
             </div>
+
+            {/* Huddle Panel at bottom of sidebar */}
+            <SidebarHuddle />
 
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
