@@ -501,10 +501,14 @@ export const CallProvider = ({ children }) => {
 
                 // Check if we already have a peer connection (renegotiation case)
                 let pc = peersRef.current[payload.caller]?.peerConnection;
-                const polite = peersRef.current[payload.caller]?.polite ?? true;
                 const isRenegotiation = !!pc;
 
+                // Deterministic polite peer: compare socket IDs lexicographically
+                // The peer with the "smaller" socket ID is always the polite one
+                const polite = socket.id < payload.caller;
+
                 console.log('[CallContext] isRenegotiation:', isRenegotiation, 'polite:', polite);
+                console.log('[CallContext] My socket ID:', socket.id, 'Caller socket ID:', payload.caller);
 
                 if (!pc) {
                     // New connection - we're the polite peer (responder)
