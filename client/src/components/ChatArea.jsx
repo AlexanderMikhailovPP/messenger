@@ -930,34 +930,51 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             </div>
                                         </div>
                                     ) : msg.content === '📞 Started a huddle' ? (
-                                        <div className="flex items-center gap-3 bg-[#2f3136] p-3 rounded-lg border border-gray-700 mt-1 max-w-md">
-                                            <div className="bg-green-500/20 p-2 rounded-full">
-                                                <Headphones size={24} className="text-green-500" />
+                                        <div className="inline-flex items-center gap-2 bg-[#2f3136] px-2.5 py-1.5 rounded-lg border border-gray-700 mt-1">
+                                            <div className="bg-green-500/20 p-1 rounded-full">
+                                                <Headphones size={14} className="text-green-500" />
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="font-bold text-white">Huddle started</div>
-                                                <div className="text-xs text-gray-400">Click to join the conversation</div>
-                                            </div>
-                                            <button
-                                                onClick={() => joinCall(currentChannel.id, {
-                                                    name: currentChannel.name,
-                                                    displayName: currentChannel.displayName,
-                                                    type: currentChannel.type
-                                                })}
-                                                className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded transition-colors"
-                                            >
-                                                Join
-                                            </button>
+                                            <span className="text-sm text-gray-300">Huddle</span>
+                                            {/* Show participant avatars if call is active in this channel */}
+                                            {activeChannelId === currentChannel.id && participants.length > 0 && (
+                                                <div className="flex items-center -space-x-1.5 ml-1">
+                                                    {participants.slice(0, 4).map((p, idx) => (
+                                                        <div key={p.userId} className="relative" style={{ zIndex: 10 - idx }}>
+                                                            <UserAvatar
+                                                                user={{ username: p.username, avatar_url: p.avatarUrl }}
+                                                                size="xs"
+                                                                className="ring-2 ring-[#2f3136]"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                    {participants.length > 4 && (
+                                                        <div className="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white ring-2 ring-[#2f3136]">
+                                                            +{participants.length - 4}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {!isInCall || activeChannelId !== currentChannel.id ? (
+                                                <button
+                                                    onClick={() => joinCall(currentChannel.id, {
+                                                        name: currentChannel.name,
+                                                        displayName: currentChannel.displayName,
+                                                        type: currentChannel.type
+                                                    })}
+                                                    className="px-2.5 py-0.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded transition-colors ml-1"
+                                                >
+                                                    Join
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-green-500 ml-1">In call</span>
+                                            )}
                                         </div>
                                     ) : msg.content === '📞 Call ended' ? (
-                                        <div className="flex items-center gap-3 bg-[#2f3136] p-3 rounded-lg border border-gray-700 mt-1 max-w-md opacity-75">
-                                            <div className="bg-gray-700 p-2 rounded-full">
-                                                <PhoneOff size={24} className="text-gray-400" />
+                                        <div className="inline-flex items-center gap-2 bg-[#2f3136] px-2.5 py-1.5 rounded-lg border border-gray-700 mt-1 opacity-60">
+                                            <div className="bg-gray-700 p-1 rounded-full">
+                                                <PhoneOff size={14} className="text-gray-400" />
                                             </div>
-                                            <div className="flex-1">
-                                                <div className="font-bold text-gray-300">Call ended</div>
-                                                <div className="text-xs text-gray-500">This session has finished</div>
-                                            </div>
+                                            <span className="text-sm text-gray-400">Huddle ended</span>
                                         </div>
                                     ) : (
                                         <div

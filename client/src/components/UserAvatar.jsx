@@ -21,6 +21,7 @@ const COLORS = [
 ];
 
 const SIZES = {
+    xxs: 'w-4 h-4 text-[8px]',
     xs: 'w-5 h-5 text-[10px]',
     sm: 'w-6 h-6 text-xs',
     md: 'w-8 h-8 text-sm',
