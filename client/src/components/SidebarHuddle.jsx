@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MonitorOff, Headphones, ChevronUp, ChevronDown, Maximize2, Minimize2, X } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MonitorOff, Headphones, Maximize2, Minimize2 } from 'lucide-react';
 import { useCall } from '../context/CallContext';
 import UserAvatar from './UserAvatar';
 
@@ -21,10 +21,8 @@ export default function SidebarHuddle() {
         connectionStatus
     } = useCall();
 
-    const [isExpanded, setIsExpanded] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [callDuration, setCallDuration] = useState(0);
-    const [pinnedVideo, setPinnedVideo] = useState(null);
     const localVideoRef = useRef(null);
     const localScreenRef = useRef(null);
 
@@ -56,17 +54,6 @@ export default function SidebarHuddle() {
         }
     }, [localScreenStream, isScreenSharing]);
 
-    // Check if anyone has video
-    const hasAnyVideo = isVideoOn || isScreenSharing || participants.some(p => !p.isCurrentUser && (p.hasVideo || p.isScreenSharing)) ||
-        Object.values(remoteStreams).some(streams => streams?.video || streams?.screen);
-
-    // Auto-expand when video starts
-    useEffect(() => {
-        if (hasAnyVideo && !isExpanded) {
-            setIsExpanded(true);
-        }
-    }, [hasAnyVideo]);
-
     // Format duration
     const formatDuration = (seconds) => {
         const hrs = Math.floor(seconds / 3600);
@@ -85,266 +72,307 @@ export default function SidebarHuddle() {
     const channelName = activeChannelInfo?.displayName || activeChannelInfo?.name || 'Huddle';
     const channelType = activeChannelInfo?.type || 'channel';
 
-    // Fullscreen expanded view (rendered as portal)
+    // Fullscreen view
     if (isFullscreen) {
         return (
-            <div className="fixed inset-0 z-50 bg-[#1a1d21] flex flex-col">
+            <div className="fixed inset-0 z-50 bg-gradient-to-br from-[#1a1d21] via-[#1e2328] to-[#252a30] flex flex-col">
+                {/* Subtle colored overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 via-purple-900/5 to-emerald-900/10 pointer-events-none" />
+
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-[#565856]/30">
-                    <div className="flex items-center gap-2">
-                        <Headphones size={20} className="text-green-500" />
+                <div className="relative flex items-center justify-between p-4 border-b border-white/10">
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <Headphones size={24} className="text-green-500" />
+                            <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+                        </div>
                         <div>
-                            <div className="font-semibold text-white">Huddle</div>
-                            <div className="text-xs text-gray-400">
+                            <div className="text-lg font-semibold text-white">Huddle</div>
+                            <div className="text-sm text-gray-400">
                                 {channelType === 'dm' ? '' : '#'}{channelName} · {formatDuration(callDuration)}
                             </div>
                         </div>
                     </div>
                     <button
                         onClick={() => setIsFullscreen(false)}
-                        className="p-2 hover:bg-white/10 rounded-lg"
+                        className="p-2.5 hover:bg-white/10 rounded-lg transition-colors"
                     >
-                        <Minimize2 size={20} className="text-gray-400" />
+                        <Minimize2 size={22} className="text-gray-400" />
                     </button>
                 </div>
 
-                {/* Video Grid */}
-                {hasAnyVideo && (
-                    <div className="flex-1 p-4 overflow-auto">
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 h-full">
-                            {/* Local video */}
-                            {isVideoOn && localStream && (
-                                <div className="relative bg-[#2e3136] rounded-lg overflow-hidden aspect-video">
-                                    <video
-                                        ref={localVideoRef}
-                                        autoPlay
-                                        playsInline
-                                        muted
-                                        className="w-full h-full object-cover transform scale-x-[-1]"
-                                    />
-                                    <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-xs text-white">
-                                        You
-                                    </div>
-                                </div>
-                            )}
-                            {/* Local screen share */}
-                            {isScreenSharing && localScreenStream && (
-                                <div className="relative bg-[#2e3136] rounded-lg overflow-hidden aspect-video">
-                                    <video
-                                        ref={localScreenRef}
-                                        autoPlay
-                                        playsInline
-                                        muted
-                                        className="w-full h-full object-cover"
-                                    />
-                                    <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
-                                        <Monitor size={12} />
-                                        Your screen
-                                    </div>
-                                </div>
-                            )}
-                            {/* Remote videos */}
-                            {participants.filter(p => !p.isCurrentUser).map((participant) => {
-                                const participantStreams = remoteStreams[participant.socketId] || {};
-                                const videoStream = participantStreams.video || participant.stream;
-                                if (!videoStream && !participant.hasVideo) return null;
+                {/* Participants Grid */}
+                <div className="relative flex-1 flex items-center justify-center p-8 overflow-auto">
+                    <div className={`grid gap-6 ${
+                        totalCount === 1 ? 'grid-cols-1' :
+                        totalCount === 2 ? 'grid-cols-2' :
+                        totalCount <= 4 ? 'grid-cols-2' :
+                        totalCount <= 6 ? 'grid-cols-3' :
+                        'grid-cols-4'
+                    } max-w-5xl`}>
+                        {participants.map((participant) => {
+                            const participantStreams = remoteStreams[participant.socketId] || {};
+                            const videoStream = participant.isCurrentUser
+                                ? (isVideoOn ? localStream : null)
+                                : (participantStreams.video || participant.stream);
+                            const hasVideo = participant.isCurrentUser ? isVideoOn : (participant.hasVideo && videoStream);
 
-                                return (
-                                    <div key={`video-${participant.socketId}`} className="relative bg-[#2e3136] rounded-lg overflow-hidden aspect-video">
-                                        {videoStream ? (
-                                            <VideoElement stream={videoStream} />
+                            return (
+                                <div
+                                    key={participant.userId}
+                                    className="relative flex flex-col items-center"
+                                >
+                                    {/* Avatar/Video container */}
+                                    <div
+                                        className={`relative rounded-full overflow-hidden transition-all duration-200 ${
+                                            participant.isSpeaking && !participant.isMuted
+                                                ? 'ring-4 ring-green-500 ring-offset-4 ring-offset-[#1a1d21]'
+                                                : ''
+                                        }`}
+                                        style={{
+                                            width: totalCount <= 2 ? '160px' : totalCount <= 4 ? '120px' : '100px',
+                                            height: totalCount <= 2 ? '160px' : totalCount <= 4 ? '120px' : '100px'
+                                        }}
+                                    >
+                                        {hasVideo && videoStream ? (
+                                            <ParticipantVideo
+                                                stream={videoStream}
+                                                isLocal={participant.isCurrentUser}
+                                            />
                                         ) : (
-                                            <div className="flex items-center justify-center h-full">
-                                                <UserAvatar user={{ username: participant.username }} size="lg" />
+                                            <div className="w-full h-full bg-gradient-to-br from-[#3a3f47] to-[#2a2f37] flex items-center justify-center">
+                                                <span
+                                                    className="font-semibold text-white"
+                                                    style={{
+                                                        fontSize: totalCount <= 2 ? '48px' : totalCount <= 4 ? '36px' : '28px'
+                                                    }}
+                                                >
+                                                    {participant.username?.[0]?.toUpperCase() || '?'}
+                                                </span>
                                             </div>
                                         )}
-                                        <div className="absolute bottom-2 left-2 bg-black/60 px-2 py-1 rounded text-xs text-white">
-                                            {participant.username}
-                                        </div>
                                     </div>
-                                );
-                            })}
+
+                                    {/* Name and status */}
+                                    <div className="mt-3 flex items-center gap-2">
+                                        <span className="text-white font-medium text-sm">
+                                            {participant.username}
+                                            {participant.isCurrentUser && <span className="text-gray-500 ml-1">(you)</span>}
+                                        </span>
+                                        {participant.isMuted && (
+                                            <div className="bg-red-500/20 p-1 rounded-full">
+                                                <MicOff size={12} className="text-red-400" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Screen share preview */}
+                {isScreenSharing && localScreenStream && (
+                    <div className="absolute top-20 right-4 w-64 aspect-video bg-black rounded-lg overflow-hidden shadow-xl border border-white/10">
+                        <video
+                            ref={localScreenRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-contain"
+                        />
+                        <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+                            <Monitor size={12} />
+                            Your screen
                         </div>
                     </div>
                 )}
 
-                {/* Participants list */}
-                <div className="border-t border-[#565856]/30 max-h-48 overflow-y-auto">
-                    <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase">
-                        In this huddle — {totalCount}
+                {/* Controls - at the bottom */}
+                <div className="relative p-6 border-t border-white/10 bg-black/20">
+                    <div className="flex items-center justify-center gap-4">
+                        <button
+                            onClick={toggleMute}
+                            className={`p-4 rounded-full transition-all ${
+                                isMuted
+                                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                    : 'bg-white/10 text-white hover:bg-white/20'
+                            }`}
+                            title={isMuted ? 'Unmute' : 'Mute'}
+                        >
+                            {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+                        </button>
+                        <button
+                            onClick={toggleVideo}
+                            className={`p-4 rounded-full transition-all ${
+                                isVideoOn
+                                    ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+                                    : 'bg-white/10 text-white hover:bg-white/20'
+                            }`}
+                            title={isVideoOn ? 'Turn off camera' : 'Turn on camera'}
+                        >
+                            {isVideoOn ? <Video size={24} /> : <VideoOff size={24} />}
+                        </button>
+                        <button
+                            onClick={toggleScreenShare}
+                            className={`p-4 rounded-full transition-all ${
+                                isScreenSharing
+                                    ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                    : 'bg-white/10 text-white hover:bg-white/20'
+                            }`}
+                            title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+                        >
+                            {isScreenSharing ? <MonitorOff size={24} /> : <Monitor size={24} />}
+                        </button>
+                        <button
+                            onClick={leaveCall}
+                            className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white transition-all"
+                            title="Leave call"
+                        >
+                            <PhoneOff size={24} />
+                        </button>
                     </div>
-                    {participants.map((participant) => (
-                        <div key={participant.userId} className="flex items-center gap-3 px-4 py-2 hover:bg-white/5">
-                            <UserAvatar user={{ username: participant.username, avatar_url: participant.avatarUrl }} size="sm" />
-                            <span className="text-sm text-white">{participant.username}</span>
-                            {participant.isCurrentUser && <span className="text-xs text-gray-500">(you)</span>}
-                            {participant.isMuted && <MicOff size={14} className="text-red-400" />}
-                        </div>
-                    ))}
-                </div>
 
-                {/* Controls */}
-                <div className="p-4 border-t border-[#565856]/30 flex items-center justify-center gap-3">
-                    <button
-                        onClick={toggleMute}
-                        className={`p-3 rounded-full ${isMuted ? 'bg-red-500/20 text-red-400' : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'}`}
-                    >
-                        {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-                    </button>
-                    <button
-                        onClick={toggleVideo}
-                        className={`p-3 rounded-full ${isVideoOn ? 'bg-blue-500/20 text-blue-400' : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'}`}
-                    >
-                        {isVideoOn ? <Video size={20} /> : <VideoOff size={20} />}
-                    </button>
-                    <button
-                        onClick={toggleScreenShare}
-                        className={`p-3 rounded-full ${isScreenSharing ? 'bg-green-500/20 text-green-400' : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'}`}
-                    >
-                        {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
-                    </button>
-                    <button
-                        onClick={leaveCall}
-                        className="p-3 rounded-full bg-red-600 hover:bg-red-700 text-white"
-                    >
-                        <PhoneOff size={20} />
-                    </button>
+                    {/* Connection status */}
+                    {connectionStatus === 'connecting' && (
+                        <div className="mt-4 text-center text-sm text-yellow-500">
+                            Connecting...
+                        </div>
+                    )}
                 </div>
             </div>
         );
     }
 
-    // Expanded view in sidebar
-    if (isExpanded) {
-        return (
-            <div className="bg-[#1a1d21] border-t border-[#565856]/30">
-                {/* Green indicator */}
-                <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
+    // Normal sidebar view
+    return (
+        <div className="bg-[#1a1d21] border-t border-[#565856]/30">
+            {/* Green indicator */}
+            <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
 
+            <div className="px-3 py-3">
                 {/* Header */}
-                <div className="flex items-center justify-between px-3 py-2">
+                <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                         <div className="relative">
-                            <Headphones size={16} className="text-green-500" />
-                            <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                            <Headphones size={18} className="text-green-500" />
+                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                         </div>
                         <div>
                             <div className="text-sm font-semibold text-white">Huddle</div>
                             <div className="text-xs text-gray-400">
+                                <span className="text-green-500">{formatDuration(callDuration)}</span>
+                                <span className="mx-1">·</span>
                                 {channelType === 'dm' ? '' : '#'}{channelName}
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                        <span className="text-xs text-green-500">{formatDuration(callDuration)}</span>
-                        <button onClick={() => setIsFullscreen(true)} className="p-1 hover:bg-white/10 rounded">
-                            <Maximize2 size={14} className="text-gray-400" />
-                        </button>
-                        <button onClick={() => setIsExpanded(false)} className="p-1 hover:bg-white/10 rounded">
-                            <ChevronDown size={14} className="text-gray-400" />
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => setIsFullscreen(true)}
+                        className="p-1.5 hover:bg-white/10 rounded transition-colors"
+                        title="Fullscreen"
+                    >
+                        <Maximize2 size={16} className="text-gray-400" />
+                    </button>
                 </div>
 
-                {/* Video preview if any */}
-                {hasAnyVideo && (
-                    <div className="px-3 pb-2">
-                        <div className="grid grid-cols-2 gap-1">
-                            {isVideoOn && localStream && (
-                                <div className="relative bg-[#2e3136] rounded overflow-hidden aspect-video">
-                                    <video
-                                        ref={localVideoRef}
-                                        autoPlay
-                                        playsInline
-                                        muted
-                                        className="w-full h-full object-cover transform scale-x-[-1]"
-                                    />
-                                    <div className="absolute bottom-0.5 left-0.5 bg-black/60 px-1 py-0.5 rounded text-[10px] text-white">
-                                        You
-                                    </div>
-                                </div>
-                            )}
-                            {participants.filter(p => !p.isCurrentUser && p.hasVideo).slice(0, isVideoOn ? 1 : 2).map((participant) => {
-                                const participantStreams = remoteStreams[participant.socketId] || {};
-                                const videoStream = participantStreams.video || participant.stream;
-                                return (
-                                    <div key={participant.socketId} className="relative bg-[#2e3136] rounded overflow-hidden aspect-video">
-                                        {videoStream ? (
-                                            <VideoElement stream={videoStream} />
-                                        ) : null}
-                                        <div className="absolute bottom-0.5 left-0.5 bg-black/60 px-1 py-0.5 rounded text-[10px] text-white">
-                                            {participant.username}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
                 {/* Participants */}
-                <div className="px-3 pb-2">
-                    <div className="flex items-center gap-1 flex-wrap">
-                        {participants.slice(0, 4).map((participant, index) => (
-                            <div key={participant.userId} className="relative" style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}>
-                                <div className={`rounded-full ${participant.isSpeaking && !participant.isMuted ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-[#1a1d21]' : ''}`}>
-                                    <UserAvatar
-                                        user={{ username: participant.username, avatar_url: participant.avatarUrl }}
-                                        size="xs"
-                                    />
-                                </div>
-                                {participant.isMuted && (
-                                    <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
-                                        <MicOff size={8} className="text-red-400" />
+                <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center">
+                        {participants.slice(0, 5).map((participant, index) => {
+                            const participantStreams = remoteStreams[participant.socketId] || {};
+                            const videoStream = participant.isCurrentUser
+                                ? (isVideoOn ? localStream : null)
+                                : (participantStreams.video || participant.stream);
+                            const hasVideo = participant.isCurrentUser ? isVideoOn : (participant.hasVideo && videoStream);
+
+                            return (
+                                <div
+                                    key={participant.userId}
+                                    className="relative"
+                                    style={{ marginLeft: index > 0 ? '-8px' : '0', zIndex: 10 - index }}
+                                >
+                                    <div
+                                        className={`w-10 h-10 rounded-full overflow-hidden border-2 border-[#1a1d21] transition-all ${
+                                            participant.isSpeaking && !participant.isMuted
+                                                ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-[#1a1d21]'
+                                                : ''
+                                        }`}
+                                    >
+                                        {hasVideo && videoStream ? (
+                                            <ParticipantVideo
+                                                stream={videoStream}
+                                                isLocal={participant.isCurrentUser}
+                                                small
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-[#3a3f47] to-[#2a2f37] flex items-center justify-center">
+                                                <span className="text-sm font-semibold text-white">
+                                                    {participant.username?.[0]?.toUpperCase() || '?'}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        ))}
-                        {totalCount > 4 && (
-                            <div className="w-6 h-6 rounded-full bg-[#2e3136] flex items-center justify-center text-[10px] text-gray-400" style={{ marginLeft: '-6px' }}>
-                                +{totalCount - 4}
+                                    {participant.isMuted && (
+                                        <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
+                                            <MicOff size={10} className="text-red-400" />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        {totalCount > 5 && (
+                            <div
+                                className="w-10 h-10 rounded-full bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 border-2 border-[#1a1d21]"
+                                style={{ marginLeft: '-8px' }}
+                            >
+                                +{totalCount - 5}
                             </div>
                         )}
-                        <span className="text-xs text-gray-400 ml-2">{totalCount} {totalCount === 1 ? 'person' : 'people'}</span>
                     </div>
+                    <span className="text-xs text-gray-400 ml-1">
+                        {totalCount} {totalCount === 1 ? 'person' : 'people'}
+                    </span>
                 </div>
 
                 {/* Controls */}
-                <div className="px-3 pb-3 flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                     <button
                         onClick={toggleMute}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded text-xs font-medium transition-all ${
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
                             isMuted
-                                ? 'bg-red-500/20 text-red-400'
+                                ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                                 : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                         }`}
                     >
-                        {isMuted ? <MicOff size={14} /> : <Mic size={14} />}
+                        {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
                         <span>{isMuted ? 'Unmute' : 'Mute'}</span>
                     </button>
                     <button
                         onClick={toggleVideo}
-                        className={`p-1.5 rounded transition-all ${
+                        className={`p-2 rounded-lg transition-all ${
                             isVideoOn
-                                ? 'bg-blue-500/20 text-blue-400'
+                                ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                                 : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                         }`}
+                        title={isVideoOn ? 'Turn off camera' : 'Turn on camera'}
                     >
-                        {isVideoOn ? <Video size={14} /> : <VideoOff size={14} />}
+                        {isVideoOn ? <Video size={16} /> : <VideoOff size={16} />}
                     </button>
                     <button
                         onClick={toggleScreenShare}
-                        className={`p-1.5 rounded transition-all ${
+                        className={`p-2 rounded-lg transition-all ${
                             isScreenSharing
-                                ? 'bg-green-500/20 text-green-400'
+                                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                                 : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
                         }`}
+                        title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
                     >
-                        {isScreenSharing ? <MonitorOff size={14} /> : <Monitor size={14} />}
+                        {isScreenSharing ? <MonitorOff size={16} /> : <Monitor size={16} />}
                     </button>
                     <button
                         onClick={leaveCall}
-                        className="py-1.5 px-3 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium"
+                        className="py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-all"
                     >
                         Leave
                     </button>
@@ -352,102 +380,17 @@ export default function SidebarHuddle() {
 
                 {/* Connection status */}
                 {connectionStatus === 'connecting' && (
-                    <div className="px-3 pb-2 text-xs text-yellow-500 text-center">
+                    <div className="mt-2 text-xs text-yellow-500 text-center">
                         Connecting...
                     </div>
                 )}
-            </div>
-        );
-    }
-
-    // Minimized compact view
-    return (
-        <div className="bg-[#1a1d21] border-t border-[#565856]/30">
-            {/* Green indicator */}
-            <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-400" />
-
-            <div className="px-3 py-2">
-                {/* Header row */}
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                        <div className="relative">
-                            <Headphones size={14} className="text-green-500" />
-                            <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                        </div>
-                        <div>
-                            <div className="text-xs font-semibold text-white truncate max-w-[100px]">
-                                {channelType === 'dm' ? '' : '#'}{channelName}
-                            </div>
-                            <div className="text-[10px] text-gray-400">
-                                <span className="text-green-500">{formatDuration(callDuration)}</span>
-                                <span className="mx-1">·</span>
-                                <span>{totalCount}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <button onClick={() => setIsExpanded(true)} className="p-1 hover:bg-white/10 rounded">
-                        <ChevronUp size={14} className="text-gray-400" />
-                    </button>
-                </div>
-
-                {/* Avatars */}
-                <div className="flex items-center gap-1 mb-2">
-                    {participants.slice(0, 4).map((participant, index) => (
-                        <div key={participant.userId} className="relative" style={{ marginLeft: index > 0 ? '-4px' : '0', zIndex: 10 - index }}>
-                            <UserAvatar
-                                user={{ username: participant.username, avatar_url: participant.avatarUrl }}
-                                size="xs"
-                            />
-                            {participant.isMuted && (
-                                <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
-                                    <MicOff size={8} className="text-red-400" />
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                    {totalCount > 4 && (
-                        <div className="w-5 h-5 rounded-full bg-[#2e3136] flex items-center justify-center text-[10px] text-gray-400" style={{ marginLeft: '-4px' }}>
-                            +{totalCount - 4}
-                        </div>
-                    )}
-                </div>
-
-                {/* Controls */}
-                <div className="flex items-center gap-1">
-                    <button
-                        onClick={toggleMute}
-                        className={`flex-1 flex items-center justify-center gap-1 py-1 rounded text-xs font-medium ${
-                            isMuted
-                                ? 'bg-red-500/20 text-red-400'
-                                : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
-                        }`}
-                    >
-                        {isMuted ? <MicOff size={12} /> : <Mic size={12} />}
-                    </button>
-                    <button
-                        onClick={toggleVideo}
-                        className={`p-1 rounded ${
-                            isVideoOn
-                                ? 'bg-blue-500/20 text-blue-400'
-                                : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
-                        }`}
-                    >
-                        {isVideoOn ? <Video size={12} /> : <VideoOff size={12} />}
-                    </button>
-                    <button
-                        onClick={leaveCall}
-                        className="py-1 px-2 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
-                    >
-                        <PhoneOff size={12} />
-                    </button>
-                </div>
             </div>
         </div>
     );
 }
 
-// Helper component for remote video
-function VideoElement({ stream }) {
+// Helper component for participant video
+function ParticipantVideo({ stream, isLocal, small }) {
     const videoRef = useRef(null);
 
     useEffect(() => {
@@ -462,7 +405,8 @@ function VideoElement({ stream }) {
             ref={videoRef}
             autoPlay
             playsInline
-            className="w-full h-full object-cover"
+            muted={isLocal}
+            className={`w-full h-full object-cover ${isLocal ? 'transform scale-x-[-1]' : ''}`}
         />
     );
 }
