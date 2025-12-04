@@ -905,17 +905,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="flex items-start gap-2">
-                                            {isGrouped && (
-                                                <span className="text-[10px] text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity min-w-[40px] pt-1">
-                                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
-                                            )}
-                                            <div
-                                                className="text-[15px] text-gray-300 leading-relaxed break-words flex-1"
-                                                dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
-                                            />
-                                        </div>
+                                        <div
+                                            className="text-[15px] text-gray-300 leading-relaxed break-words"
+                                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
+                                        />
                                     )}
 
                                     {/* Reactions */}
