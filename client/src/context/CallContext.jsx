@@ -573,17 +573,17 @@ export const CallProvider = ({ children }) => {
         const socket = getSocket();
         if (!socket) {
             alert('Not connected. Please refresh the page.');
-            return;
+            return false;
         }
 
         if (isInCall) {
             alert('Already in a call. Leave current call first.');
-            return;
+            return false;
         }
 
         if (!navigator.mediaDevices?.getUserMedia) {
             alert('Audio is not supported. Please use HTTPS.');
-            return;
+            return false;
         }
 
         try {
@@ -622,6 +622,7 @@ export const CallProvider = ({ children }) => {
             socket.emit('join-room', `call_${channelId}`, user.id);
 
             console.log('[CallContext] Joined huddle in channel:', channelId);
+            return true;
         } catch (err) {
             console.error('[CallContext] Failed to join call:', err);
             setConnectionStatus('disconnected');
@@ -633,6 +634,7 @@ export const CallProvider = ({ children }) => {
             } else {
                 alert('Could not access microphone: ' + err.message);
             }
+            return false;
         }
     };
 
@@ -822,8 +824,11 @@ export const CallProvider = ({ children }) => {
     }, []);
 
     const acceptIncomingCall = useCallback(async (channelId) => {
-        clearIncomingCall();
-        await joinCall(channelId);
+        const success = await joinCall(channelId);
+        if (success) {
+            clearIncomingCall();
+        }
+        // If failed, keep incomingCall so user can try again or decline
     }, [clearIncomingCall]);
 
     const declineIncomingCall = useCallback(() => {
