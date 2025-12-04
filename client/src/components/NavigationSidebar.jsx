@@ -274,7 +274,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                     size={12}
                                     className={`transition-transform ${showChannels ? '' : '-rotate-90'}`}
                                 />
-                                <span className="text-sm font-medium uppercase tracking-wide">Channels</span>
+                                <span className="text-sm font-medium uppercase tracking-wide select-none">Channels</span>
                             </div>
                             <button onClick={() => setShowCreateModal(true)} className="text-gray-500 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Plus size={16} />
@@ -320,7 +320,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                     size={12}
                                     className={`transition-transform ${showDMs ? '' : '-rotate-90'}`}
                                 />
-                                <span className="text-sm font-medium uppercase tracking-wide">Direct Messages</span>
+                                <span className="text-sm font-medium uppercase tracking-wide select-none">Direct Messages</span>
                             </div>
                         </div>
 
