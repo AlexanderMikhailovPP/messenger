@@ -40,6 +40,11 @@ header,
 }
 
 /* Rich text formatting in messages */
+.text-gray-300 {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
 .text-gray-300 b,
 .text-gray-300 strong {
     font-weight: bold;
