@@ -201,6 +201,10 @@ module.exports = (io, db) => {
             // Use passed callerName/Avatar or fallback to socket data
             const finalCallerName = callerName || socket.data.username;
 
+            if (isDev) {
+                console.log(`[Signaling] start_call: channelId=${channelId}, targetUserId=${targetUserId}, callerId=${userId}`);
+            }
+
             try {
                 // Create huddle session in DB
                 const result = await db.insertReturning(
@@ -235,9 +239,15 @@ module.exports = (io, db) => {
 
             if (targetUserId) {
                 // Direct call to user
+                if (isDev) {
+                    console.log(`[Signaling] Sending incoming_call to user room: ${targetUserId.toString()}`);
+                }
                 io.to(targetUserId.toString()).emit('incoming_call', payload);
             } else {
                 // Broadcast to channel (fallback)
+                if (isDev) {
+                    console.log(`[Signaling] Sending incoming_call to channel: ${channelId}`);
+                }
                 socket.to(channelId).emit('incoming_call', payload);
             }
         });

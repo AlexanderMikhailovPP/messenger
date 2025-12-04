@@ -17,7 +17,12 @@ const io = new Server(server, {
         origin: process.env.CORS_ORIGIN || ["http://localhost:5173", "http://localhost:5174"],
         methods: ["GET", "POST"],
         credentials: true // Allow cookies
-    }
+    },
+    // Increase timeouts for better stability during calls
+    pingTimeout: 60000,      // 60 seconds (default 20s)
+    pingInterval: 25000,     // 25 seconds (default 25s)
+    upgradeTimeout: 30000,   // 30 seconds for upgrade
+    maxHttpBufferSize: 1e8   // 100 MB for large payloads
 });
 
 app.use(cors({
@@ -76,7 +81,11 @@ io.on('connection', (socket) => {
     }
 
     // Join user-specific room for direct signaling
-    socket.join(userId.toString());
+    const userRoom = userId.toString();
+    socket.join(userRoom);
+    if (isDev) {
+        console.log(`[Socket] User ${userId} joined personal room: "${userRoom}"`);
+    }
 
     socket.on('join_channel', (channelId) => {
         socket.join(channelId);

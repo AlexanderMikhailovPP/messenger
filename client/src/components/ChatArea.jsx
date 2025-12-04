@@ -599,6 +599,11 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             channelId: currentChannel.id
         }, (response) => {
             if (response && response.id) {
+                console.log('[ChatArea] Starting call:', {
+                    channelId: currentChannel.id,
+                    targetUserId: currentChannel.otherUserId,
+                    currentChannel
+                });
                 socket.emit('start_call', {
                     channelId: currentChannel.id,
                     targetUserId: currentChannel.otherUserId,

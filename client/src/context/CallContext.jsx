@@ -235,7 +235,17 @@ export const CallProvider = ({ children }) => {
         pc.oniceconnectionstatechange = () => {
             console.log(`[WebRTC] ICE state (${targetSocketId}):`, pc.iceConnectionState);
             if (pc.iceConnectionState === 'failed') {
+                console.log('[WebRTC] ICE failed, restarting...');
                 pc.restartIce();
+            } else if (pc.iceConnectionState === 'disconnected') {
+                // Give it some time to recover before restarting
+                console.log('[WebRTC] ICE disconnected, waiting for recovery...');
+                setTimeout(() => {
+                    if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                        console.log('[WebRTC] ICE still disconnected/failed after timeout, restarting...');
+                        pc.restartIce();
+                    }
+                }, 5000); // Wait 5 seconds before restarting
             }
         };
 
@@ -254,8 +264,9 @@ export const CallProvider = ({ children }) => {
         };
 
         pc.ontrack = (event) => {
-            console.log('[WebRTC] Received remote track from:', targetSocketId, 'kind:', event.track.kind);
+            console.log('[WebRTC] Received remote track from:', targetSocketId, 'kind:', event.track.kind, 'stream:', event.streams[0]?.id);
             const stream = event.streams[0];
+            console.log('[WebRTC] Track enabled:', event.track.enabled, 'readyState:', event.track.readyState);
 
             if (stream) {
                 // Create audio element for playback (audio tracks)
@@ -265,15 +276,22 @@ export const CallProvider = ({ children }) => {
 
                 // Store video stream for rendering
                 if (event.track.kind === 'video') {
-                    setRemoteStreams(prev => ({
-                        ...prev,
-                        [targetSocketId]: stream
-                    }));
+                    console.log('[WebRTC] Setting remoteStream for socketId:', targetSocketId);
+                    setRemoteStreams(prev => {
+                        console.log('[WebRTC] Previous remoteStreams:', Object.keys(prev));
+                        return {
+                            ...prev,
+                            [targetSocketId]: stream
+                        };
+                    });
 
                     // Update participant video state
-                    setParticipants(prev => prev.map(p =>
-                        p.socketId === targetSocketId ? { ...p, hasVideo: true, stream } : p
-                    ));
+                    setParticipants(prev => {
+                        console.log('[WebRTC] Participants socketIds:', prev.map(p => p.socketId));
+                        return prev.map(p =>
+                            p.socketId === targetSocketId ? { ...p, hasVideo: true, stream } : p
+                        );
+                    });
                 }
 
                 setPeers(prev => ({
@@ -317,7 +335,11 @@ export const CallProvider = ({ children }) => {
     // Socket event handlers
     useEffect(() => {
         const socket = getSocket();
-        if (!socket) return;
+        if (!socket) {
+            console.log('[CallContext] Socket not available yet');
+            return;
+        }
+        console.log('[CallContext] Setting up socket handlers, socket id:', socket.id);
 
         const handleUserConnected = (userId, socketId, username) => {
             console.log('[CallContext] User connected:', { userId, socketId, username });
@@ -377,7 +399,8 @@ export const CallProvider = ({ children }) => {
         };
 
         const handleIncomingCall = (payload) => {
-            console.log('[CallContext] Incoming call:', payload);
+            console.log('[CallContext] Incoming call received!', payload);
+            console.log('[CallContext] Current user:', user?.id, user?.username);
             setIncomingCall(payload);
         };
 
@@ -545,7 +568,44 @@ export const CallProvider = ({ children }) => {
             socket.off('mute-update', handleMuteUpdate);
             socket.off('video-update', handleVideoUpdate);
         };
-    }, [isInCall, createPeerConnection, cleanupAudioElement]);
+    }, [isInCall, createPeerConnection, cleanupAudioElement, user]);
+
+    // Handle socket reconnection - rejoin call room if in a call
+    useEffect(() => {
+        const socket = getSocket();
+        if (!socket) return;
+
+        const handleReconnect = () => {
+            console.log('[CallContext] Socket reconnected');
+            if (isInCall && activeChannelId && user) {
+                console.log('[CallContext] Rejoining call room after reconnect:', activeChannelId);
+                socket.emit('join-room', `call_${activeChannelId}`, user.id);
+            }
+        };
+
+        const handleDisconnect = (reason) => {
+            console.log('[CallContext] Socket disconnected:', reason);
+            if (isInCall) {
+                setConnectionStatus('connecting');
+            }
+        };
+
+        const handleConnect = () => {
+            if (isInCall) {
+                setConnectionStatus('connected');
+            }
+        };
+
+        socket.on('reconnect', handleReconnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect', handleConnect);
+
+        return () => {
+            socket.off('reconnect', handleReconnect);
+            socket.off('disconnect', handleDisconnect);
+            socket.off('connect', handleConnect);
+        };
+    }, [isInCall, activeChannelId, user]);
 
     // Ringtone effect - play when incoming call and not in call
     useEffect(() => {

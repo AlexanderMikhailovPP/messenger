@@ -32,6 +32,13 @@ export default function HuddlePanel({
     // Check if anyone has video on
     const hasAnyVideo = isVideoOn || participants.some(p => !p.isCurrentUser && p.hasVideo);
 
+    // Auto-expand when anyone enables video
+    useEffect(() => {
+        if (hasAnyVideo && !isExpanded) {
+            setIsExpanded(true);
+        }
+    }, [hasAnyVideo]);
+
     // Call duration timer
     useEffect(() => {
         if (!isInCall) {
@@ -266,8 +273,14 @@ export default function HuddlePanel({
                                     </div>
                                 )}
                                 {/* Remote videos */}
+                                {(() => {
+                                    console.log('[HuddlePanel] Rendering remote videos, participants:', participants.map(p => ({ socketId: p.socketId, hasVideo: p.hasVideo, isCurrentUser: p.isCurrentUser })));
+                                    console.log('[HuddlePanel] remoteStreams keys:', Object.keys(remoteStreams));
+                                    return null;
+                                })()}
                                 {participants.filter(p => !p.isCurrentUser && p.hasVideo).map((participant) => {
                                     const stream = remoteStreams[participant.socketId];
+                                    console.log('[HuddlePanel] Participant', participant.username, 'stream:', stream ? 'exists' : 'missing');
                                     return (
                                         <div key={participant.socketId} className="relative aspect-video bg-[#2e3136] rounded-lg overflow-hidden">
                                             {stream ? (

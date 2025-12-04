@@ -12,7 +12,13 @@ export const connectSocket = () => {
 
     socket = io(SOCKET_URL, {
         withCredentials: true, // Send HTTP-only cookies
-        autoConnect: false
+        autoConnect: false,
+        // Improved connection stability
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 60000  // 60 seconds connection timeout
     });
 
     socket.connect();
