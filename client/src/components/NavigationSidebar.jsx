@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Hash, Plus, ChevronDown, Search, Sparkles, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOnlineStatus } from '../context/OnlineStatusContext';
 import { getUnreadCounts, subscribeToUnreadChanges, subscribeToDMUpdates } from '../utils/unreadCounter';
 import { getSocket } from '../socket';
 import UserAvatar from './UserAvatar';
@@ -79,6 +80,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
     const [showChannels, setShowChannels] = useState(true);
     const [showDMs, setShowDMs] = useState(true);
     const { user } = useAuth();
+    const { isUserOnline } = useOnlineStatus();
     const [unreadCounts, setUnreadCounts] = useState({});
 
     const fetchDMsCallback = useCallback(async () => {
@@ -342,6 +344,8 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                                         avatar_url: dm.avatarUrl
                                                     }}
                                                     size="xs"
+                                                    showStatus={true}
+                                                    isOnline={isUserOnline(dm.otherUserId)}
                                                 />
                                                 <span className="text-sm truncate">{dm.displayName || dm.name}</span>
                                             </div>

@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CallProvider, useCall } from './context/CallContext';
+import { OnlineStatusProvider } from './context/OnlineStatusContext';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -40,6 +41,7 @@ function App() {
   return (
     <AuthProvider>
       <CallProvider>
+        <OnlineStatusProvider>
         <Router>
           <Toaster
             position="top-right"
@@ -74,6 +76,7 @@ function App() {
             } />
           </Routes>
         </Router>
+        </OnlineStatusProvider>
       </CallProvider>
     </AuthProvider>
   );

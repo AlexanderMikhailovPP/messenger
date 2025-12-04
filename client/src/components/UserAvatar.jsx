@@ -72,8 +72,11 @@ export default function UserAvatar({ user, size = 'md', className = '', showStat
             </div>
             {showStatus && (
                 <span
-                    className={`absolute bottom-[-2px] right-[-2px] w-3 h-3 border-2 border-[#1a1d21] rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-500'
-                        }`}
+                    className={`absolute bottom-[-2px] right-[-2px] w-3 h-3 rounded-full ${
+                        isOnline
+                            ? 'bg-[#5DA87F] border-2 border-[#1a1d21]'
+                            : 'bg-[#1a1d21] border-2 border-gray-500'
+                    }`}
                 />
             )}
         </div>

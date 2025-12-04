@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { X, MessageCircle, Phone } from 'lucide-react';
 import { useCall } from '../context/CallContext';
+import { useOnlineStatus } from '../context/OnlineStatusContext';
 import UserAvatar from './UserAvatar';
 
 export default function UserMentionPopup({ user, position, onClose, onMessage, onCall, onMouseEnter, onMouseLeave }) {
     const popupRef = useRef(null);
     const { joinCall } = useCall();
+    const { isUserOnline } = useOnlineStatus();
+    const isOnline = isUserOnline(user.id);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -93,7 +96,14 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                             <h3 className="text-lg font-bold text-white truncate">{user.username}</h3>
-                            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="Online"></div>
+                            <div
+                                className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                                    isOnline
+                                        ? 'bg-[#5DA87F]'
+                                        : 'bg-[#1a1d21] border border-gray-500'
+                                }`}
+                                title={isOnline ? 'Online' : 'Offline'}
+                            />
                         </div>
                         <p className="text-gray-400 text-sm leading-snug mt-0.5">
                             {user.bio || 'No status provided'}

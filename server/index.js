@@ -76,6 +76,17 @@ io.use(socketAuth);
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Track online users: Map<userId, Set<socketId>>
+const onlineUsers = new Map();
+
+// Helper to get online user IDs
+const getOnlineUserIds = () => Array.from(onlineUsers.keys());
+
+// API endpoint to get online users
+app.get('/api/users/online', (req, res) => {
+    res.json(getOnlineUserIds());
+});
+
 io.on('connection', (socket) => {
     const userId = socket.data.userId;
     const username = socket.data.username;
@@ -84,12 +95,24 @@ io.on('connection', (socket) => {
         console.log(`User ${username} (${userId}) connected:`, socket.id);
     }
 
+    // Track user as online
+    if (!onlineUsers.has(userId)) {
+        onlineUsers.set(userId, new Set());
+    }
+    onlineUsers.get(userId).add(socket.id);
+
+    // Broadcast user online status to all clients
+    io.emit('user_online', { userId });
+
     // Join user-specific room for direct signaling
     const userRoom = userId.toString();
     socket.join(userRoom);
     if (isDev) {
         console.log(`[Socket] User ${userId} joined personal room: "${userRoom}"`);
     }
+
+    // Send current online users to this socket
+    socket.emit('online_users', getOnlineUserIds());
 
     socket.on('join_channel', (channelId) => {
         socket.join(channelId);
@@ -216,6 +239,17 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (isDev) {
             console.log(`User ${username} (${userId}) disconnected:`, socket.id);
+        }
+
+        // Remove socket from online users
+        if (onlineUsers.has(userId)) {
+            onlineUsers.get(userId).delete(socket.id);
+            // If no more sockets for this user, they're offline
+            if (onlineUsers.get(userId).size === 0) {
+                onlineUsers.delete(userId);
+                // Broadcast user offline status
+                io.emit('user_offline', { userId });
+            }
         }
     });
 });
