@@ -80,7 +80,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
     const [showChannels, setShowChannels] = useState(true);
     const [showDMs, setShowDMs] = useState(true);
     const { user } = useAuth();
-    const { isUserOnline } = useOnlineStatus();
+    const { getUserStatus } = useOnlineStatus();
     const [unreadCounts, setUnreadCounts] = useState({});
 
     const fetchDMsCallback = useCallback(async () => {
@@ -345,7 +345,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                                     }}
                                                     size="xs"
                                                     showStatus={true}
-                                                    isOnline={isUserOnline(dm.otherUserId)}
+                                                    status={getUserStatus(dm.otherUserId)}
                                                 />
                                                 <span className="text-sm truncate">{dm.displayName || dm.name}</span>
                                             </div>

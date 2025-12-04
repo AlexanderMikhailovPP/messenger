@@ -1071,9 +1071,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 </button>
             )}
 
-            {/* Typing Indicator */}
-            <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
-
             {/* Scheduled Messages Panel */}
             {scheduledMessages.length > 0 && (
                 <div className="mx-5 mb-2">
@@ -1138,7 +1135,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             )}
 
             {/* Input Area */}
-            <div className="p-5 pt-0 pb-6">
+            <div className="p-5 pt-0 pb-4">
                 <div
                     className="rounded-xl bg-[#222529] border border-gray-600 transition-all relative"
                     onFocus={() => {
@@ -1171,6 +1168,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                         onRemoveAttachment={handleRemoveAttachment}
                     />
                 </div>
+                {/* Typing Indicator */}
+                <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
             </div>
 
             {/* User Mention Popup */}

@@ -702,6 +702,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             }
 
             // Default Shift+Enter behavior - insert line break
+            e.preventDefault();
             document.execCommand('insertLineBreak');
         }
 

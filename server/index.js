@@ -76,11 +76,18 @@ io.use(socketAuth);
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-// Track online users: Map<userId, Set<socketId>>
+// Track online users: Map<userId, { sockets: Set<socketId>, status: 'active' | 'away' }>
 const onlineUsers = new Map();
 
-// Helper to get online user IDs
+// Helper to get online user IDs with their statuses
 const getOnlineUserIds = () => Array.from(onlineUsers.keys());
+const getUserStatuses = () => {
+    const statuses = {};
+    onlineUsers.forEach((data, odId) => {
+        statuses[odId] = data.status;
+    });
+    return statuses;
+};
 
 // API endpoint to get online users
 app.get('/api/users/online', (req, res) => {
@@ -95,14 +102,14 @@ io.on('connection', (socket) => {
         console.log(`User ${username} (${userId}) connected:`, socket.id);
     }
 
-    // Track user as online
+    // Track user as online with active status
     if (!onlineUsers.has(userId)) {
-        onlineUsers.set(userId, new Set());
+        onlineUsers.set(userId, { sockets: new Set(), status: 'active' });
     }
-    onlineUsers.get(userId).add(socket.id);
+    onlineUsers.get(userId).sockets.add(socket.id);
 
-    // Broadcast user online status to all clients
-    io.emit('user_online', { userId });
+    // Broadcast user online status with active state to all clients
+    io.emit('user_online', { userId, status: 'active' });
 
     // Join user-specific room for direct signaling
     const userRoom = userId.toString();
@@ -111,8 +118,8 @@ io.on('connection', (socket) => {
         console.log(`[Socket] User ${userId} joined personal room: "${userRoom}"`);
     }
 
-    // Send current online users to this socket
-    socket.emit('online_users', getOnlineUserIds());
+    // Send current online users with statuses to this socket
+    socket.emit('online_users', getUserStatuses());
 
     socket.on('join_channel', (channelId) => {
         socket.join(channelId);
@@ -236,6 +243,20 @@ io.on('connection', (socket) => {
         socket.to(channelId).emit('user_stop_typing', { username, channelId });
     });
 
+    // User activity status update (active/away)
+    socket.on('update_status', (status) => {
+        if (onlineUsers.has(userId)) {
+            const userData = onlineUsers.get(userId);
+            if (userData.status !== status) {
+                userData.status = status;
+                io.emit('user_status_changed', { userId, status });
+                if (isDev) {
+                    console.log(`User ${username} (${userId}) status changed to: ${status}`);
+                }
+            }
+        }
+    });
+
     socket.on('disconnect', () => {
         if (isDev) {
             console.log(`User ${username} (${userId}) disconnected:`, socket.id);
@@ -243,9 +264,9 @@ io.on('connection', (socket) => {
 
         // Remove socket from online users
         if (onlineUsers.has(userId)) {
-            onlineUsers.get(userId).delete(socket.id);
+            onlineUsers.get(userId).sockets.delete(socket.id);
             // If no more sockets for this user, they're offline
-            if (onlineUsers.get(userId).size === 0) {
+            if (onlineUsers.get(userId).sockets.size === 0) {
                 onlineUsers.delete(userId);
                 // Broadcast user offline status
                 io.emit('user_offline', { userId });

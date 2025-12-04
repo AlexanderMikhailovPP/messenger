@@ -7,8 +7,8 @@ import UserAvatar from './UserAvatar';
 export default function UserMentionPopup({ user, position, onClose, onMessage, onCall, onMouseEnter, onMouseLeave }) {
     const popupRef = useRef(null);
     const { joinCall } = useCall();
-    const { isUserOnline } = useOnlineStatus();
-    const isOnline = isUserOnline(user.id);
+    const { getUserStatus } = useOnlineStatus();
+    const userStatus = getUserStatus(user.id);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -97,12 +97,18 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
                         <div className="flex items-center gap-2">
                             <h3 className="text-lg font-bold text-white truncate">{user.username}</h3>
                             <div
-                                className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                    isOnline
-                                        ? 'bg-[#5DA87F]'
-                                        : 'bg-transparent border-[1.5px] border-gray-500'
-                                }`}
-                                title={isOnline ? 'Online' : 'Offline'}
+                                className="rounded-full flex-shrink-0"
+                                style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    ...(userStatus === 'active'
+                                        ? { backgroundColor: '#2BAC76' }
+                                        : userStatus === 'away'
+                                        ? { backgroundColor: 'transparent', border: '2px solid #2BAC76', boxSizing: 'border-box' }
+                                        : { backgroundColor: 'transparent', border: '2px solid #616061', boxSizing: 'border-box' }
+                                    )
+                                }}
+                                title={userStatus === 'active' ? 'Active' : userStatus === 'away' ? 'Away' : 'Offline'}
                             />
                         </div>
                         <p className="text-gray-400 text-sm leading-snug mt-0.5">

@@ -31,7 +31,9 @@ const SIZES = {
     '4xl': 'w-32 h-32 text-4xl',
 };
 
-export default function UserAvatar({ user, size = 'md', className = '', showStatus = false, isOnline = false, rounded = 'rounded-md' }) {
+// status: 'active' | 'away' | 'offline' (new 3-state system)
+// isOnline: legacy boolean prop for backwards compatibility
+export default function UserAvatar({ user, size = 'md', className = '', showStatus = false, isOnline = false, status, rounded = 'rounded-md' }) {
     const colorClass = useMemo(() => {
         if (!user?.username) return 'bg-gray-500';
         let hash = 0;
@@ -72,11 +74,32 @@ export default function UserAvatar({ user, size = 'md', className = '', showStat
             </div>
             {showStatus && (
                 <span
-                    className={`absolute bottom-[-1px] right-[-1px] w-2 h-2 rounded-full box-content ${
-                        isOnline
-                            ? 'bg-[#5DA87F] border-[1.5px] border-[#1a1d21]'
-                            : 'bg-transparent border-[1.5px] border-gray-500 outline outline-[1.5px] outline-[#1a1d21]'
-                    }`}
+                    className="absolute bottom-[-1px] right-[-1px] rounded-full box-content"
+                    style={{
+                        width: '10px',
+                        height: '10px',
+                        // Determine status: use new status prop if provided, fallback to legacy isOnline
+                        ...(status === 'active' || (!status && isOnline)
+                            ? {
+                                // Active: solid green circle
+                                backgroundColor: '#2BAC76',
+                                border: '2px solid #1a1d21'
+                              }
+                            : status === 'away'
+                            ? {
+                                // Away: hollow green circle
+                                backgroundColor: 'transparent',
+                                border: '2px solid #2BAC76',
+                                outline: '2px solid #1a1d21'
+                              }
+                            : {
+                                // Offline: hollow gray circle
+                                backgroundColor: 'transparent',
+                                border: '2px solid #616061',
+                                outline: '2px solid #1a1d21'
+                              }
+                        )
+                    }}
                 />
             )}
         </div>
