@@ -35,7 +35,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const messagesContainerRef = useRef(null);
     const [scheduledMessages, setScheduledMessages] = useState([]);
     const [showScheduledPanel, setShowScheduledPanel] = useState(true);
-    const prevChannelRef = useRef(null);
 
     // Typing indicator
     const socket = getSocket();
@@ -43,15 +42,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     const typingUsers = useTypingUsers(socket, currentChannel?.id);
     const hoverTimeoutRef = useRef(null);
 
-    // Handle channel switching - save draft from previous channel, load draft for new channel
+    // Handle channel switching - load draft for new channel
     useEffect(() => {
         if (currentChannel) {
-            // Save draft from previous channel before switching
-            if (prevChannelRef.current && prevChannelRef.current !== currentChannel.id) {
-                saveDraft(prevChannelRef.current, newMessage);
-            }
-
-            // Load draft for new channel
+            // Load draft for new channel (drafts are saved on every keystroke now)
             const draft = getDraft(currentChannel.id);
             setNewMessage(draft);
 
@@ -59,9 +53,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             if (editorRef.current) {
                 editorRef.current.innerHTML = draft;
             }
-
-            // Update previous channel ref
-            prevChannelRef.current = currentChannel.id;
 
             const controller = new AbortController();
             const socket = getSocket();
@@ -1023,6 +1014,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                         value={newMessage}
                         onChange={(value) => {
                             setNewMessage(value);
+                            // Save draft on every change
+                            if (currentChannel) {
+                                saveDraft(currentChannel.id, value);
+                            }
                             if (value.trim().length > 0) {
                                 sendTyping();
                             } else {
