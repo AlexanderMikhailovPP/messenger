@@ -289,7 +289,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                         <button
                                             key={ch.id}
                                             onClick={() => setCurrentChannel(ch)}
-                                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === ch.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
+                                            className={`w-full flex items-center justify-between px-2 py-1 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === ch.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2 min-w-0">
@@ -332,7 +332,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                         <button
                                             key={dm.id}
                                             onClick={() => setCurrentChannel(dm)}
-                                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === dm.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
+                                            className={`w-full flex items-center justify-between px-2 py-1 rounded hover:bg-gray-600/50 transition-colors ${currentChannel?.id === dm.id ? 'bg-gray-600/50 text-white' : 'text-gray-300'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2 min-w-0">
