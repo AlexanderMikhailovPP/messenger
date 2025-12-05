@@ -1106,22 +1106,15 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             onClick={() => setActiveThread(msg)}
                                             className="thread-preview flex items-center gap-2 mt-2 py-1 px-1 -ml-1 rounded hover:bg-gray-800/30 transition-colors group/thread"
                                         >
-                                            {/* Participant avatars - circular like Slack */}
+                                            {/* Participant avatars - rounded square like rest of app */}
                                             {msg.thread_participants && msg.thread_participants.length > 0 && (
                                                 <div className="flex items-center">
                                                     {msg.thread_participants.slice(0, 5).map((participant, idx) => (
                                                         <div
                                                             key={participant.id}
-                                                            className="w-6 h-6 rounded-full overflow-hidden border-2 border-[#1a1d21] flex-shrink-0"
-                                                            style={{ marginLeft: idx > 0 ? '-6px' : '0', zIndex: 5 - idx }}
+                                                            style={{ marginLeft: idx > 0 ? '-4px' : '0', zIndex: 5 - idx }}
                                                         >
-                                                            {participant.avatar_url ? (
-                                                                <img src={participant.avatar_url} alt={participant.username} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <div className="w-full h-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                                                                    {participant.username?.[0]?.toUpperCase() || '?'}
-                                                                </div>
-                                                            )}
+                                                            <UserAvatar user={participant} size="sm" />
                                                         </div>
                                                     ))}
                                                 </div>
