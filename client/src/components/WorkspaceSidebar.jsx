@@ -14,15 +14,6 @@ export default function WorkspaceSidebar() {
     const [showSettings, setShowSettings] = useState(false);
     const avatarRef = useRef(null);
 
-    // Get status emoji for display next to avatar
-    const getStatusEmoji = () => {
-        if (user?.custom_status) {
-            const match = user.custom_status.match(/^(\p{Emoji})/u);
-            return match ? match[1] : null;
-        }
-        return null;
-    };
-
     return (
         <>
             <div className="w-[70px] h-screen bg-[#1a1d21] flex flex-col items-center py-4 border-r border-gray-700/50">
@@ -39,11 +30,6 @@ export default function WorkspaceSidebar() {
                         >
                             <UserAvatar user={user} size="lg" className="rounded-lg" />
                         </button>
-                        {getStatusEmoji() && (
-                            <div className="absolute -bottom-1 -right-1 text-sm bg-[#1a1d21] rounded-full p-0.5">
-                                {getStatusEmoji()}
-                            </div>
-                        )}
                     </div>
 
                     {showProfilePopup && (

@@ -16,6 +16,7 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
     const [isSaving, setIsSaving] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const popupRef = useRef(null);
+    const emojiPickerRef = useRef(null);
 
     // Parse existing status
     useEffect(() => {
@@ -37,6 +38,10 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
     // Close on click outside
     useEffect(() => {
         const handleClickOutside = (e) => {
+            // Don't close if clicking inside emoji picker
+            if (emojiPickerRef.current && emojiPickerRef.current.contains(e.target)) {
+                return;
+            }
             if (popupRef.current && !popupRef.current.contains(e.target) &&
                 anchorRef?.current && !anchorRef.current.contains(e.target)) {
                 onClose();
@@ -113,10 +118,7 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
             {/* Header with avatar and name */}
             <div className="p-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20">
                 <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <UserAvatar user={user} size="xl" />
-                        <div className={`absolute bottom-0 right-0 w-4 h-4 ${getOnlineStatusColor()} rounded-full border-2 border-[#1a1d21]`} />
-                    </div>
+                    <UserAvatar user={user} size="xl" />
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                             <span className="font-bold text-white truncate">{user?.username}</span>
@@ -153,7 +155,7 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
                             />
                         </div>
                         {showEmojiPicker && (
-                            <div className="absolute z-50">
+                            <div ref={emojiPickerRef} className="absolute z-50">
                                 <EmojiPicker
                                     onEmojiClick={(emoji) => {
                                         setStatusEmoji(emoji.emoji);
