@@ -139,12 +139,27 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
                 {showStatusEditor ? (
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                className="w-10 h-10 flex items-center justify-center bg-[#2e3136] hover:bg-[#3e4147] rounded-lg text-xl transition-colors"
-                            >
-                                {statusEmoji || <Smile size={20} className="text-gray-400" />}
-                            </button>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                    className="w-10 h-10 flex items-center justify-center bg-[#2e3136] hover:bg-[#3e4147] rounded-lg text-xl transition-colors"
+                                >
+                                    {statusEmoji || <Smile size={20} className="text-gray-400" />}
+                                </button>
+                                {showEmojiPicker && (
+                                    <div ref={emojiPickerRef} className="absolute bottom-full left-0 mb-2 z-[100]">
+                                        <EmojiPicker
+                                            onEmojiClick={(emoji) => {
+                                                setStatusEmoji(emoji.emoji);
+                                                setShowEmojiPicker(false);
+                                            }}
+                                            theme="dark"
+                                            width={280}
+                                            height={350}
+                                        />
+                                    </div>
+                                )}
+                            </div>
                             <input
                                 type="text"
                                 value={statusText}
@@ -154,19 +169,6 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
                                 maxLength={100}
                             />
                         </div>
-                        {showEmojiPicker && (
-                            <div ref={emojiPickerRef} className="absolute z-50">
-                                <EmojiPicker
-                                    onEmojiClick={(emoji) => {
-                                        setStatusEmoji(emoji.emoji);
-                                        setShowEmojiPicker(false);
-                                    }}
-                                    theme="dark"
-                                    width={280}
-                                    height={350}
-                                />
-                            </div>
-                        )}
                         <div className="flex items-center justify-between text-xs text-gray-500">
                             <span>{(statusEmoji + ' ' + statusText).trim().length}/100</span>
                             <div className="flex gap-2">
