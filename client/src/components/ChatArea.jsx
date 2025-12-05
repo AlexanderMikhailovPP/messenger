@@ -367,6 +367,19 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Handle spoiler click to reveal content
+    useEffect(() => {
+        const handleSpoilerClick = (e) => {
+            const target = e.target.closest('.spoiler');
+            if (target) {
+                target.classList.toggle('revealed');
+            }
+        };
+
+        document.addEventListener('click', handleSpoilerClick);
+        return () => document.removeEventListener('click', handleSpoilerClick);
+    }, []);
+
 
     const fetchUserInfo = async (userId, position) => {
         try {

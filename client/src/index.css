@@ -578,3 +578,38 @@ html.light-theme .thread-preview {
 html.light-theme .thread-preview:hover {
     background-color: rgba(0, 0, 0, 0.03) !important;
 }
+
+/* Spoiler styles - hidden by default, revealed on click */
+.spoiler {
+    background-color: #4b5563;
+    color: transparent;
+    padding: 1px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    user-select: none;
+}
+
+.spoiler:hover {
+    background-color: #5b6573;
+}
+
+.spoiler.revealed {
+    color: #e5e7eb;
+    cursor: text;
+    user-select: auto;
+}
+
+/* Light theme spoiler styles */
+html.light-theme .spoiler {
+    background-color: #d1d5db;
+    color: transparent;
+}
+
+html.light-theme .spoiler:hover {
+    background-color: #c1c5cb;
+}
+
+html.light-theme .spoiler.revealed {
+    color: #374151;
+}
