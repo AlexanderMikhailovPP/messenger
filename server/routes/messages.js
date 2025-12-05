@@ -133,13 +133,15 @@ router.get('/:channelId', async (req, res) => {
 
         // For messages with threads, fetch unique participants (up to 5)
         const messagesWithParticipants = await Promise.all(result.rows.map(async (msg) => {
-            if (msg.reply_count > 0) {
+            if (parseInt(msg.reply_count) > 0) {
                 const participantsResult = await db.query(`
-                    SELECT DISTINCT u.id, u.username, u.avatar_url
-                    FROM messages m
-                    JOIN users u ON m.user_id = u.id
-                    WHERE m.thread_id = ?
-                    ORDER BY m.id ASC
+                    SELECT u.id, u.username, u.avatar_url
+                    FROM users u
+                    WHERE u.id IN (
+                        SELECT DISTINCT m.user_id
+                        FROM messages m
+                        WHERE m.thread_id = ?
+                    )
                     LIMIT 5
                 `, [msg.id]);
                 return { ...msg, thread_participants: participantsResult.rows };
