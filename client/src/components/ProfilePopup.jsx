@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User, Settings, LogOut, Smile, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOnlineStatus } from '../context/OnlineStatusContext';
@@ -15,8 +16,10 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [emojiPickerPosition, setEmojiPickerPosition] = useState({ top: 0, left: 0 });
     const popupRef = useRef(null);
     const emojiPickerRef = useRef(null);
+    const emojiButtonRef = useRef(null);
 
     // Parse existing status
     useEffect(() => {
@@ -141,24 +144,23 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
                         <div className="flex items-center gap-2">
                             <div className="relative">
                                 <button
-                                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                    ref={emojiButtonRef}
+                                    onClick={() => {
+                                        if (!showEmojiPicker && emojiButtonRef.current) {
+                                            const rect = emojiButtonRef.current.getBoundingClientRect();
+                                            const pickerHeight = 350;
+                                            // Position above the button if there's room, otherwise below
+                                            const top = rect.top - pickerHeight - 8 > 0
+                                                ? rect.top - pickerHeight - 8
+                                                : rect.bottom + 8;
+                                            setEmojiPickerPosition({ top, left: rect.left });
+                                        }
+                                        setShowEmojiPicker(!showEmojiPicker);
+                                    }}
                                     className="w-10 h-10 flex items-center justify-center bg-[#2e3136] hover:bg-[#3e4147] rounded-lg text-xl transition-colors"
                                 >
                                     {statusEmoji || <Smile size={20} className="text-gray-400" />}
                                 </button>
-                                {showEmojiPicker && (
-                                    <div ref={emojiPickerRef} className="absolute bottom-full left-0 mb-2 z-[100]">
-                                        <EmojiPicker
-                                            onEmojiClick={(emoji) => {
-                                                setStatusEmoji(emoji.emoji);
-                                                setShowEmojiPicker(false);
-                                            }}
-                                            theme="dark"
-                                            width={280}
-                                            height={350}
-                                        />
-                                    </div>
-                                )}
                             </div>
                             <input
                                 type="text"
@@ -277,6 +279,29 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Emoji Picker Portal - rendered outside modal hierarchy */}
+            {showEmojiPicker && createPortal(
+                <div
+                    ref={emojiPickerRef}
+                    className="fixed z-[9999]"
+                    style={{
+                        top: emojiPickerPosition.top,
+                        left: emojiPickerPosition.left
+                    }}
+                >
+                    <EmojiPicker
+                        onEmojiClick={(emoji) => {
+                            setStatusEmoji(emoji.emoji);
+                            setShowEmojiPicker(false);
+                        }}
+                        theme="dark"
+                        width={280}
+                        height={350}
+                    />
+                </div>,
+                document.body
             )}
         </div>
     );
