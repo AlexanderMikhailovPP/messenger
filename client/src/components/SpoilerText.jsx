@@ -26,8 +26,8 @@ const SpoilerText = ({ children, revealed, onClick }) => {
         x: Math.random() * rect.width,
         y: Math.random() * rect.height,
         size: Math.random() * 1 + 0.5,
-        speedX: (Math.random() - 0.5) * 0.3,
-        speedY: (Math.random() - 0.5) * 0.3,
+        speedX: (Math.random() - 0.5) * 0.6,
+        speedY: (Math.random() - 0.5) * 0.6,
         opacity: Math.random() * 0.4 + 0.6,
       });
     }
