@@ -20,26 +20,39 @@ export default function SidebarHuddle() {
         activeChannelInfo,
         connectionStatus,
         isHuddleFullscreen: isFullscreen,
-        setHuddleFullscreen: setIsFullscreen
+        setHuddleFullscreen: setIsFullscreen,
+        huddleStartedAt
     } = useCall();
     const [expandedTile, setExpandedTile] = useState(null); // { type: 'video' | 'screen', id: string }
     const [callDuration, setCallDuration] = useState(0);
     const localVideoRef = useRef(null);
     const localScreenRef = useRef(null);
 
-    // Call duration timer
+    // Call duration timer - synced with server start time
     useEffect(() => {
         if (!isInCall) {
             setCallDuration(0);
             return;
         }
 
-        const timer = setInterval(() => {
-            setCallDuration(prev => prev + 1);
-        }, 1000);
+        const updateDuration = () => {
+            if (huddleStartedAt) {
+                // Calculate from server-synced start time
+                const elapsed = Math.floor((Date.now() - huddleStartedAt) / 1000);
+                setCallDuration(elapsed);
+            } else {
+                // Fallback: increment locally if server time not available
+                setCallDuration(prev => prev + 1);
+            }
+        };
+
+        // Initial update
+        updateDuration();
+
+        const timer = setInterval(updateDuration, 1000);
 
         return () => clearInterval(timer);
-    }, [isInCall]);
+    }, [isInCall, huddleStartedAt]);
 
     // Attach local video stream
     useEffect(() => {
@@ -411,26 +424,27 @@ export default function SidebarHuddle() {
                                             style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}
                                         >
                                             <div
-                                                className="w-7 h-7 rounded-lg overflow-hidden transition-all"
-                                                style={{
-                                                    boxShadow: participant.isSpeaking && !participant.isMuted
-                                                        ? '0 0 0 2px #22c55e, 0 0 0 3px #1a1d21'
-                                                        : '0 0 0 2px #1a1d21'
-                                                }}
+                                                className={`w-7 h-7 rounded-lg transition-all ${
+                                                    participant.isSpeaking && !participant.isMuted
+                                                        ? 'ring-2 ring-green-500'
+                                                        : ''
+                                                }`}
                                             >
-                                                {hasVideo && videoStream ? (
-                                                    <ParticipantVideo
-                                                        stream={videoStream}
-                                                        isLocal={participant.isCurrentUser}
-                                                        small
-                                                    />
-                                                ) : (
-                                                    <UserAvatar
-                                                        user={{ username: participant.username, avatar_url: participant.avatar_url }}
-                                                        size="sm"
-                                                        rounded="rounded-lg"
-                                                    />
-                                                )}
+                                                <div className="w-full h-full rounded-lg overflow-hidden border-2 border-[#1a1d21]">
+                                                    {hasVideo && videoStream ? (
+                                                        <ParticipantVideo
+                                                            stream={videoStream}
+                                                            isLocal={participant.isCurrentUser}
+                                                            small
+                                                        />
+                                                    ) : (
+                                                        <UserAvatar
+                                                            user={{ username: participant.username, avatar_url: participant.avatar_url }}
+                                                            size="sm"
+                                                            rounded="rounded-lg"
+                                                        />
+                                                    )}
+                                                </div>
                                             </div>
                                             {participant.isMuted && (
                                                 <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
@@ -460,7 +474,7 @@ export default function SidebarHuddle() {
                 <div className="flex items-center gap-2">
                     <button
                         onClick={toggleMute}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        className={`flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-all ${
                             isMuted
                                 ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                                 : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
@@ -471,7 +485,7 @@ export default function SidebarHuddle() {
                     </button>
                     <button
                         onClick={toggleVideo}
-                        className={`p-2 rounded-lg transition-all ${
+                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
                             isVideoOn
                                 ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                                 : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
@@ -482,7 +496,7 @@ export default function SidebarHuddle() {
                     </button>
                     <button
                         onClick={toggleScreenShare}
-                        className={`p-2 rounded-lg transition-all ${
+                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
                             isScreenSharing
                                 ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                                 : 'bg-[#2e3136] text-white hover:bg-[#3e4147]'
@@ -493,7 +507,7 @@ export default function SidebarHuddle() {
                     </button>
                     <button
                         onClick={leaveCall}
-                        className="py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-all"
+                        className="h-9 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-all"
                     >
                         Leave
                     </button>

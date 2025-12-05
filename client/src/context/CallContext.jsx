@@ -105,6 +105,7 @@ export const CallProvider = ({ children }) => {
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [remoteStreams, setRemoteStreams] = useState({}); // socketId -> { video: stream, screen: stream }
     const [isHuddleFullscreen, setHuddleFullscreen] = useState(false);
+    const [huddleStartedAt, setHuddleStartedAt] = useState(null); // Server-synced start time
 
     const peersRef = useRef({});
     const localStreamRef = useRef(null);
@@ -736,6 +737,13 @@ export const CallProvider = ({ children }) => {
         socket.on('mute-update', handleMuteUpdate);
         socket.on('video-update', handleVideoUpdate);
 
+        // Handle huddle info (synchronized start time)
+        const handleHuddleInfo = ({ startedAt }) => {
+            console.log('[CallContext] Received huddle-info, startedAt:', startedAt);
+            setHuddleStartedAt(startedAt);
+        };
+        socket.on('huddle-info', handleHuddleInfo);
+
         const handleScreenShareUpdate = ({ userId: odId, isScreenSharing: screenState, socketId: senderSocketId }) => {
             console.log('[CallContext] Received screen-share-update:', { userId: odId, isScreenSharing: screenState, socketId: senderSocketId });
             setParticipants(prev => prev.map(p => {
@@ -774,6 +782,7 @@ export const CallProvider = ({ children }) => {
             socket.off('mute-update', handleMuteUpdate);
             socket.off('video-update', handleVideoUpdate);
             socket.off('screen-share-update', handleScreenShareUpdate);
+            socket.off('huddle-info', handleHuddleInfo);
         };
     }, [isInCall, createPeerConnection, cleanupAudioElement, user]);
 
@@ -894,6 +903,8 @@ export const CallProvider = ({ children }) => {
             setActiveChannelId(channelId);
             setActiveChannelInfo(channelInfo);
             setConnectionStatus('connected');
+            // Set initial start time (will be overwritten by server if joining existing call)
+            setHuddleStartedAt(Date.now());
 
             // Add current user to participants
             setParticipants([{
@@ -985,6 +996,7 @@ export const CallProvider = ({ children }) => {
         setParticipants([]);
         setRemoteStreams({});
         setConnectionStatus('disconnected');
+        setHuddleStartedAt(null); // Reset server-synced start time
 
         // Notify server
         if (socket) {
@@ -1362,7 +1374,8 @@ export const CallProvider = ({ children }) => {
             participants,
             connectionStatus,
             isHuddleFullscreen,
-            setHuddleFullscreen
+            setHuddleFullscreen,
+            huddleStartedAt
         }}>
             {children}
         </CallContext.Provider>

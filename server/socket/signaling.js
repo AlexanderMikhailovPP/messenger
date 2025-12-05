@@ -30,6 +30,11 @@ module.exports = (io, db) => {
                             console.error(`[Signaling] Failed to add participant:`, err);
                         }
                     }
+
+                    // Send huddle start time to client for synchronized duration
+                    if (callInfo.startedAt) {
+                        socket.emit('huddle-info', { startedAt: callInfo.startedAt });
+                    }
                 }
             }
 
@@ -222,8 +227,8 @@ module.exports = (io, db) => {
 
                 const huddleId = result.id || result.lastID;
 
-                // Store mapping
-                activeCalls[channelId] = { messageId, huddleId };
+                // Store mapping with start time
+                activeCalls[channelId] = { messageId, huddleId, startedAt: Date.now() };
 
                 // Add starter as first participant
                 await db.query(
