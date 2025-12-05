@@ -424,7 +424,7 @@ export default function SidebarHuddle() {
                                             style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}
                                         >
                                             {/* Outer container with background for border effect */}
-                                            <div className="w-8 h-8 rounded-lg bg-[#1a1d21] p-0.5">
+                                            <div className="w-8 h-8 rounded-lg bg-[#1a1d21] p-px">
                                                 <div className="w-full h-full rounded-md overflow-hidden">
                                                     {hasVideo && videoStream ? (
                                                         <ParticipantVideo
@@ -451,7 +451,7 @@ export default function SidebarHuddle() {
                                 })}
                                 {totalCount > 5 && (
                                     <div
-                                        className="w-8 h-8 rounded-lg bg-[#1a1d21] p-0.5"
+                                        className="w-8 h-8 rounded-lg bg-[#1a1d21] p-px"
                                         style={{ marginLeft: '-6px' }}
                                     >
                                         <div className="w-full h-full rounded-md bg-[#2e3136] flex items-center justify-center text-xs text-gray-400">
