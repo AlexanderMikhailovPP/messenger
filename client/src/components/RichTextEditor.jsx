@@ -1531,10 +1531,17 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     margin: 0 1px;
                 }
                 [contentEditable] .spoiler {
-                    background: #4b5563;
+                    background: linear-gradient(90deg, #6b7280 0%, #9ca3af 25%, #6b7280 50%, #9ca3af 75%, #6b7280 100%);
+                    background-size: 200% 100%;
+                    animation: spoiler-shimmer 2s linear infinite;
                     padding: 1px 4px;
                     border-radius: 3px;
-                    color: #e5e7eb;
+                    color: transparent;
+                    text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+                }
+                @keyframes spoiler-shimmer {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
                 }
             `}</style>
         </div>
