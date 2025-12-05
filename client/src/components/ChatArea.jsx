@@ -805,11 +805,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
 
     if (!currentChannel) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-[#2f3136] text-gray-400">
-                <div className="text-center">
-                    <Hash className="mx-auto mb-4" size={48} />
-                    <p className="text-xl">Select a channel to start messaging</p>
-                </div>
+            <div className="flex-1 flex items-center justify-center bg-[#1a1d21]">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
             </div>
         );
     }
