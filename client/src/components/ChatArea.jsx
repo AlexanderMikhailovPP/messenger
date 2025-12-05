@@ -1108,14 +1108,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                         >
                                             {/* Participant avatars - rounded square like rest of app */}
                                             {msg.thread_participants && msg.thread_participants.length > 0 && (
-                                                <div className="flex items-center">
-                                                    {msg.thread_participants.slice(0, 5).map((participant, idx) => (
-                                                        <div
-                                                            key={participant.id}
-                                                            style={{ marginLeft: idx > 0 ? '-4px' : '0', zIndex: 5 - idx }}
-                                                        >
-                                                            <UserAvatar user={participant} size="sm" />
-                                                        </div>
+                                                <div className="flex items-center gap-1">
+                                                    {msg.thread_participants.slice(0, 5).map((participant) => (
+                                                        <UserAvatar key={participant.id} user={participant} size="sm" />
                                                     ))}
                                                 </div>
                                             )}
