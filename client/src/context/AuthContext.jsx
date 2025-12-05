@@ -79,7 +79,8 @@ export const AuthProvider = ({ children }) => {
             const userData = {
                 id: res.data.id,
                 username: res.data.username,
-                avatar_url: res.data.avatar_url
+                avatar_url: res.data.avatar_url,
+                custom_status: res.data.custom_status
             };
 
             setUser(userData);

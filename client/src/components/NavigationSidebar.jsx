@@ -88,7 +88,20 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
         if (!user) return;
         try {
             const res = await axios.get(`/api/channels/dms/${user.id}`);
-            setDms(res.data);
+            let dmsList = res.data;
+
+            // Check if self-chat exists, if not create it
+            const hasSelfChat = dmsList.some(dm => dm.isSelfChat);
+            if (!hasSelfChat) {
+                // Create self-chat
+                const selfChatRes = await axios.post('/api/channels/dm', {
+                    currentUserId: user.id,
+                    targetUserId: user.id
+                });
+                dmsList = [{ ...selfChatRes.data, isSelfChat: true }, ...dmsList];
+            }
+
+            setDms(dmsList);
         } catch (error) {
             console.error('Failed to fetch DMs', error);
         }
@@ -331,6 +344,10 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                             <div className="space-y-[1px] mb-6">
                                 {dms.map((dm) => {
                                     const unread = unreadCounts[dm.id] || 0;
+                                    const isSelfChat = dm.isSelfChat;
+                                    // Get status emoji from customStatus
+                                    const statusEmoji = dm.customStatus?.match(/^(\p{Emoji})/u)?.[1];
+
                                     return (
                                         <button
                                             key={dm.id}
@@ -345,10 +362,16 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                                         avatar_url: dm.avatarUrl
                                                     }}
                                                     size="xs"
-                                                    showStatus={true}
+                                                    showStatus={!isSelfChat}
                                                     status={getUserStatus(dm.otherUserId)}
                                                 />
                                                 <span className="text-sm truncate">{dm.displayName || dm.name}</span>
+                                                {statusEmoji && (
+                                                    <span className="text-xs flex-shrink-0">{statusEmoji}</span>
+                                                )}
+                                                {isSelfChat && (
+                                                    <span className="text-xs text-gray-500 flex-shrink-0">you</span>
+                                                )}
                                             </div>
                                             {unread > 0 && (
                                                 <div className="flex-shrink-0 min-w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold px-1">

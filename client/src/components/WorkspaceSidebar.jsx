@@ -1,43 +1,70 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, LogOut } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ProfileModal from './ProfileModal';
+import ProfilePopup from './ProfilePopup';
+import SettingsModal from './SettingsModal';
 import UserAvatar from './UserAvatar';
 
 export default function WorkspaceSidebar() {
-    const { user, logout } = useAuth();
-    const [showProfile, setShowProfile] = useState(false);
+    const { user } = useAuth();
+    const [showProfilePopup, setShowProfilePopup] = useState(false);
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const avatarRef = useRef(null);
+
+    // Get status emoji for display next to avatar
+    const getStatusEmoji = () => {
+        if (user?.custom_status) {
+            const match = user.custom_status.match(/^(\p{Emoji})/u);
+            return match ? match[1] : null;
+        }
+        return null;
+    };
 
     return (
         <>
             <div className="w-[70px] h-screen bg-[#1a1d21] flex flex-col items-center py-4 border-r border-gray-700/50">
-
-
                 <nav className="flex-1 flex flex-col gap-4 w-full px-2">
                     <NavItem icon={<Home size={20} />} label="Home" active />
                 </nav>
 
-                <div className="mt-auto pb-4 flex flex-col items-center gap-4">
-                    <button
-                        onClick={logout}
-                        className="p-2 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors"
-                        title="Logout"
-                    >
-                        <LogOut size={20} />
-                    </button>
+                <div className="mt-auto pb-4 flex flex-col items-center gap-4 relative">
+                    <div className="relative" ref={avatarRef}>
+                        <button
+                            onClick={() => setShowProfilePopup(!showProfilePopup)}
+                            className="rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-blue-400 transition-colors relative"
+                            title="Profile Menu"
+                        >
+                            <UserAvatar user={user} size="lg" className="rounded-lg" />
+                        </button>
+                        {getStatusEmoji() && (
+                            <div className="absolute -bottom-1 -right-1 text-sm bg-[#1a1d21] rounded-full p-0.5">
+                                {getStatusEmoji()}
+                            </div>
+                        )}
+                    </div>
 
-                    <button
-                        onClick={() => setShowProfile(true)}
-                        className="rounded-lg overflow-hidden cursor-pointer border-2 border-transparent hover:border-blue-400 transition-colors"
-                        title="Edit Profile"
-                    >
-                        <UserAvatar user={user} size="lg" className="rounded-lg" />
-                    </button>
+                    {showProfilePopup && (
+                        <ProfilePopup
+                            isOpen={showProfilePopup}
+                            onClose={() => setShowProfilePopup(false)}
+                            onOpenProfile={() => setShowProfileModal(true)}
+                            onOpenSettings={() => setShowSettings(true)}
+                            anchorRef={avatarRef}
+                        />
+                    )}
                 </div>
             </div>
-            {showProfile && createPortal(
-                <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />,
+
+            {showProfileModal && createPortal(
+                <ProfileModal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} />,
+                document.body
+            )}
+
+            {showSettings && createPortal(
+                <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />,
                 document.body
             )}
         </>

@@ -127,7 +127,8 @@ router.post('/login', async (req, res) => {
             res.json({
                 id: user.id,
                 username: user.username,
-                avatar_url: user.avatar_url
+                avatar_url: user.avatar_url,
+                custom_status: user.custom_status
             });
         } else {
             res.status(401).json({ error: 'Invalid credentials' });

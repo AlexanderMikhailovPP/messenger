@@ -118,21 +118,30 @@ router.get('/dms/:userId', async (req, res) => {
         });
 
         // Enrich with other user's info
-        // We need to do this async now
         const enrichedChannels = await Promise.all(channels.map(async ch => {
             const parts = ch.name.split('_'); // dm, u1, u2
             const otherId = parts[1] == userId ? parts[2] : parts[1];
+            const isSelfChat = parts[1] == parts[2]; // Self-chat: dm_1_1
 
-            const userRes = await db.query('SELECT username, avatar_url FROM users WHERE id = ?', [otherId]);
+            const userRes = await db.query('SELECT username, avatar_url, custom_status FROM users WHERE id = ?', [otherId]);
             const otherUser = userRes.rows[0];
 
             return {
                 ...ch,
                 displayName: otherUser ? otherUser.username : 'Unknown User',
                 avatarUrl: otherUser ? otherUser.avatar_url : null,
-                otherUserId: otherId
+                otherUserId: otherId,
+                customStatus: otherUser ? otherUser.custom_status : null,
+                isSelfChat
             };
         }));
+
+        // Sort to put self-chat first
+        enrichedChannels.sort((a, b) => {
+            if (a.isSelfChat && !b.isSelfChat) return -1;
+            if (!a.isSelfChat && b.isSelfChat) return 1;
+            return 0;
+        });
 
         res.json(enrichedChannels);
     } catch (err) {

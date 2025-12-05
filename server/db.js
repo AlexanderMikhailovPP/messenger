@@ -94,6 +94,13 @@ const initDb = async () => {
       // Column likely already exists
     }
 
+    // Migration: Add custom_status column for user status (emoji + text)
+    try {
+      await db.query(`ALTER TABLE users ADD COLUMN custom_status ${textType}`);
+    } catch (error) {
+      // Column likely already exists
+    }
+
     // Migration: Add thread_id column for threading support
     try {
       await db.query(`ALTER TABLE messages ADD COLUMN thread_id INTEGER REFERENCES messages(id)`);

@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CallProvider, useCall } from './context/CallContext';
 import { OnlineStatusProvider } from './context/OnlineStatusContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -40,6 +41,7 @@ function GlobalIncomingCall() {
 function App() {
   return (
     <AuthProvider>
+      <ThemeProvider>
       <CallProvider>
         <OnlineStatusProvider>
         <Router>
@@ -78,6 +80,7 @@ function App() {
         </Router>
         </OnlineStatusProvider>
       </CallProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

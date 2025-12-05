@@ -61,7 +61,7 @@ router.get('/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
         const result = await db.query(
-            'SELECT id, username, avatar_url FROM users WHERE id = ?',
+            'SELECT id, username, avatar_url, custom_status FROM users WHERE id = ?',
             [userId]
         );
 
@@ -155,6 +155,29 @@ router.put('/profile', async (req, res) => {
             console.error('Profile update error:', err);
         }
         res.status(500).json({ error: 'Failed to update profile' });
+    }
+});
+
+// Update custom status
+router.put('/status', async (req, res) => {
+    const { custom_status } = req.body;
+    const userId = req.user.userId;
+
+    // Validate status length (emoji + text, max 100 chars)
+    if (custom_status && custom_status.length > 100) {
+        return res.status(400).json({ error: 'Status must be 100 characters or less' });
+    }
+
+    try {
+        await db.query(
+            'UPDATE users SET custom_status = ? WHERE id = ?',
+            [custom_status || null, userId]
+        );
+
+        res.json({ success: true, custom_status: custom_status || null });
+    } catch (err) {
+        console.error('Status update error:', err);
+        res.status(500).json({ error: 'Failed to update status' });
     }
 });
 
