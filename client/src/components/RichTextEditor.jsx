@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Check, Play, Pause, Trash2, Clock, ChevronDown } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Check, Play, Pause, Trash2, Clock, ChevronDown, EyeOff } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import QuickEmojiPicker from './QuickEmojiPicker';
@@ -30,7 +30,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         inOrderedList: false,
         inCodeBlock: false,
         inInlineCode: false,
-        inBlockquote: false
+        inBlockquote: false,
+        inSpoiler: false
     });
     const editorRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -138,7 +139,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             inOrderedList: false,
             inCodeBlock: false,
             inInlineCode: false,
-            inBlockquote: false
+            inBlockquote: false,
+            inSpoiler: false
         };
 
         // Check DOM ancestry for block-level elements
@@ -155,6 +157,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             if (tag === 'PRE') foundPre = true;
             if (tag === 'CODE') foundCode = true;
             if (tag === 'BLOCKQUOTE') newFormats.inBlockquote = true;
+            if (current.classList && current.classList.contains('spoiler')) newFormats.inSpoiler = true;
             current = current.parentElement;
         }
 
@@ -400,6 +403,66 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 newRange.setStart(blockquote, blockquote.childNodes.length);
             } else {
                 newRange.setStart(blockquote, 0);
+            }
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        }
+
+        editorRef.current?.focus();
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+        setTimeout(updateActiveFormats, 0);
+    };
+
+    const insertSpoiler = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+
+        // Check if already inside a spoiler - if so, unwrap it
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        let spoilerElement = null;
+
+        while (current && current !== editorRef.current) {
+            if (current.classList && current.classList.contains('spoiler')) {
+                spoilerElement = current;
+                break;
+            }
+            current = current.parentElement;
+        }
+
+        if (spoilerElement) {
+            // Unwrap: extract content and replace spoiler with it
+            const content = spoilerElement.textContent || '';
+            const textNode = document.createTextNode(content);
+            spoilerElement.parentNode.replaceChild(textNode, spoilerElement);
+
+            // Position cursor after the text
+            const newRange = document.createRange();
+            newRange.setStartAfter(textNode);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        } else {
+            // Create spoiler span
+            const selectedText = range.toString();
+            const spoiler = document.createElement('span');
+            spoiler.className = 'spoiler';
+            spoiler.textContent = selectedText || '\u200B'; // Zero-width space if empty
+
+            range.deleteContents();
+            range.insertNode(spoiler);
+
+            // Move cursor inside the spoiler
+            const newRange = document.createRange();
+            if (selectedText) {
+                newRange.setStart(spoiler, spoiler.childNodes.length);
+            } else {
+                newRange.setStart(spoiler, 0);
             }
             newRange.collapse(true);
             selection.removeAllRanges();
@@ -924,7 +987,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             document.execCommand('insertLineBreak');
         }
 
-        // Handle arrow keys to escape from inline code/formatting elements
+        // Handle arrow keys to escape from inline code/formatting elements and spoilers
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             const selection = window.getSelection();
             if (!selection.rangeCount) return;
@@ -932,14 +995,63 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             const range = selection.getRangeAt(0);
             const node = range.startContainer;
 
-            // Find if we're inside a code element
+            // Find if we're inside a code element or spoiler
             let codeElement = null;
+            let spoilerElement = null;
             let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
             while (current && current !== editorRef.current) {
                 if (current.tagName === 'CODE' && current.parentElement?.tagName !== 'PRE') {
                     codeElement = current;
                 }
+                if (current.classList && current.classList.contains('spoiler')) {
+                    spoilerElement = current;
+                }
                 current = current.parentElement;
+            }
+
+            // Handle spoiler element
+            if (spoilerElement) {
+                const textContent = spoilerElement.textContent || '';
+                const isAtStart = range.startOffset === 0 && node === spoilerElement.firstChild;
+                const isAtEnd = range.startOffset === textContent.length ||
+                    (node === spoilerElement.lastChild && range.startOffset === node.textContent?.length);
+
+                // Arrow Right at end - move cursor after the element
+                if (e.key === 'ArrowRight' && isAtEnd) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+
+                    if (!spoilerElement.nextSibling ||
+                        (spoilerElement.nextSibling.nodeType === Node.TEXT_NODE &&
+                         spoilerElement.nextSibling.textContent === '')) {
+                        const space = document.createTextNode('\u200B');
+                        spoilerElement.parentNode.insertBefore(space, spoilerElement.nextSibling);
+                    }
+
+                    newRange.setStartAfter(spoilerElement);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                    return;
+                }
+                // Arrow Left at start - move cursor before the element
+                else if (e.key === 'ArrowLeft' && isAtStart) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+
+                    if (!spoilerElement.previousSibling ||
+                        (spoilerElement.previousSibling.nodeType === Node.TEXT_NODE &&
+                         spoilerElement.previousSibling.textContent === '')) {
+                        const space = document.createTextNode('\u200B');
+                        spoilerElement.parentNode.insertBefore(space, spoilerElement);
+                    }
+
+                    newRange.setStartBefore(spoilerElement);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                    return;
+                }
             }
 
             // Handle code element
@@ -1009,6 +1121,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 <ToolbarButton onClick={insertCodeBlock} icon={<FileCode size={16} />} title="Code Block" isActive={activeFormats.inCodeBlock} />
                 <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<Code size={16} />} title="Inline Code" isActive={activeFormats.inInlineCode} />
                 <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Quote" isActive={activeFormats.inBlockquote} />
+                <ToolbarButton onClick={insertSpoiler} icon={<EyeOff size={16} />} title="Spoiler" isActive={activeFormats.inSpoiler} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
@@ -1416,6 +1529,12 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 [contentEditable] .mention-channel {
                     display: inline-block;
                     margin: 0 1px;
+                }
+                [contentEditable] .spoiler {
+                    background: #4b5563;
+                    padding: 1px 4px;
+                    border-radius: 3px;
+                    color: #e5e7eb;
                 }
             `}</style>
         </div>
