@@ -387,7 +387,7 @@ export default function SidebarHuddle() {
                 </div>
 
                 {/* Participants */}
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-3 mb-3">
                     {connectionStatus === 'connecting' ? (
                         /* Show loader while connecting */
                         <div className="flex items-center gap-2">
@@ -408,10 +408,10 @@ export default function SidebarHuddle() {
                                         <div
                                             key={participant.userId}
                                             className="relative"
-                                            style={{ marginLeft: index > 0 ? '-8px' : '0', zIndex: 10 - index }}
+                                            style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}
                                         >
                                             <div
-                                                className={`w-8 h-8 rounded-full overflow-hidden border-2 border-[#1a1d21] transition-all ${
+                                                className={`w-7 h-7 rounded-full overflow-hidden border-2 border-[#1a1d21] transition-all ${
                                                     participant.isSpeaking && !participant.isMuted
                                                         ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-[#1a1d21]'
                                                         : ''
@@ -426,14 +426,14 @@ export default function SidebarHuddle() {
                                                 ) : (
                                                     <UserAvatar
                                                         user={{ username: participant.username, avatar_url: participant.avatar_url }}
-                                                        size="md"
+                                                        size="sm"
                                                         rounded="rounded-full"
                                                     />
                                                 )}
                                             </div>
                                             {participant.isMuted && (
                                                 <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
-                                                    <MicOff size={10} className="text-red-400" />
+                                                    <MicOff size={8} className="text-red-400" />
                                                 </div>
                                             )}
                                         </div>
@@ -441,14 +441,14 @@ export default function SidebarHuddle() {
                                 })}
                                 {totalCount > 5 && (
                                     <div
-                                        className="w-8 h-8 rounded-full bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 border-2 border-[#1a1d21]"
-                                        style={{ marginLeft: '-8px' }}
+                                        className="w-7 h-7 rounded-full bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 border-2 border-[#1a1d21]"
+                                        style={{ marginLeft: '-6px' }}
                                     >
                                         +{totalCount - 5}
                                     </div>
                                 )}
                             </div>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-sm text-gray-400">
                                 {totalCount} {totalCount === 1 ? 'person' : 'people'}
                             </span>
                         </>
