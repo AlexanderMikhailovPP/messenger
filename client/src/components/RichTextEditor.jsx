@@ -1531,10 +1531,12 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     margin: 0 1px;
                 }
                 [contentEditable] .spoiler {
-                    background: #4b5563;
+                    background: #4b5563 !important;
                     padding: 1px 4px;
                     border-radius: 3px;
-                    color: #e5e7eb;
+                    color: #e5e7eb !important;
+                    text-shadow: none !important;
+                    filter: none !important;
                 }
             `}</style>
         </div>
