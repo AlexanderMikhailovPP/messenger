@@ -1112,10 +1112,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                                     {msg.thread_participants.slice(0, 5).map((participant, idx) => (
                                                         <div
                                                             key={participant.id}
-                                                            className="w-6 h-6 rounded-full overflow-hidden border-2 border-[#1a1d21]"
+                                                            className="border-2 border-[#1a1d21] rounded-full"
                                                             style={{ marginLeft: idx > 0 ? '-8px' : '0', zIndex: 5 - idx }}
                                                         >
-                                                            <UserAvatar user={participant} size="sm" />
+                                                            <UserAvatar user={participant} size="sm" rounded="rounded-full" />
                                                         </div>
                                                     ))}
                                                 </div>
