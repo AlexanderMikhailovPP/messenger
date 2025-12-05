@@ -28,7 +28,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         strikeThrough: false,
         inList: false,
         inOrderedList: false,
-        inCode: false,
+        inCodeBlock: false,
+        inInlineCode: false,
         inBlockquote: false
     });
     const editorRef = useRef(null);
@@ -135,7 +136,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             strikeThrough: document.queryCommandState('strikeThrough'),
             inList: false,
             inOrderedList: false,
-            inCode: false,
+            inCodeBlock: false,
+            inInlineCode: false,
             inBlockquote: false
         };
 
@@ -143,16 +145,27 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         const range = selection.getRangeAt(0);
         let node = range.startContainer;
         let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        let inPre = false;
 
         while (current && current !== editorRef.current) {
             const tag = current.tagName;
             if (tag === 'UL') newFormats.inList = true;
             if (tag === 'OL') newFormats.inOrderedList = true;
-            if (tag === 'CODE') newFormats.inCode = true;
-            if (tag === 'PRE') newFormats.inCode = true;
+            if (tag === 'PRE') inPre = true;
+            if (tag === 'CODE') {
+                // Inline code is CODE not inside PRE
+                // Code block is PRE > CODE
+                if (inPre) {
+                    newFormats.inCodeBlock = true;
+                } else {
+                    newFormats.inInlineCode = true;
+                }
+            }
             if (tag === 'BLOCKQUOTE') newFormats.inBlockquote = true;
             current = current.parentElement;
         }
+        // Also mark code block if we're inside PRE (even without CODE tag)
+        if (inPre) newFormats.inCodeBlock = true;
 
         setActiveFormats(newFormats);
     };
@@ -892,8 +905,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
-                <ToolbarButton onClick={insertCodeBlock} icon={<Code size={16} />} title="Code Block" isActive={activeFormats.inCode} />
-                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<FileCode size={16} />} title="Inline Code" isActive={activeFormats.inCode} />
+                <ToolbarButton onClick={insertCodeBlock} icon={<Code size={16} />} title="Code Block" isActive={activeFormats.inCodeBlock} />
+                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<FileCode size={16} />} title="Inline Code" isActive={activeFormats.inInlineCode} />
                 <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Quote" isActive={activeFormats.inBlockquote} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
