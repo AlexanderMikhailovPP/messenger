@@ -118,19 +118,31 @@ export const CallProvider = ({ children }) => {
     const speakingIntervalRef = useRef(null);
     const audioElementsRef = useRef({});
     const videoElementsRef = useRef({});
+    const remoteAudioContextsRef = useRef({}); // socketId -> { audioContext, analyser, interval }
     const pendingCandidatesRef = useRef({}); // Queue for ICE candidates before remote description
     const makingOfferRef = useRef({}); // Track if we're currently making an offer
     const ignoreOfferRef = useRef({}); // For polite peer handling
     const ringtoneRef = useRef(null); // Ringtone instance
 
+    // Cleanup function for remote speaking detection
+    const cleanupRemoteSpeakingDetection = useCallback((socketId) => {
+        const ctx = remoteAudioContextsRef.current[socketId];
+        if (ctx) {
+            if (ctx.interval) clearInterval(ctx.interval);
+            if (ctx.audioContext) ctx.audioContext.close().catch(() => {});
+            delete remoteAudioContextsRef.current[socketId];
+        }
+    }, []);
+
     // Cleanup function for audio elements
     const cleanupAudioElement = useCallback((socketId) => {
+        cleanupRemoteSpeakingDetection(socketId);
         if (audioElementsRef.current[socketId]) {
             audioElementsRef.current[socketId].srcObject = null;
             audioElementsRef.current[socketId].remove();
             delete audioElementsRef.current[socketId];
         }
-    }, []);
+    }, [cleanupRemoteSpeakingDetection]);
 
     // Create audio element for peer stream
     const createAudioElement = useCallback((socketId, stream) => {
@@ -148,6 +160,31 @@ export const CallProvider = ({ children }) => {
         audio.play().catch(err => {
             console.warn('Audio autoplay blocked:', err);
         });
+
+        // Setup speaking detection for remote participant
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            const interval = setInterval(() => {
+                analyser.getByteFrequencyData(dataArray);
+                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                const isSpeaking = average > SPEAKING_THRESHOLD * 255;
+
+                setParticipants(prev => prev.map(p =>
+                    p.socketId === socketId ? { ...p, isSpeaking } : p
+                ));
+            }, SPEAKING_CHECK_INTERVAL);
+
+            remoteAudioContextsRef.current[socketId] = { audioContext, analyser, interval };
+        } catch (err) {
+            console.error('Failed to setup remote speaking detection:', err);
+        }
     }, [cleanupAudioElement]);
 
     // Speaking detection setup

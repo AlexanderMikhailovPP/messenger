@@ -397,7 +397,7 @@ export default function SidebarHuddle() {
                     ) : (
                         <>
                             <div className="flex items-center">
-                                {participants.slice(0, 5).map((participant, index) => {
+                                {[...participants].sort((a, b) => a.username.localeCompare(b.username)).slice(0, 5).map((participant, index) => {
                                     const participantStreams = remoteStreams[participant.socketId] || {};
                                     const videoStream = participant.isCurrentUser
                                         ? (isVideoOn ? localStream : null)
@@ -411,11 +411,12 @@ export default function SidebarHuddle() {
                                             style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}
                                         >
                                             <div
-                                                className={`w-7 h-7 rounded-lg overflow-hidden transition-all ${
-                                                    participant.isSpeaking && !participant.isMuted
-                                                        ? 'outline outline-2 outline-green-500 outline-offset-1'
-                                                        : 'border-2 border-[#1a1d21]'
-                                                }`}
+                                                className="w-7 h-7 rounded-lg overflow-hidden transition-all"
+                                                style={{
+                                                    boxShadow: participant.isSpeaking && !participant.isMuted
+                                                        ? '0 0 0 2px #22c55e, 0 0 0 3px #1a1d21'
+                                                        : '0 0 0 2px #1a1d21'
+                                                }}
                                             >
                                                 {hasVideo && videoStream ? (
                                                     <ParticipantVideo
