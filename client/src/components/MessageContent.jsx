@@ -1,6 +1,25 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import SpoilerText from './SpoilerText';
 import { sanitizeHTML } from '../utils/sanitize';
+
+/**
+ * Wrapper component for individual spoiler that manages its own revealed state
+ */
+function SpoilerWrapper({ children, spoilerId }) {
+    const [revealed, setRevealed] = useState(false);
+
+    const handleClick = useCallback((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setRevealed(true);
+    }, []);
+
+    return (
+        <SpoilerText revealed={revealed} onClick={handleClick}>
+            {children}
+        </SpoilerText>
+    );
+}
 
 /**
  * Renders message content with React components for special elements like spoilers
@@ -47,9 +66,9 @@ export default function MessageContent({ html, className = '' }) {
             }
 
             parts.push(
-                <SpoilerText key={`spoiler-${index}`}>
+                <SpoilerWrapper key={`spoiler-${index}`} spoilerId={spoilerId}>
                     {spoilerContent}
-                </SpoilerText>
+                </SpoilerWrapper>
             );
 
             lastIndex = processedHtml.indexOf(spoilerHtml, lastIndex) + spoilerHtml.length;
