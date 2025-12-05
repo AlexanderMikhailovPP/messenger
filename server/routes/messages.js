@@ -130,7 +130,24 @@ router.get('/:channelId', async (req, res) => {
             WHERE m.channel_id = ? AND m.thread_id IS NULL
             ORDER BY m.id ASC
         `, [channelId]);
-        res.json(result.rows);
+
+        // For messages with threads, fetch unique participants (up to 5)
+        const messagesWithParticipants = await Promise.all(result.rows.map(async (msg) => {
+            if (msg.reply_count > 0) {
+                const participantsResult = await db.query(`
+                    SELECT DISTINCT u.id, u.username, u.avatar_url
+                    FROM messages m
+                    JOIN users u ON m.user_id = u.id
+                    WHERE m.thread_id = ?
+                    ORDER BY m.id ASC
+                    LIMIT 5
+                `, [msg.id]);
+                return { ...msg, thread_participants: participantsResult.rows };
+            }
+            return msg;
+        }));
+
+        res.json(messagesWithParticipants);
     } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
             console.error(`Error fetching messages for channel ${channelId}:`, err);

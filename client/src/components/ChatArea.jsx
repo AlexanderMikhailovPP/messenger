@@ -16,6 +16,24 @@ import { markAsRead, incrementUnread, notifyNewDM } from '../utils/unreadCounter
 import { getDraft, saveDraft, deleteDraft } from '../utils/drafts';
 import UserAvatar from './UserAvatar';
 
+// Helper function for relative time (e.g., "7 days ago")
+const formatRelativeTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) return 'just now';
+    if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    if (diffDays < 30) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+    return date.toLocaleDateString();
+};
+
 export default function ChatArea({ currentChannel, setCurrentChannel, onBack, isMobile }) {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
@@ -1082,14 +1100,36 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                         </div>
                                     )}
 
-                                    {/* Thread replies indicator */}
+                                    {/* Thread replies indicator - Slack style */}
                                     {msg.reply_count > 0 && (
                                         <button
                                             onClick={() => setActiveThread(msg)}
-                                            className="flex items-center gap-2 mt-1 text-[#00a8fc] hover:underline text-sm"
+                                            className="thread-preview flex items-center gap-2 mt-2 py-1 px-1 -ml-1 rounded hover:bg-gray-800/30 transition-colors group/thread"
                                         >
-                                            <MessageSquare size={14} />
-                                            <span>{msg.reply_count} {msg.reply_count === 1 ? 'reply' : 'replies'}</span>
+                                            {/* Participant avatars */}
+                                            {msg.thread_participants && msg.thread_participants.length > 0 && (
+                                                <div className="thread-avatars flex items-center">
+                                                    {msg.thread_participants.slice(0, 5).map((participant, idx) => (
+                                                        <div
+                                                            key={participant.id}
+                                                            className="w-6 h-6 rounded-full overflow-hidden border-2 border-[#1a1d21]"
+                                                            style={{ marginLeft: idx > 0 ? '-8px' : '0', zIndex: 5 - idx }}
+                                                        >
+                                                            <UserAvatar user={participant} size="sm" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {/* Reply count */}
+                                            <span className="text-[#1d9bd1] text-sm font-medium group-hover/thread:underline">
+                                                {msg.reply_count} {msg.reply_count === 1 ? 'reply' : 'replies'}
+                                            </span>
+                                            {/* Last reply time */}
+                                            {msg.last_reply_at && (
+                                                <span className="text-gray-500 text-xs">
+                                                    Last reply {formatRelativeTime(msg.last_reply_at)}
+                                                </span>
+                                            )}
                                         </button>
                                     )}
                                 </div>

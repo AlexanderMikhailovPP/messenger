@@ -412,3 +412,169 @@ header,
 .voice-message {
     margin: 4px 0;
 }
+
+/* ============================================
+   EXTENDED LIGHT THEME STYLES
+   ============================================ */
+
+/* Input fields */
+html.light-theme input,
+html.light-theme textarea {
+    background-color: #ffffff !important;
+    color: #1a1a1a !important;
+    border-color: #d1d5db !important;
+}
+
+html.light-theme input::placeholder,
+html.light-theme textarea::placeholder {
+    color: #9ca3af !important;
+}
+
+html.light-theme input:focus,
+html.light-theme textarea:focus {
+    border-color: #3b82f6 !important;
+}
+
+/* Buttons */
+html.light-theme .hover\:bg-\[\#2e3136\]:hover {
+    background-color: #e5e7eb !important;
+}
+
+html.light-theme .hover\:bg-\[\#3e4147\]:hover {
+    background-color: #d1d5db !important;
+}
+
+html.light-theme .bg-\[\#3e4147\] {
+    background-color: #d1d5db !important;
+}
+
+/* Online status indicator - keep colors visible in light theme */
+html.light-theme .bg-green-500 {
+    background-color: #22c55e !important;
+}
+
+html.light-theme .bg-yellow-500 {
+    background-color: #eab308 !important;
+}
+
+html.light-theme .bg-red-500 {
+    background-color: #ef4444 !important;
+}
+
+/* Message hover and selection */
+html.light-theme .hover\:bg-gray-800\/50:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light-theme .bg-gray-800\/50 {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Sidebar navigation items */
+html.light-theme .hover\:bg-gray-800:hover {
+    background-color: #e5e7eb !important;
+}
+
+/* Modal backgrounds */
+html.light-theme .bg-black\/70 {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+html.light-theme .bg-black\/60 {
+    background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Dropdown and popup backgrounds */
+html.light-theme .bg-gray-800 {
+    background-color: #f3f4f6 !important;
+}
+
+html.light-theme .bg-gray-900 {
+    background-color: #ffffff !important;
+}
+
+/* Borders */
+html.light-theme .border-gray-600 {
+    border-color: #d1d5db !important;
+}
+
+html.light-theme .border-gray-800 {
+    border-color: #e5e7eb !important;
+}
+
+/* Emoji picker and reaction backgrounds */
+html.light-theme .bg-gray-700 {
+    background-color: #e5e7eb !important;
+}
+
+html.light-theme .hover\:bg-gray-700:hover {
+    background-color: #d1d5db !important;
+}
+
+/* Text colors for specific elements */
+html.light-theme .text-gray-100 {
+    color: #1f2937 !important;
+}
+
+/* Profile popup status indicator border */
+html.light-theme .border-\[\#1a1d21\] {
+    border-color: #ffffff !important;
+}
+
+/* Reaction badges */
+html.light-theme .bg-blue-500\/20 {
+    background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+html.light-theme .bg-gray-700\/50 {
+    background-color: rgba(209, 213, 219, 0.5) !important;
+}
+
+/* Message input area */
+html.light-theme .bg-\[\#40444b\] {
+    background-color: #f3f4f6 !important;
+}
+
+/* Attachment file background */
+html.light-theme .attachment-file a {
+    background: #e5e7eb;
+    color: #3b82f6;
+}
+
+html.light-theme .attachment-file a:hover {
+    background: #d1d5db;
+}
+
+/* Links */
+html.light-theme .text-blue-400 {
+    color: #2563eb !important;
+}
+
+html.light-theme .hover\:text-blue-300:hover {
+    color: #3b82f6 !important;
+}
+
+/* Thread preview styling */
+.thread-avatars {
+    display: flex;
+    align-items: center;
+}
+
+.thread-avatars > * {
+    margin-left: -8px;
+    border: 2px solid var(--bg-primary);
+    border-radius: 50%;
+}
+
+.thread-avatars > *:first-child {
+    margin-left: 0;
+}
+
+/* Thread preview container */
+html.light-theme .thread-preview {
+    background-color: transparent !important;
+}
+
+html.light-theme .thread-preview:hover {
+    background-color: rgba(0, 0, 0, 0.03) !important;
+}

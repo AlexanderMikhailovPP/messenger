@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, Smile, X } from 'lucide-react';
+import { User, Settings, LogOut, Smile, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOnlineStatus } from '../context/OnlineStatusContext';
 import UserAvatar from './UserAvatar';
@@ -14,6 +14,7 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
     const [statusText, setStatusText] = useState('');
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const popupRef = useRef(null);
 
     // Parse existing status
@@ -229,16 +230,50 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
                 </button>
                 <div className="my-1 border-t border-gray-700/50" />
                 <button
-                    onClick={() => {
-                        logout();
-                        onClose();
-                    }}
+                    onClick={() => setShowLogoutConfirm(true)}
                     className="w-full flex items-center gap-3 px-3 py-2 hover:bg-red-500/20 rounded-lg text-red-400 hover:text-red-300 transition-colors"
                 >
                     <LogOut size={18} />
                     <span className="text-sm">Log Out</span>
                 </button>
             </div>
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[200]" onClick={() => setShowLogoutConfirm(false)}>
+                    <div
+                        className="bg-[#1f2225] border border-gray-700 rounded-lg p-6 w-80 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-red-500/20 rounded-full flex items-center justify-center">
+                                <AlertTriangle size={20} className="text-red-400" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white">Log Out</h3>
+                        </div>
+                        <p className="text-gray-400 text-sm mb-6">
+                            Are you sure you want to log out?
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    logout();
+                                    onClose();
+                                }}
+                                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                            >
+                                Log Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
