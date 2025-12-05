@@ -370,14 +370,19 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
     // Handle spoiler click to reveal content
     useEffect(() => {
         const handleSpoilerClick = (e) => {
+            // Check if clicked element or its parent is a spoiler
             const target = e.target.closest('.spoiler');
-            if (target) {
+            if (target && !target.closest('[contenteditable="true"]')) {
+                // Don't toggle in editor, only in messages
+                e.preventDefault();
+                e.stopPropagation();
                 target.classList.toggle('revealed');
             }
         };
 
-        document.addEventListener('click', handleSpoilerClick);
-        return () => document.removeEventListener('click', handleSpoilerClick);
+        // Use capture phase to ensure we get the event first
+        document.addEventListener('click', handleSpoilerClick, true);
+        return () => document.removeEventListener('click', handleSpoilerClick, true);
     }, []);
 
 

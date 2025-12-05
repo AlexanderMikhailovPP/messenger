@@ -147,28 +147,28 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         const range = selection.getRangeAt(0);
         let node = range.startContainer;
         let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-        let inPre = false;
+        let foundPre = false;
+        let foundCode = false;
 
         while (current && current !== editorRef.current) {
             const tag = current.tagName;
             if (tag === 'UL') newFormats.inList = true;
             if (tag === 'OL') newFormats.inOrderedList = true;
-            if (tag === 'PRE') inPre = true;
-            if (tag === 'CODE') {
-                // Inline code is CODE not inside PRE
-                // Code block is PRE > CODE
-                if (inPre) {
-                    newFormats.inCodeBlock = true;
-                } else {
-                    newFormats.inInlineCode = true;
-                }
-            }
+            if (tag === 'PRE') foundPre = true;
+            if (tag === 'CODE') foundCode = true;
             if (tag === 'BLOCKQUOTE') newFormats.inBlockquote = true;
             if (current.classList && current.classList.contains('spoiler')) newFormats.inSpoiler = true;
             current = current.parentElement;
         }
-        // Also mark code block if we're inside PRE (even without CODE tag)
-        if (inPre) newFormats.inCodeBlock = true;
+
+        // Code block is PRE (with or without CODE inside)
+        // Inline code is CODE that is NOT inside PRE
+        if (foundPre) {
+            newFormats.inCodeBlock = true;
+            // If inside PRE, it's NOT inline code even if CODE tag exists
+        } else if (foundCode) {
+            newFormats.inInlineCode = true;
+        }
 
         setActiveFormats(newFormats);
     };
