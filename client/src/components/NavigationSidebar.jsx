@@ -159,7 +159,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
     };
 
     return (
-        <div className={`w-full ${isMobile ? 'bg-[#1a1d21]' : 'md:w-[260px] bg-[#1f2225] border-r border-gray-700/50'} text-[#9ca3af] flex flex-col h-full`}>
+        <div className={`w-full ${isMobile ? 'bg-[#1a1d21]' : 'md:w-[280px] bg-[#1f2225] border-r border-gray-700/50'} text-[#9ca3af] flex flex-col h-full`}>
             {/* Header */}
             {isMobile && (
                 <div className="h-14 px-4 flex items-center gap-3 border-b border-gray-800 bg-[#1a1d21]">

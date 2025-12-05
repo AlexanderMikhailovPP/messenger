@@ -423,28 +423,20 @@ export default function SidebarHuddle() {
                                             className="relative"
                                             style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}
                                         >
-                                            <div
-                                                className={`w-7 h-7 rounded-lg transition-all ${
-                                                    participant.isSpeaking && !participant.isMuted
-                                                        ? 'ring-2 ring-green-500'
-                                                        : ''
-                                                }`}
-                                            >
-                                                <div className="w-full h-full rounded-lg overflow-hidden border-2 border-[#1a1d21]">
-                                                    {hasVideo && videoStream ? (
-                                                        <ParticipantVideo
-                                                            stream={videoStream}
-                                                            isLocal={participant.isCurrentUser}
-                                                            small
-                                                        />
-                                                    ) : (
-                                                        <UserAvatar
-                                                            user={{ username: participant.username, avatar_url: participant.avatar_url }}
-                                                            size="sm"
-                                                            rounded="rounded-lg"
-                                                        />
-                                                    )}
-                                                </div>
+                                            <div className="w-7 h-7 rounded-lg overflow-hidden border-2 border-[#1a1d21]">
+                                                {hasVideo && videoStream ? (
+                                                    <ParticipantVideo
+                                                        stream={videoStream}
+                                                        isLocal={participant.isCurrentUser}
+                                                        small
+                                                    />
+                                                ) : (
+                                                    <UserAvatar
+                                                        user={{ username: participant.username, avatar_url: participant.avatar_url }}
+                                                        size="sm"
+                                                        rounded="rounded-lg"
+                                                    />
+                                                )}
                                             </div>
                                             {participant.isMuted && (
                                                 <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
