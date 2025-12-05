@@ -16,7 +16,6 @@ import { markAsRead, incrementUnread, notifyNewDM } from '../utils/unreadCounter
 import { getDraft, saveDraft, deleteDraft } from '../utils/drafts';
 import UserAvatar from './UserAvatar';
 import StatusEmoji from './StatusEmoji';
-import MessageContent from './MessageContent';
 
 // Helper function for relative time (e.g., "7 days ago")
 const formatRelativeTime = (dateString) => {
@@ -368,23 +367,6 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Handle spoiler click to reveal content
-    useEffect(() => {
-        const handleSpoilerClick = (e) => {
-            // Check if clicked element or its parent is a spoiler
-            const target = e.target.closest('.spoiler');
-            if (target && !target.closest('[contenteditable="true"]')) {
-                // Don't toggle in editor, only in messages
-                e.preventDefault();
-                e.stopPropagation();
-                target.classList.toggle('revealed');
-            }
-        };
-
-        // Use capture phase to ensure we get the event first
-        document.addEventListener('click', handleSpoilerClick, true);
-        return () => document.removeEventListener('click', handleSpoilerClick, true);
-    }, []);
 
 
     const fetchUserInfo = async (userId, position) => {
@@ -1065,9 +1047,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             <span className="text-sm text-gray-400">Huddle ended</span>
                                         </div>
                                     ) : (
-                                        <MessageContent
-                                            html={msg.content}
+                                        <div
                                             className="text-[15px] text-gray-300 leading-relaxed break-words"
+                                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
                                         />
                                     )}
 
