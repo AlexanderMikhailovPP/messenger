@@ -411,10 +411,10 @@ export default function SidebarHuddle() {
                                             style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}
                                         >
                                             <div
-                                                className={`w-7 h-7 rounded-lg overflow-hidden border-2 border-[#1a1d21] transition-all ${
+                                                className={`w-7 h-7 rounded-lg overflow-hidden transition-all ${
                                                     participant.isSpeaking && !participant.isMuted
-                                                        ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-[#1a1d21]'
-                                                        : ''
+                                                        ? 'outline outline-2 outline-green-500 outline-offset-1'
+                                                        : 'border-2 border-[#1a1d21]'
                                                 }`}
                                             >
                                                 {hasVideo && videoStream ? (
