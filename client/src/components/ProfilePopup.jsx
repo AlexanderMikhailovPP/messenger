@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useOnlineStatus } from '../context/OnlineStatusContext';
 import UserAvatar from './UserAvatar';
 import axios from 'axios';
-import EmojiPicker from 'emoji-picker-react';
+import EmojiPicker, { EmojiStyle } from 'emoji-picker-react';
 
 export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSettings, anchorRef }) {
     const { user, updateUser, logout } = useAuth();
@@ -299,6 +299,7 @@ export default function ProfilePopup({ isOpen, onClose, onOpenProfile, onOpenSet
                         theme="dark"
                         width={280}
                         height={350}
+                        emojiStyle={EmojiStyle.NATIVE}
                     />
                 </div>,
                 document.body
