@@ -104,6 +104,7 @@ export const CallProvider = ({ children }) => {
     const [participants, setParticipants] = useState([]);
     const [connectionStatus, setConnectionStatus] = useState('disconnected');
     const [remoteStreams, setRemoteStreams] = useState({}); // socketId -> { video: stream, screen: stream }
+    const [isHuddleFullscreen, setHuddleFullscreen] = useState(false);
 
     const peersRef = useRef({});
     const localStreamRef = useRef(null);
@@ -1322,7 +1323,9 @@ export const CallProvider = ({ children }) => {
             acceptIncomingCall,
             declineIncomingCall,
             participants,
-            connectionStatus
+            connectionStatus,
+            isHuddleFullscreen,
+            setHuddleFullscreen
         }}>
             {children}
         </CallContext.Provider>

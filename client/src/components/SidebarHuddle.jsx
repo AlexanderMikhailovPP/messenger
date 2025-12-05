@@ -18,10 +18,10 @@ export default function SidebarHuddle() {
         localScreenStream,
         remoteStreams,
         activeChannelInfo,
-        connectionStatus
+        connectionStatus,
+        isHuddleFullscreen: isFullscreen,
+        setHuddleFullscreen: setIsFullscreen
     } = useCall();
-
-    const [isFullscreen, setIsFullscreen] = useState(false);
     const [expandedTile, setExpandedTile] = useState(null); // { type: 'video' | 'screen', id: string }
     const [callDuration, setCallDuration] = useState(0);
     const localVideoRef = useRef(null);

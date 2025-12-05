@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 
 export default function ThreadPanel({ parentMessage, channelName, onClose, setCurrentChannel }) {
     const { user } = useAuth();
-    const { joinCall } = useCall();
+    const { joinCall, isHuddleFullscreen } = useCall();
     const [replies, setReplies] = useState([]);
     const [newReply, setNewReply] = useState('');
     const [loading, setLoading] = useState(true);
@@ -795,8 +795,8 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
                 </div>
             )}
 
-            {/* User Mention Popup */}
-            {mentionPopup && (
+            {/* User Mention Popup - hide when huddle is fullscreen */}
+            {mentionPopup && !isHuddleFullscreen && (
                 <UserMentionPopup
                     user={mentionPopup.user}
                     position={mentionPopup.position}
