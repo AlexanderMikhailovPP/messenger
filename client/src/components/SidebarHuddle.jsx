@@ -423,20 +423,23 @@ export default function SidebarHuddle() {
                                             className="relative"
                                             style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}
                                         >
-                                            <div className="w-7 h-7 rounded-lg overflow-hidden border-2 border-[#1a1d21]">
-                                                {hasVideo && videoStream ? (
-                                                    <ParticipantVideo
-                                                        stream={videoStream}
-                                                        isLocal={participant.isCurrentUser}
-                                                        small
-                                                    />
-                                                ) : (
-                                                    <UserAvatar
-                                                        user={{ username: participant.username, avatar_url: participant.avatar_url }}
-                                                        size="sm"
-                                                        rounded="rounded-lg"
-                                                    />
-                                                )}
+                                            {/* Outer container with background for border effect */}
+                                            <div className="w-8 h-8 rounded-lg bg-[#1a1d21] p-0.5">
+                                                <div className="w-full h-full rounded-md overflow-hidden">
+                                                    {hasVideo && videoStream ? (
+                                                        <ParticipantVideo
+                                                            stream={videoStream}
+                                                            isLocal={participant.isCurrentUser}
+                                                            small
+                                                        />
+                                                    ) : (
+                                                        <UserAvatar
+                                                            user={{ username: participant.username, avatar_url: participant.avatar_url }}
+                                                            size="sm"
+                                                            rounded="rounded-md"
+                                                        />
+                                                    )}
+                                                </div>
                                             </div>
                                             {participant.isMuted && (
                                                 <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
@@ -448,10 +451,12 @@ export default function SidebarHuddle() {
                                 })}
                                 {totalCount > 5 && (
                                     <div
-                                        className="w-7 h-7 rounded-lg bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 border-2 border-[#1a1d21]"
+                                        className="w-8 h-8 rounded-lg bg-[#1a1d21] p-0.5"
                                         style={{ marginLeft: '-6px' }}
                                     >
-                                        +{totalCount - 5}
+                                        <div className="w-full h-full rounded-md bg-[#2e3136] flex items-center justify-center text-xs text-gray-400">
+                                            +{totalCount - 5}
+                                        </div>
                                     </div>
                                 )}
                             </div>
