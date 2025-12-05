@@ -124,15 +124,6 @@ export default function SpoilerText({ children }) {
                     opacity: revealed ? 0 : 1,
                 }}
             />
-            {!revealed && (
-                <span
-                    className="absolute inset-0 rounded transition-opacity duration-700"
-                    style={{
-                        background: 'rgba(120, 120, 140, 0.15)',
-                        opacity: 1,
-                    }}
-                />
-            )}
         </span>
     );
 }
