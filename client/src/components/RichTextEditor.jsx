@@ -198,39 +198,86 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         if (!selection.rangeCount) return;
 
         const range = selection.getRangeAt(0);
-        const selectedText = range.toString();
 
-        if (selectedText) {
-            // Wrap selected text with tag
-            const wrapper = document.createElement(tagName);
-            wrapper.textContent = selectedText;
-            range.deleteContents();
-            range.insertNode(wrapper);
+        // Check if already inside this tag type (for inline code) - if so, unwrap
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        let existingWrapper = null;
 
-            // Move cursor after the wrapper
+        while (current && current !== editorRef.current) {
+            // For inline code, check CODE that's NOT inside PRE
+            if (current.tagName === tagName.toUpperCase()) {
+                if (tagName.toLowerCase() === 'code') {
+                    // Make sure it's not inside PRE (code block)
+                    let parent = current.parentElement;
+                    let inPre = false;
+                    while (parent && parent !== editorRef.current) {
+                        if (parent.tagName === 'PRE') {
+                            inPre = true;
+                            break;
+                        }
+                        parent = parent.parentElement;
+                    }
+                    if (!inPre) {
+                        existingWrapper = current;
+                        break;
+                    }
+                } else {
+                    existingWrapper = current;
+                    break;
+                }
+            }
+            current = current.parentElement;
+        }
+
+        if (existingWrapper) {
+            // Unwrap: extract content and replace wrapper with it
+            const content = existingWrapper.textContent || '';
+            const textNode = document.createTextNode(content);
+            existingWrapper.parentNode.replaceChild(textNode, existingWrapper);
+
+            // Position cursor after the text
             const newRange = document.createRange();
-            newRange.setStartAfter(wrapper);
+            newRange.setStartAfter(textNode);
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
         } else {
-            // No selection - insert placeholder
-            const wrapper = document.createElement(tagName);
-            wrapper.innerHTML = '&#8203;'; // Zero-width space
-            range.insertNode(wrapper);
+            const selectedText = range.toString();
 
-            // Move cursor inside the wrapper
-            const newRange = document.createRange();
-            newRange.selectNodeContents(wrapper);
-            newRange.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
+            if (selectedText) {
+                // Wrap selected text with tag
+                const wrapper = document.createElement(tagName);
+                wrapper.textContent = selectedText;
+                range.deleteContents();
+                range.insertNode(wrapper);
+
+                // Move cursor after the wrapper
+                const newRange = document.createRange();
+                newRange.setStartAfter(wrapper);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            } else {
+                // No selection - insert placeholder
+                const wrapper = document.createElement(tagName);
+                wrapper.innerHTML = '&#8203;'; // Zero-width space
+                range.insertNode(wrapper);
+
+                // Move cursor inside the wrapper
+                const newRange = document.createRange();
+                newRange.selectNodeContents(wrapper);
+                newRange.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            }
         }
 
         editorRef.current?.focus();
         if (editorRef.current) {
             onChange(editorRef.current.innerHTML);
         }
+        setTimeout(updateActiveFormats, 0);
     };
 
     const insertCodeBlock = () => {
@@ -238,34 +285,60 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         if (!selection.rangeCount) return;
 
         const range = selection.getRangeAt(0);
-        const selectedText = range.toString();
 
-        // Create pre > code structure
-        const pre = document.createElement('pre');
-        const code = document.createElement('code');
-        code.textContent = selectedText || '\u200B'; // Zero-width space if empty
-        pre.appendChild(code);
+        // Check if already inside a code block (PRE) - if so, unwrap it
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        let preElement = null;
 
-        range.deleteContents();
-        range.insertNode(pre);
-
-        // Move cursor inside the code block
-        const newRange = document.createRange();
-        if (selectedText) {
-            // If there was selected text, place cursor at the end
-            newRange.setStart(code, code.childNodes.length);
-        } else {
-            // If empty, place cursor at start (before zero-width space)
-            newRange.setStart(code, 0);
+        while (current && current !== editorRef.current) {
+            if (current.tagName === 'PRE') {
+                preElement = current;
+                break;
+            }
+            current = current.parentElement;
         }
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
+
+        if (preElement) {
+            // Unwrap: extract content and replace PRE with it
+            const content = preElement.textContent || '';
+            const textNode = document.createTextNode(content);
+            preElement.parentNode.replaceChild(textNode, preElement);
+
+            // Position cursor after the text
+            const newRange = document.createRange();
+            newRange.setStartAfter(textNode);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        } else {
+            // Create pre > code structure
+            const selectedText = range.toString();
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            code.textContent = selectedText || '\u200B'; // Zero-width space if empty
+            pre.appendChild(code);
+
+            range.deleteContents();
+            range.insertNode(pre);
+
+            // Move cursor inside the code block
+            const newRange = document.createRange();
+            if (selectedText) {
+                newRange.setStart(code, code.childNodes.length);
+            } else {
+                newRange.setStart(code, 0);
+            }
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        }
 
         editorRef.current?.focus();
         if (editorRef.current) {
             onChange(editorRef.current.innerHTML);
         }
+        setTimeout(updateActiveFormats, 0);
     };
 
     const insertLink = () => {
@@ -286,30 +359,58 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         if (!selection.rangeCount) return;
 
         const range = selection.getRangeAt(0);
-        const selectedText = range.toString();
 
-        // Create blockquote element
-        const blockquote = document.createElement('blockquote');
-        blockquote.textContent = selectedText || '\u200B'; // Zero-width space if empty
+        // Check if already inside a blockquote - if so, unwrap it
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        let blockquoteElement = null;
 
-        range.deleteContents();
-        range.insertNode(blockquote);
-
-        // Move cursor inside the blockquote
-        const newRange = document.createRange();
-        if (selectedText) {
-            newRange.setStart(blockquote, blockquote.childNodes.length);
-        } else {
-            newRange.setStart(blockquote, 0);
+        while (current && current !== editorRef.current) {
+            if (current.tagName === 'BLOCKQUOTE') {
+                blockquoteElement = current;
+                break;
+            }
+            current = current.parentElement;
         }
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
+
+        if (blockquoteElement) {
+            // Unwrap: extract content and replace blockquote with it
+            const content = blockquoteElement.textContent || '';
+            const textNode = document.createTextNode(content);
+            blockquoteElement.parentNode.replaceChild(textNode, blockquoteElement);
+
+            // Position cursor after the text
+            const newRange = document.createRange();
+            newRange.setStartAfter(textNode);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        } else {
+            // Create blockquote element
+            const selectedText = range.toString();
+            const blockquote = document.createElement('blockquote');
+            blockquote.textContent = selectedText || '\u200B'; // Zero-width space if empty
+
+            range.deleteContents();
+            range.insertNode(blockquote);
+
+            // Move cursor inside the blockquote
+            const newRange = document.createRange();
+            if (selectedText) {
+                newRange.setStart(blockquote, blockquote.childNodes.length);
+            } else {
+                newRange.setStart(blockquote, 0);
+            }
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        }
 
         editorRef.current?.focus();
         if (editorRef.current) {
             onChange(editorRef.current.innerHTML);
         }
+        setTimeout(updateActiveFormats, 0);
     };
 
     // Save current selection/caret position
