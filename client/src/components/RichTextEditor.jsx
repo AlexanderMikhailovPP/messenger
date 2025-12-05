@@ -21,6 +21,16 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const [showCustomSchedule, setShowCustomSchedule] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
+    const [activeFormats, setActiveFormats] = useState({
+        bold: false,
+        italic: false,
+        underline: false,
+        strikeThrough: false,
+        inList: false,
+        inOrderedList: false,
+        inCode: false,
+        inBlockquote: false
+    });
     const editorRef = useRef(null);
     const fileInputRef = useRef(null);
     const mediaRecorderRef = useRef(null);
@@ -112,6 +122,53 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
     }, [value]);
 
+    // Update active format states based on current selection
+    const updateActiveFormats = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount || !editorRef.current) return;
+
+        // Use queryCommandState for basic formatting
+        const newFormats = {
+            bold: document.queryCommandState('bold'),
+            italic: document.queryCommandState('italic'),
+            underline: document.queryCommandState('underline'),
+            strikeThrough: document.queryCommandState('strikeThrough'),
+            inList: false,
+            inOrderedList: false,
+            inCode: false,
+            inBlockquote: false
+        };
+
+        // Check DOM ancestry for block-level elements
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+
+        while (current && current !== editorRef.current) {
+            const tag = current.tagName;
+            if (tag === 'UL') newFormats.inList = true;
+            if (tag === 'OL') newFormats.inOrderedList = true;
+            if (tag === 'CODE') newFormats.inCode = true;
+            if (tag === 'PRE') newFormats.inCode = true;
+            if (tag === 'BLOCKQUOTE') newFormats.inBlockquote = true;
+            current = current.parentElement;
+        }
+
+        setActiveFormats(newFormats);
+    };
+
+    // Listen for selection changes
+    useEffect(() => {
+        const handleSelectionChange = () => {
+            if (document.activeElement === editorRef.current) {
+                updateActiveFormats();
+            }
+        };
+
+        document.addEventListener('selectionchange', handleSelectionChange);
+        return () => document.removeEventListener('selectionchange', handleSelectionChange);
+    }, []);
+
     const applyFormat = (command, value = null) => {
         document.execCommand(command, false, value);
         editorRef.current?.focus();
@@ -119,6 +176,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         if (editorRef.current) {
             onChange(editorRef.current.innerHTML);
         }
+        // Update active formats after applying
+        setTimeout(updateActiveFormats, 0);
     };
 
     const wrapSelectionWithTag = (tagName) => {
@@ -199,7 +258,12 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const insertLink = () => {
         const url = prompt('Enter URL:');
         if (url) {
-            applyFormat('createLink', url);
+            // Ensure URL has protocol, otherwise add https://
+            let fullUrl = url.trim();
+            if (fullUrl && !fullUrl.match(/^https?:\/\//i)) {
+                fullUrl = 'https://' + fullUrl;
+            }
+            applyFormat('createLink', fullUrl);
         }
         setShowLinkInput(false);
     };
@@ -631,15 +695,16 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             e.preventDefault();
             onSubmit?.(e);
         } else if (e.key === 'Enter' && e.shiftKey) {
-            // Check if we're inside a list item
+            // Check if we're inside a list item or blockquote
             const selection = window.getSelection();
             if (selection.rangeCount) {
                 const range = selection.getRangeAt(0);
                 let node = range.startContainer;
                 let listItem = null;
                 let list = null;
+                let blockquote = null;
 
-                // Find parent LI and UL/OL
+                // Find parent LI and UL/OL or BLOCKQUOTE
                 let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
                 while (current && current !== editorRef.current) {
                     if (current.tagName === 'LI') {
@@ -649,9 +714,14 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                         list = current;
                         break;
                     }
+                    if (current.tagName === 'BLOCKQUOTE') {
+                        blockquote = current;
+                        break;
+                    }
                     current = current.parentElement;
                 }
 
+                // Handle list exit
                 if (listItem && list) {
                     e.preventDefault();
 
@@ -691,6 +761,40 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                         newRange.collapse(true);
                         selection.removeAllRanges();
                         selection.addRange(newRange);
+                    }
+
+                    // Update value
+                    if (editorRef.current) {
+                        onChange(editorRef.current.innerHTML);
+                    }
+                    return;
+                }
+
+                // Handle blockquote exit
+                if (blockquote) {
+                    e.preventDefault();
+
+                    // If blockquote is empty, exit the blockquote
+                    if (blockquote.textContent.trim() === '') {
+                        // Add a br after the blockquote and move cursor there
+                        const br = document.createElement('br');
+                        if (blockquote.nextSibling) {
+                            blockquote.parentNode.insertBefore(br, blockquote.nextSibling);
+                        } else {
+                            blockquote.parentNode.appendChild(br);
+                        }
+
+                        // Remove empty blockquote
+                        blockquote.remove();
+
+                        const newRange = document.createRange();
+                        newRange.setStartAfter(br);
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                    } else {
+                        // Just insert a line break inside blockquote
+                        document.execCommand('insertLineBreak');
                     }
 
                     // Update value
@@ -775,22 +879,22 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         <div className="relative">
             {/* Toolbar */}
             <div className="flex items-center gap-1 px-3 py-2">
-                <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Bold" />
-                <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Italic" />
-                <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Underline" />
-                <ToolbarButton onClick={() => applyFormat('strikeThrough')} icon={<Strikethrough size={16} />} title="Strikethrough" />
+                <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Bold" isActive={activeFormats.bold} />
+                <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Italic" isActive={activeFormats.italic} />
+                <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Underline" isActive={activeFormats.underline} />
+                <ToolbarButton onClick={() => applyFormat('strikeThrough')} icon={<Strikethrough size={16} />} title="Strikethrough" isActive={activeFormats.strikeThrough} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
                 <ToolbarButton onClick={insertLink} icon={<Link size={16} />} title="Insert Link" />
-                <ToolbarButton onClick={() => applyFormat('insertOrderedList')} icon={<ListOrdered size={16} />} title="Numbered List" />
-                <ToolbarButton onClick={() => applyFormat('insertUnorderedList')} icon={<List size={16} />} title="Bullet List" />
+                <ToolbarButton onClick={() => applyFormat('insertOrderedList')} icon={<ListOrdered size={16} />} title="Numbered List" isActive={activeFormats.inOrderedList} />
+                <ToolbarButton onClick={() => applyFormat('insertUnorderedList')} icon={<List size={16} />} title="Bullet List" isActive={activeFormats.inList} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
-                <ToolbarButton onClick={insertCodeBlock} icon={<Code size={16} />} title="Code Block" />
-                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<FileCode size={16} />} title="Inline Code" />
-                <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Quote" />
+                <ToolbarButton onClick={insertCodeBlock} icon={<Code size={16} />} title="Code Block" isActive={activeFormats.inCode} />
+                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<FileCode size={16} />} title="Inline Code" isActive={activeFormats.inCode} />
+                <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Quote" isActive={activeFormats.inBlockquote} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
@@ -1031,7 +1135,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                         type="submit"
                         onClick={onSubmit}
                         disabled={disabled || isRecording}
-                        className={`p-2 rounded-l transition-colors ${!disabled && !isRecording ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                        className={`px-2 h-8 rounded-l transition-colors flex items-center justify-center ${!disabled && !isRecording ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
                     >
                         <Send size={16} />
                     </button>
@@ -1040,7 +1144,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                             type="button"
                             onClick={() => setShowScheduleMenu(!showScheduleMenu)}
                             disabled={disabled || isRecording}
-                            className={`p-2 rounded-r border-l border-[#005c47] transition-colors ${!disabled && !isRecording ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                            className={`px-1.5 h-8 rounded-r border-l border-[#005c47] transition-colors flex items-center justify-center ${!disabled && !isRecording ? 'bg-[#007a5a] text-white hover:bg-[#148567]' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
                             title="Отложить отправку"
                         >
                             <ChevronDown size={14} />
@@ -1148,6 +1252,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     border-radius: 4px;
                     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', monospace;
                     font-size: 0.9em;
+                    color: #E18B00;
                 }
                 [contentEditable] pre {
                     background: #1f2937;
@@ -1203,12 +1308,16 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     );
 }
 
-function ToolbarButton({ onClick, icon, title }) {
+function ToolbarButton({ onClick, icon, title, isActive = false }) {
     return (
         <button
             type="button"
             onClick={onClick}
-            className="p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white rounded transition-colors"
+            className={`p-1.5 rounded transition-colors ${
+                isActive
+                    ? 'bg-blue-600/30 text-blue-400'
+                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
             title={title}
         >
             {icon}
