@@ -76,7 +76,9 @@ export default function SidebarHuddle() {
     // Fullscreen view
     if (isFullscreen) {
         return (
-            <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-[#1a1d21] via-[#1e2328] to-[#252a30] flex flex-col">
+            <div className="fixed inset-0 z-[9999] bg-[#1a1d21] flex flex-col">
+                {/* Solid background to fully cover content underneath */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#1a1d21] via-[#1e2328] to-[#252a30]" />
                 {/* Subtle colored overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/10 via-purple-900/5 to-emerald-900/10 pointer-events-none" />
 
@@ -386,61 +388,71 @@ export default function SidebarHuddle() {
 
                 {/* Participants */}
                 <div className="flex items-center gap-2 mb-3">
-                    <div className="flex items-center">
-                        {participants.slice(0, 5).map((participant, index) => {
-                            const participantStreams = remoteStreams[participant.socketId] || {};
-                            const videoStream = participant.isCurrentUser
-                                ? (isVideoOn ? localStream : null)
-                                : (participantStreams.video || participant.stream);
-                            const hasVideo = participant.isCurrentUser ? isVideoOn : (participant.hasVideo && videoStream);
+                    {connectionStatus === 'connecting' ? (
+                        /* Show loader while connecting */
+                        <div className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-500"></div>
+                            <span className="text-xs text-gray-400">Connecting...</span>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex items-center">
+                                {participants.slice(0, 5).map((participant, index) => {
+                                    const participantStreams = remoteStreams[participant.socketId] || {};
+                                    const videoStream = participant.isCurrentUser
+                                        ? (isVideoOn ? localStream : null)
+                                        : (participantStreams.video || participant.stream);
+                                    const hasVideo = participant.isCurrentUser ? isVideoOn : (participant.hasVideo && videoStream);
 
-                            return (
-                                <div
-                                    key={participant.userId}
-                                    className="relative"
-                                    style={{ marginLeft: index > 0 ? '-8px' : '0', zIndex: 10 - index }}
-                                >
-                                    <div
-                                        className={`w-10 h-10 rounded-full overflow-hidden border-2 border-[#1a1d21] transition-all ${
-                                            participant.isSpeaking && !participant.isMuted
-                                                ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-[#1a1d21]'
-                                                : ''
-                                        }`}
-                                    >
-                                        {hasVideo && videoStream ? (
-                                            <ParticipantVideo
-                                                stream={videoStream}
-                                                isLocal={participant.isCurrentUser}
-                                                small
-                                            />
-                                        ) : (
-                                            <UserAvatar
-                                                user={{ username: participant.username, avatar_url: participant.avatar_url }}
-                                                size="lg"
-                                                rounded="rounded-full"
-                                            />
-                                        )}
-                                    </div>
-                                    {participant.isMuted && (
-                                        <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
-                                            <MicOff size={10} className="text-red-400" />
+                                    return (
+                                        <div
+                                            key={participant.userId}
+                                            className="relative"
+                                            style={{ marginLeft: index > 0 ? '-8px' : '0', zIndex: 10 - index }}
+                                        >
+                                            <div
+                                                className={`w-8 h-8 rounded-full overflow-hidden border-2 border-[#1a1d21] transition-all ${
+                                                    participant.isSpeaking && !participant.isMuted
+                                                        ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-[#1a1d21]'
+                                                        : ''
+                                                }`}
+                                            >
+                                                {hasVideo && videoStream ? (
+                                                    <ParticipantVideo
+                                                        stream={videoStream}
+                                                        isLocal={participant.isCurrentUser}
+                                                        small
+                                                    />
+                                                ) : (
+                                                    <UserAvatar
+                                                        user={{ username: participant.username, avatar_url: participant.avatar_url }}
+                                                        size="md"
+                                                        rounded="rounded-full"
+                                                    />
+                                                )}
+                                            </div>
+                                            {participant.isMuted && (
+                                                <div className="absolute -bottom-0.5 -right-0.5 bg-[#1a1d21] rounded-full p-0.5">
+                                                    <MicOff size={10} className="text-red-400" />
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        {totalCount > 5 && (
-                            <div
-                                className="w-10 h-10 rounded-full bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 border-2 border-[#1a1d21]"
-                                style={{ marginLeft: '-8px' }}
-                            >
-                                +{totalCount - 5}
+                                    );
+                                })}
+                                {totalCount > 5 && (
+                                    <div
+                                        className="w-8 h-8 rounded-full bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 border-2 border-[#1a1d21]"
+                                        style={{ marginLeft: '-8px' }}
+                                    >
+                                        +{totalCount - 5}
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                    <span className="text-xs text-gray-400 ml-1">
-                        {totalCount} {totalCount === 1 ? 'person' : 'people'}
-                    </span>
+                            <span className="text-xs text-gray-400">
+                                {totalCount} {totalCount === 1 ? 'person' : 'people'}
+                            </span>
+                        </>
+                    )}
                 </div>
 
                 {/* Controls */}
