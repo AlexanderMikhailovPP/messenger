@@ -122,7 +122,7 @@ router.get('/:channelId', async (req, res) => {
     const { channelId } = req.params;
     try {
         const result = await db.query(`
-            SELECT m.*, u.username, u.avatar_url,
+            SELECT m.*, u.username, u.avatar_url, u.custom_status,
                    (SELECT COUNT(*) FROM messages WHERE thread_id = m.id) as reply_count,
                    (SELECT MAX(created_at) FROM messages WHERE thread_id = m.id) as last_reply_at
             FROM messages m
@@ -135,7 +135,7 @@ router.get('/:channelId', async (req, res) => {
         const messagesWithParticipants = await Promise.all(result.rows.map(async (msg) => {
             if (parseInt(msg.reply_count) > 0) {
                 const participantsResult = await db.query(`
-                    SELECT u.id, u.username, u.avatar_url
+                    SELECT u.id, u.username, u.avatar_url, u.custom_status
                     FROM users u
                     WHERE u.id IN (
                         SELECT DISTINCT m.user_id
@@ -164,7 +164,7 @@ router.get('/thread/:messageId', async (req, res) => {
     try {
         // Get parent message
         const parentResult = await db.query(`
-            SELECT m.*, u.username, u.avatar_url
+            SELECT m.*, u.username, u.avatar_url, u.custom_status
             FROM messages m
             JOIN users u ON m.user_id = u.id
             WHERE m.id = ?
@@ -176,7 +176,7 @@ router.get('/thread/:messageId', async (req, res) => {
 
         // Get thread replies
         const repliesResult = await db.query(`
-            SELECT m.*, u.username, u.avatar_url
+            SELECT m.*, u.username, u.avatar_url, u.custom_status
             FROM messages m
             JOIN users u ON m.user_id = u.id
             WHERE m.thread_id = ?

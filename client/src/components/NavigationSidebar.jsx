@@ -7,6 +7,7 @@ import { getUnreadCounts, subscribeToUnreadChanges, subscribeToDMUpdates } from 
 import { getSocket } from '../socket';
 import UserAvatar from './UserAvatar';
 import SidebarHuddle from './SidebarHuddle';
+import StatusEmoji from './StatusEmoji';
 
 const changelogData = [
     {
@@ -345,8 +346,6 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                 {dms.map((dm) => {
                                     const unread = unreadCounts[dm.id] || 0;
                                     const isSelfChat = dm.isSelfChat;
-                                    // Get status emoji from customStatus
-                                    const statusEmoji = dm.customStatus?.match(/^(\p{Emoji})/u)?.[1];
 
                                     return (
                                         <button
@@ -366,9 +365,7 @@ export default function NavigationSidebar({ currentChannel, setCurrentChannel, i
                                                     status={getUserStatus(dm.otherUserId)}
                                                 />
                                                 <span className="text-sm truncate">{dm.displayName || dm.name}</span>
-                                                {statusEmoji && (
-                                                    <span className="text-xs flex-shrink-0">{statusEmoji}</span>
-                                                )}
+                                                <StatusEmoji customStatus={dm.customStatus} className="text-xs flex-shrink-0" />
                                                 {isSelfChat && (
                                                     <span className="text-xs text-gray-500 flex-shrink-0">you</span>
                                                 )}

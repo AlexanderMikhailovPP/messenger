@@ -3,6 +3,7 @@ import { X, MessageCircle, Phone } from 'lucide-react';
 import { useCall } from '../context/CallContext';
 import { useOnlineStatus } from '../context/OnlineStatusContext';
 import UserAvatar from './UserAvatar';
+import StatusEmoji from './StatusEmoji';
 
 export default function UserMentionPopup({ user, position, onClose, onMessage, onCall, onMouseEnter, onMouseLeave }) {
     const popupRef = useRef(null);
@@ -119,6 +120,7 @@ export default function UserMentionPopup({ user, position, onClose, onMessage, o
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                             <h3 className="text-lg font-bold text-white truncate">{user.username}</h3>
+                            <StatusEmoji customStatus={user.custom_status} className="text-base" />
                             <div
                                 className="rounded-full flex-shrink-0"
                                 style={{

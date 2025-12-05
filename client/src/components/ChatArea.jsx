@@ -15,6 +15,7 @@ import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator'
 import { markAsRead, incrementUnread, notifyNewDM } from '../utils/unreadCounter';
 import { getDraft, saveDraft, deleteDraft } from '../utils/drafts';
 import UserAvatar from './UserAvatar';
+import StatusEmoji from './StatusEmoji';
 
 // Helper function for relative time (e.g., "7 days ago")
 const formatRelativeTime = (dateString) => {
@@ -951,6 +952,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             >
                                                 {msg.username}
                                             </span>
+                                            <StatusEmoji customStatus={msg.custom_status} />
                                             <span className="text-xs text-gray-500">
                                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>

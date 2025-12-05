@@ -8,6 +8,7 @@ import UserAvatar from './UserAvatar';
 import QuickEmojiPicker from './QuickEmojiPicker';
 import UserMentionPopup from './UserMentionPopup';
 import { sanitizeHTML } from '../utils/sanitize';
+import StatusEmoji from './StatusEmoji';
 import toast from 'react-hot-toast';
 
 export default function ThreadPanel({ parentMessage, channelName, onClose, setCurrentChannel }) {
@@ -588,6 +589,7 @@ export default function ThreadPanel({ parentMessage, channelName, onClose, setCu
                 <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2">
                         <span className="font-semibold text-white hover:underline cursor-pointer message-username" data-id={msg.user_id}>{msg.username}</span>
+                        <StatusEmoji customStatus={msg.custom_status} />
                         <span className="text-xs text-gray-500">
                             {isParent ? `${formatDate(msg.created_at)} at ` : ''}{formatTime(msg.created_at)}
                         </span>
