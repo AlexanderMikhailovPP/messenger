@@ -690,6 +690,38 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
         return (currentTime - prevTime) < 60000; // 1 minute
     };
 
+    // Format date for day divider
+    const formatDateDivider = (date) => {
+        const today = new Date();
+        const msgDate = new Date(date);
+
+        // Reset time to compare dates only
+        const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const messageDate = new Date(msgDate.getFullYear(), msgDate.getMonth(), msgDate.getDate());
+
+        const diffDays = Math.floor((todayDate - messageDate) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) return 'Today';
+        if (diffDays === 1) return 'Yesterday';
+
+        return msgDate.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: msgDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+        });
+    };
+
+    // Check if we should show a date divider between messages
+    const shouldShowDateDivider = (currentMsg, prevMsg) => {
+        if (!prevMsg) return true; // Always show divider for first message
+
+        const currentDate = new Date(currentMsg.created_at);
+        const prevDate = new Date(prevMsg.created_at);
+
+        return currentDate.toDateString() !== prevDate.toDateString();
+    };
+
     // Edit message handlers
     const handleStartEdit = (msg) => {
         setEditingMessageId(msg.id);
@@ -845,14 +877,27 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                 ) : (
                     messages.map((msg, index) => {
                         const prevMsg = index > 0 ? messages[index - 1] : null;
-                        const isGrouped = shouldGroupWithPrevious(msg, prevMsg);
+                        const showDateDivider = shouldShowDateDivider(msg, prevMsg);
+                        const isGrouped = !showDateDivider && shouldGroupWithPrevious(msg, prevMsg);
                         const isOwnMessage = msg.user_id === user?.id;
 
                         return (
-                            <div
-                                key={msg.id}
-                                className={`flex gap-3 group hover:bg-[#32353b] px-3 py-0.5 rounded relative ${isGrouped ? 'mt-0.5' : 'mt-2'}`}
-                            >
+                            <div key={msg.id}>
+                                {/* Date Divider */}
+                                {showDateDivider && (
+                                    <div className="flex items-center justify-center my-4">
+                                        <div className="flex-1 border-t border-gray-700"></div>
+                                        <div className="px-4 py-1 bg-[#2f3136] rounded-full border border-gray-600 mx-4">
+                                            <span className="text-sm text-gray-300 font-medium">
+                                                {formatDateDivider(msg.created_at)}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1 border-t border-gray-700"></div>
+                                    </div>
+                                )}
+                                <div
+                                    className={`flex gap-3 group hover:bg-[#32353b] px-3 py-0.5 rounded relative ${isGrouped ? 'mt-0.5' : 'mt-2'}`}
+                                >
                                 {/* Avatar or spacer with time for grouped messages */}
                                 {isGrouped ? (
                                     <div
@@ -1096,6 +1141,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                         </>
                                     )}
                                 </div>
+                            </div>
                             </div>
                         );
                     })
