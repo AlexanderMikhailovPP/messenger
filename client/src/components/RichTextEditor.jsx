@@ -1537,6 +1537,9 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     color: #e5e7eb !important;
                     text-shadow: none !important;
                     filter: none !important;
+                    user-select: text !important;
+                    cursor: text !important;
+                    caret-color: #e5e7eb !important;
                 }
             `}</style>
         </div>
