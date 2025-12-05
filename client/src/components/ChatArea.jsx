@@ -1281,11 +1281,7 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             )}
 
             {/* Input Area */}
-            <div className="px-5 pb-4 pt-1">
-                {/* Typing Indicator - fixed height container to prevent jumping */}
-                <div className="h-5 flex items-center">
-                    <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
-                </div>
+            <div className="px-5 pb-2 pt-1">
                 <div
                     className="rounded-xl bg-[#222529] border border-gray-600 transition-all relative"
                     onFocus={() => {
@@ -1317,6 +1313,10 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                         attachments={attachments}
                         onRemoveAttachment={handleRemoveAttachment}
                     />
+                </div>
+                {/* Typing Indicator - below input like Slack */}
+                <div className="h-5 flex items-center mt-1 ml-1">
+                    <TypingIndicator typingUsers={typingUsers} currentUser={user?.username} />
                 </div>
             </div>
 
