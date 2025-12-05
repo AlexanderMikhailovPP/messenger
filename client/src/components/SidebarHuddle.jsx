@@ -411,7 +411,7 @@ export default function SidebarHuddle() {
                                             style={{ marginLeft: index > 0 ? '-6px' : '0', zIndex: 10 - index }}
                                         >
                                             <div
-                                                className={`w-7 h-7 rounded-full overflow-hidden border-2 border-[#1a1d21] transition-all ${
+                                                className={`w-7 h-7 rounded-lg overflow-hidden border-2 border-[#1a1d21] transition-all ${
                                                     participant.isSpeaking && !participant.isMuted
                                                         ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-[#1a1d21]'
                                                         : ''
@@ -427,7 +427,7 @@ export default function SidebarHuddle() {
                                                     <UserAvatar
                                                         user={{ username: participant.username, avatar_url: participant.avatar_url }}
                                                         size="sm"
-                                                        rounded="rounded-full"
+                                                        rounded="rounded-lg"
                                                     />
                                                 )}
                                             </div>
@@ -441,7 +441,7 @@ export default function SidebarHuddle() {
                                 })}
                                 {totalCount > 5 && (
                                     <div
-                                        className="w-7 h-7 rounded-full bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 border-2 border-[#1a1d21]"
+                                        className="w-7 h-7 rounded-lg bg-[#2e3136] flex items-center justify-center text-xs text-gray-400 border-2 border-[#1a1d21]"
                                         style={{ marginLeft: '-6px' }}
                                     >
                                         +{totalCount - 5}

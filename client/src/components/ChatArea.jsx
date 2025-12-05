@@ -1303,8 +1303,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             )}
             </div>
 
-            {/* Thread Panel - Right Sidebar */}
-            {activeThread && (
+            {/* Thread Panel - Right Sidebar (hidden when huddle is fullscreen) */}
+            {activeThread && !isHuddleFullscreen && (
                 <ThreadPanel
                     parentMessage={activeThread}
                     channelName={currentChannel?.name}
