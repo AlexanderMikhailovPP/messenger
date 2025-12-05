@@ -145,7 +145,7 @@ html.light-theme .text-gray-300 strong {
 
 html.light-theme .text-gray-300 code {
     background: #e5e7eb;
-    color: #be185d;
+    color: #E18B00;
 }
 
 html.light-theme .text-gray-300 pre {
@@ -205,7 +205,7 @@ header,
     border-radius: 4px;
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Courier New', monospace;
     font-size: 0.875em;
-    color: #f3a8b5;
+    color: #E18B00;
 }
 
 .text-gray-300 pre {

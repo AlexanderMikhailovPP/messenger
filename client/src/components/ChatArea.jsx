@@ -16,6 +16,7 @@ import { markAsRead, incrementUnread, notifyNewDM } from '../utils/unreadCounter
 import { getDraft, saveDraft, deleteDraft } from '../utils/drafts';
 import UserAvatar from './UserAvatar';
 import StatusEmoji from './StatusEmoji';
+import MessageContent from './MessageContent';
 
 // Helper function for relative time (e.g., "7 days ago")
 const formatRelativeTime = (dateString) => {
@@ -1064,9 +1065,9 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
                                             <span className="text-sm text-gray-400">Huddle ended</span>
                                         </div>
                                     ) : (
-                                        <div
+                                        <MessageContent
+                                            html={msg.content}
                                             className="text-[15px] text-gray-300 leading-relaxed break-words"
-                                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(msg.content) }}
                                         />
                                     )}
 

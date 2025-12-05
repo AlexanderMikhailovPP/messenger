@@ -987,7 +987,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             document.execCommand('insertLineBreak');
         }
 
-        // Handle arrow keys to escape from inline code/formatting elements
+        // Handle arrow keys to escape from inline code/formatting elements and spoilers
         if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             const selection = window.getSelection();
             if (!selection.rangeCount) return;
@@ -995,17 +995,66 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             const range = selection.getRangeAt(0);
             const node = range.startContainer;
 
-            // Find if we're inside a code element
+            // Find if we're inside a code element or spoiler
             let codeElement = null;
+            let spoilerElement = null;
             let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
             while (current && current !== editorRef.current) {
                 if (current.tagName === 'CODE' && current.parentElement?.tagName !== 'PRE') {
                     codeElement = current;
-                    break;
+                }
+                if (current.classList && current.classList.contains('spoiler')) {
+                    spoilerElement = current;
                 }
                 current = current.parentElement;
             }
 
+            // Handle spoiler element
+            if (spoilerElement) {
+                const textContent = spoilerElement.textContent || '';
+                const isAtStart = range.startOffset === 0 && node === spoilerElement.firstChild;
+                const isAtEnd = range.startOffset === textContent.length ||
+                    (node === spoilerElement.lastChild && range.startOffset === node.textContent?.length);
+
+                // Arrow Right at end - move cursor after the element
+                if (e.key === 'ArrowRight' && isAtEnd) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+
+                    if (!spoilerElement.nextSibling ||
+                        (spoilerElement.nextSibling.nodeType === Node.TEXT_NODE &&
+                         spoilerElement.nextSibling.textContent === '')) {
+                        const space = document.createTextNode('\u200B');
+                        spoilerElement.parentNode.insertBefore(space, spoilerElement.nextSibling);
+                    }
+
+                    newRange.setStartAfter(spoilerElement);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                    return;
+                }
+                // Arrow Left at start - move cursor before the element
+                else if (e.key === 'ArrowLeft' && isAtStart) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+
+                    if (!spoilerElement.previousSibling ||
+                        (spoilerElement.previousSibling.nodeType === Node.TEXT_NODE &&
+                         spoilerElement.previousSibling.textContent === '')) {
+                        const space = document.createTextNode('\u200B');
+                        spoilerElement.parentNode.insertBefore(space, spoilerElement);
+                    }
+
+                    newRange.setStartBefore(spoilerElement);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                    return;
+                }
+            }
+
+            // Handle code element
             if (codeElement) {
                 const textContent = codeElement.textContent || '';
                 const isAtStart = range.startOffset === 0 && node === codeElement.firstChild;
@@ -1069,8 +1118,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
-                <ToolbarButton onClick={insertCodeBlock} icon={<Code size={16} />} title="Code Block" isActive={activeFormats.inCodeBlock} />
-                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<FileCode size={16} />} title="Inline Code" isActive={activeFormats.inInlineCode} />
+                <ToolbarButton onClick={insertCodeBlock} icon={<FileCode size={16} />} title="Code Block" isActive={activeFormats.inCodeBlock} />
+                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<Code size={16} />} title="Inline Code" isActive={activeFormats.inInlineCode} />
                 <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Quote" isActive={activeFormats.inBlockquote} />
                 <ToolbarButton onClick={insertSpoiler} icon={<EyeOff size={16} />} title="Spoiler" isActive={activeFormats.inSpoiler} />
 
