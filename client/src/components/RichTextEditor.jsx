@@ -1531,17 +1531,32 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     margin: 0 1px;
                 }
                 [contentEditable] .spoiler {
-                    background: linear-gradient(90deg, #6b7280 0%, #9ca3af 25%, #6b7280 50%, #9ca3af 75%, #6b7280 100%);
-                    background-size: 200% 100%;
-                    animation: spoiler-shimmer 2s linear infinite;
+                    position: relative;
                     padding: 1px 4px;
                     border-radius: 3px;
                     color: transparent;
-                    text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+                    background: #4b5563;
                 }
-                @keyframes spoiler-shimmer {
-                    0% { background-position: 200% 0; }
-                    100% { background-position: -200% 0; }
+                [contentEditable] .spoiler::before {
+                    content: '';
+                    position: absolute;
+                    inset: 0;
+                    border-radius: 3px;
+                    background-image:
+                        radial-gradient(circle at 20% 30%, rgba(255,255,255,0.8) 1px, transparent 1px),
+                        radial-gradient(circle at 60% 70%, rgba(255,255,255,0.6) 1px, transparent 1px),
+                        radial-gradient(circle at 80% 20%, rgba(255,255,255,0.7) 1px, transparent 1px),
+                        radial-gradient(circle at 40% 80%, rgba(255,255,255,0.5) 1px, transparent 1px),
+                        radial-gradient(circle at 10% 60%, rgba(255,255,255,0.6) 1px, transparent 1px),
+                        radial-gradient(circle at 90% 50%, rgba(255,255,255,0.7) 1px, transparent 1px),
+                        radial-gradient(circle at 30% 10%, rgba(255,255,255,0.5) 1px, transparent 1px),
+                        radial-gradient(circle at 70% 40%, rgba(255,255,255,0.8) 1px, transparent 1px);
+                    background-size: 10px 10px;
+                    animation: spoiler-particles 0.8s linear infinite;
+                }
+                @keyframes spoiler-particles {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 10px 10px; }
                 }
             `}</style>
         </div>
