@@ -627,45 +627,17 @@ html.light-theme .spoiler.revealed {
     filter: none;
 }
 
-/* Spoiler styles in contentEditable (editor) - override to show text while editing */
-[contenteditable="true"] .spoiler,
-[contenteditable] .spoiler,
-div[contenteditable] .spoiler,
-div[contenteditable="true"] .spoiler {
-    background: #4b5563 !important;
-    color: #e5e7eb !important;
-    text-shadow: none !important;
-    filter: none !important;
-    -webkit-filter: none !important;
-    user-select: text !important;
-    -webkit-user-select: text !important;
-    cursor: text !important;
-    caret-color: #fff !important;
+/* Spoiler-edit class for editor - visible text with gray background */
+.spoiler-edit {
+    background: #4b5563;
+    color: #e5e7eb;
     padding: 1px 4px;
     border-radius: 3px;
-    position: relative !important;
+    caret-color: #e5e7eb;
 }
 
-/* Ensure caret is visible in editor */
-[contenteditable="true"],
-[contenteditable] {
-    caret-color: #e5e7eb !important;
-}
-
-[contenteditable="true"] .spoiler *,
-[contenteditable] .spoiler * {
-    color: inherit !important;
-    caret-color: inherit !important;
-}
-
-html.light-theme [contenteditable="true"] .spoiler,
-html.light-theme [contenteditable] .spoiler {
-    background: #d1d5db !important;
-    color: #374151 !important;
-    caret-color: #000 !important;
-}
-
-html.light-theme [contenteditable="true"],
-html.light-theme [contenteditable] {
-    caret-color: #374151 !important;
+html.light-theme .spoiler-edit {
+    background: #d1d5db;
+    color: #374151;
+    caret-color: #374151;
 }

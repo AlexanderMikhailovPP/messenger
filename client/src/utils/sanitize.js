@@ -13,3 +13,14 @@ export const sanitizeHTML = (html) => {
         ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
     });
 };
+
+/**
+ * Prepares HTML content for sending by converting editor-specific classes
+ * Converts spoiler-edit class to spoiler for proper display in messages
+ * @param {string} html - HTML string from editor
+ * @returns {string} Processed HTML string
+ */
+export const prepareHTMLForSend = (html) => {
+    // Convert spoiler-edit class to spoiler
+    return html.replace(/class="spoiler-edit"/g, 'class="spoiler"');
+};

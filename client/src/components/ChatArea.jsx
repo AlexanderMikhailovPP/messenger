@@ -10,7 +10,7 @@ import RichTextEditor from './RichTextEditor';
 import UserMentionPopup from './UserMentionPopup';
 import ThreadPanel from './ThreadPanel';
 import TypingIndicator from './TypingIndicator';
-import { sanitizeHTML } from '../utils/sanitize';
+import { sanitizeHTML, prepareHTMLForSend } from '../utils/sanitize';
 import { useTypingIndicator, useTypingUsers } from '../hooks/useTypingIndicator';
 import { markAsRead, incrementUnread, notifyNewDM } from '../utils/unreadCounter';
 import { getDraft, saveDraft, deleteDraft } from '../utils/drafts';
@@ -545,7 +545,8 @@ export default function ChatArea({ currentChannel, setCurrentChannel, onBack, is
             return;
         }
 
-        let messageContent = trimmed;
+        // Convert spoiler-edit to spoiler before sending
+        let messageContent = prepareHTMLForSend(trimmed);
 
         // Upload attachments first if any
         if (hasAttachments) {

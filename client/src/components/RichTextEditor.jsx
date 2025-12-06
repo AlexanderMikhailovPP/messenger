@@ -157,7 +157,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             if (tag === 'PRE') foundPre = true;
             if (tag === 'CODE') foundCode = true;
             if (tag === 'BLOCKQUOTE') newFormats.inBlockquote = true;
-            if (current.classList && current.classList.contains('spoiler')) newFormats.inSpoiler = true;
+            if (current.classList && (current.classList.contains('spoiler') || current.classList.contains('spoiler-edit'))) newFormats.inSpoiler = true;
             current = current.parentElement;
         }
 
@@ -428,7 +428,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         let spoilerElement = null;
 
         while (current && current !== editorRef.current) {
-            if (current.classList && current.classList.contains('spoiler')) {
+            if (current.classList && (current.classList.contains('spoiler') || current.classList.contains('spoiler-edit'))) {
                 spoilerElement = current;
                 break;
             }
@@ -448,10 +448,10 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             selection.removeAllRanges();
             selection.addRange(newRange);
         } else {
-            // Create spoiler span
+            // Create spoiler span - use spoiler-edit class in editor to avoid global .spoiler styles
             const selectedText = range.toString();
             const spoiler = document.createElement('span');
-            spoiler.className = 'spoiler';
+            spoiler.className = 'spoiler-edit';
             spoiler.textContent = selectedText || '\u200B'; // Zero-width space if empty
 
             range.deleteContents();
@@ -1003,7 +1003,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 if (current.tagName === 'CODE' && current.parentElement?.tagName !== 'PRE') {
                     codeElement = current;
                 }
-                if (current.classList && current.classList.contains('spoiler')) {
+                if (current.classList && (current.classList.contains('spoiler') || current.classList.contains('spoiler-edit'))) {
                     spoilerElement = current;
                 }
                 current = current.parentElement;
@@ -1530,16 +1530,12 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     display: inline-block;
                     margin: 0 1px;
                 }
-                [contentEditable] .spoiler {
-                    background: #4b5563 !important;
+                [contentEditable] .spoiler-edit {
+                    background: #4b5563;
                     padding: 1px 4px;
                     border-radius: 3px;
-                    color: #e5e7eb !important;
-                    text-shadow: none !important;
-                    filter: none !important;
-                    user-select: text !important;
-                    cursor: text !important;
-                    caret-color: #e5e7eb !important;
+                    color: #e5e7eb;
+                    caret-color: #e5e7eb;
                 }
             `}</style>
         </div>
