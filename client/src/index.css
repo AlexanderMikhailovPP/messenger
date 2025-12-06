@@ -629,21 +629,43 @@ html.light-theme .spoiler.revealed {
 
 /* Spoiler styles in contentEditable (editor) - override to show text while editing */
 [contenteditable="true"] .spoiler,
-[contenteditable] .spoiler {
+[contenteditable] .spoiler,
+div[contenteditable] .spoiler,
+div[contenteditable="true"] .spoiler {
     background: #4b5563 !important;
     color: #e5e7eb !important;
     text-shadow: none !important;
     filter: none !important;
+    -webkit-filter: none !important;
     user-select: text !important;
+    -webkit-user-select: text !important;
     cursor: text !important;
-    caret-color: #e5e7eb !important;
+    caret-color: #fff !important;
     padding: 1px 4px;
     border-radius: 3px;
+    position: relative !important;
+}
+
+/* Ensure caret is visible in editor */
+[contenteditable="true"],
+[contenteditable] {
+    caret-color: #e5e7eb !important;
+}
+
+[contenteditable="true"] .spoiler *,
+[contenteditable] .spoiler * {
+    color: inherit !important;
+    caret-color: inherit !important;
 }
 
 html.light-theme [contenteditable="true"] .spoiler,
 html.light-theme [contenteditable] .spoiler {
     background: #d1d5db !important;
     color: #374151 !important;
+    caret-color: #000 !important;
+}
+
+html.light-theme [contenteditable="true"],
+html.light-theme [contenteditable] {
     caret-color: #374151 !important;
 }
