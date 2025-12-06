@@ -2114,9 +2114,18 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
             // Handle spoiler element - exit at boundaries
             if (spoilerElement) {
-                const isAtStart = range.startOffset === 0 && (node === spoilerElement.firstChild || node === spoilerElement);
-                const isAtEnd = (node === spoilerElement.lastChild && range.startOffset === node.textContent?.length) ||
-                    (node === spoilerElement && range.startOffset === spoilerElement.childNodes.length);
+                // Calculate cursor position relative to spoiler content
+                const spoilerText = spoilerElement.textContent || '';
+                let cursorPosInSpoiler = 0;
+
+                // Get position by creating a range from spoiler start to cursor
+                const tempRange = document.createRange();
+                tempRange.setStart(spoilerElement, 0);
+                tempRange.setEnd(range.startContainer, range.startOffset);
+                cursorPosInSpoiler = tempRange.toString().length;
+
+                const isAtStart = cursorPosInSpoiler === 0;
+                const isAtEnd = cursorPosInSpoiler >= spoilerText.length;
 
                 // Arrow Right at end - move cursor after the element
                 if (e.key === 'ArrowRight' && isAtEnd) {
