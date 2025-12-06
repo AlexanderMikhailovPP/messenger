@@ -22,6 +22,9 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
     const [linkTooltip, setLinkTooltip] = useState({ visible: false, link: null, position: { top: 0, left: 0 } });
+    const [linkModal, setLinkModal] = useState({ visible: false, url: '', text: '', hasSelection: false, error: '' });
+    const linkModalRef = useRef(null);
+    const linkUrlInputRef = useRef(null);
     const linkTooltipRef = useRef(null);
     const [activeFormats, setActiveFormats] = useState({
         bold: false,
@@ -359,33 +362,71 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         return true;
     };
 
-    const insertLink = () => {
+    // Open link modal
+    const openLinkModal = () => {
         const selection = window.getSelection();
-        const hasSelection = selection && selection.toString().trim() !== '';
+        const selectedText = selection ? selection.toString().trim() : '';
+        const hasSelection = selectedText !== '';
 
-        const url = prompt('Enter URL:');
-        if (url) {
-            // Validate URL
-            if (!isValidUrl(url)) {
-                alert('Invalid URL. javascript: and data: URLs are not allowed.');
-                return;
-            }
-            // Ensure URL has protocol, otherwise add https://
-            let fullUrl = url.trim();
-            if (fullUrl && !fullUrl.match(/^(https?|mailto|tel|callto|sms):/i)) {
-                fullUrl = 'https://' + fullUrl;
-            }
+        // Save selection before opening modal
+        saveSelection();
 
-            if (hasSelection) {
-                applyFormat('createLink', fullUrl);
-            } else {
-                // No selection - insert URL as link text
-                const link = document.createElement('a');
-                link.href = fullUrl;
-                link.textContent = fullUrl;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
+        setLinkModal({
+            visible: true,
+            url: '',
+            text: hasSelection ? selectedText : '',
+            hasSelection,
+            error: ''
+        });
 
+        // Focus on URL input after modal opens
+        setTimeout(() => {
+            linkUrlInputRef.current?.focus();
+        }, 100);
+    };
+
+    // Close link modal
+    const closeLinkModal = () => {
+        setLinkModal({ visible: false, url: '', text: '', hasSelection: false, error: '' });
+    };
+
+    // Submit link from modal
+    const submitLinkModal = () => {
+        const { url, text, hasSelection } = linkModal;
+
+        if (!url.trim()) {
+            setLinkModal(prev => ({ ...prev, error: 'URL не может быть пустым' }));
+            return;
+        }
+
+        // Validate URL
+        if (!isValidUrl(url)) {
+            setLinkModal(prev => ({ ...prev, error: 'javascript: и data: URL не разрешены' }));
+            return;
+        }
+
+        // Ensure URL has protocol
+        let fullUrl = url.trim();
+        if (fullUrl && !fullUrl.match(/^(https?|mailto|tel|callto|sms):/i)) {
+            fullUrl = 'https://' + fullUrl;
+        }
+
+        // Restore selection
+        restoreSelection();
+
+        const selection = window.getSelection();
+
+        if (hasSelection && selection.rangeCount > 0) {
+            applyFormat('createLink', fullUrl);
+        } else {
+            // No selection - insert URL as link with custom text
+            const link = document.createElement('a');
+            link.href = fullUrl;
+            link.textContent = text.trim() || fullUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+
+            if (selection.rangeCount > 0) {
                 const range = selection.getRangeAt(0);
                 range.insertNode(link);
 
@@ -395,13 +436,30 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 newRange.collapse(true);
                 selection.removeAllRanges();
                 selection.addRange(newRange);
+            }
 
-                if (editorRef.current) {
-                    onChange(editorRef.current.innerHTML);
-                }
+            if (editorRef.current) {
+                onChange(editorRef.current.innerHTML);
             }
         }
-        setShowLinkInput(false);
+
+        closeLinkModal();
+        editorRef.current?.focus();
+    };
+
+    // Handle link modal key events
+    const handleLinkModalKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            submitLinkModal();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeLinkModal();
+        }
+    };
+
+    const insertLink = () => {
+        openLinkModal();
     };
 
     // Handle link click in editor - show tooltip
@@ -1754,8 +1812,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             }
         }
 
-        // Backspace at start of blockquote converts to paragraph
-        if (e.key === 'Backspace') {
+        // Backspace/Delete handling for code block and blockquote
+        if (e.key === 'Backspace' || e.key === 'Delete') {
             const selection = window.getSelection();
             if (!selection.rangeCount) return;
 
@@ -1765,9 +1823,14 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             let node = range.startContainer;
             let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
 
-            // Find blockquote
+            // Find code block (PRE) or blockquote
+            let preElement = null;
             let blockquote = null;
             while (current && current !== editorRef.current) {
+                if (current.tagName === 'PRE') {
+                    preElement = current;
+                    break;
+                }
                 if (current.tagName === 'BLOCKQUOTE') {
                     blockquote = current;
                     break;
@@ -1775,7 +1838,37 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 current = current.parentElement;
             }
 
-            if (blockquote) {
+            // Handle empty code block deletion
+            if (preElement) {
+                const codeContent = preElement.textContent || '';
+                // Check if code block is empty (only zero-width space or empty)
+                if (codeContent === '' || codeContent === '\u200B' || codeContent.trim() === '') {
+                    e.preventDefault();
+                    // Remove the code block
+                    const parent = preElement.parentNode;
+                    preElement.remove();
+
+                    // Position cursor
+                    const newRange = document.createRange();
+                    if (parent.childNodes.length > 0) {
+                        newRange.setStart(parent, 0);
+                    } else {
+                        newRange.setStart(editorRef.current, 0);
+                    }
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+
+                    if (editorRef.current) {
+                        onChange(editorRef.current.innerHTML);
+                    }
+                    setTimeout(updateActiveFormats, 0);
+                    return;
+                }
+            }
+
+            // Handle blockquote at start (existing logic)
+            if (blockquote && e.key === 'Backspace') {
                 // Check if cursor is at the very start of blockquote
                 const blockquoteRange = document.createRange();
                 blockquoteRange.selectNodeContents(blockquote);
@@ -2193,6 +2286,78 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                         >
                             <X size={14} />
                         </button>
+                    </div>
+                )}
+
+                {/* Link Insert Modal */}
+                {linkModal.visible && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={closeLinkModal}>
+                        <div
+                            ref={linkModalRef}
+                            className="bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl p-4 w-80"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-white font-medium flex items-center gap-2">
+                                    <Link size={18} />
+                                    Вставить ссылку
+                                </h3>
+                                <button
+                                    onClick={closeLinkModal}
+                                    className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">URL</label>
+                                    <input
+                                        ref={linkUrlInputRef}
+                                        type="text"
+                                        value={linkModal.url}
+                                        onChange={e => setLinkModal(prev => ({ ...prev, url: e.target.value, error: '' }))}
+                                        onKeyDown={handleLinkModalKeyDown}
+                                        placeholder="https://example.com"
+                                        className="w-full bg-[#2b2d31] border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 placeholder-gray-500"
+                                    />
+                                </div>
+
+                                {!linkModal.hasSelection && (
+                                    <div>
+                                        <label className="block text-sm text-gray-400 mb-1">Текст ссылки (опционально)</label>
+                                        <input
+                                            type="text"
+                                            value={linkModal.text}
+                                            onChange={e => setLinkModal(prev => ({ ...prev, text: e.target.value }))}
+                                            onKeyDown={handleLinkModalKeyDown}
+                                            placeholder="Текст для отображения"
+                                            className="w-full bg-[#2b2d31] border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500 placeholder-gray-500"
+                                        />
+                                    </div>
+                                )}
+
+                                {linkModal.error && (
+                                    <p className="text-red-400 text-sm">{linkModal.error}</p>
+                                )}
+
+                                <div className="flex gap-2 pt-2">
+                                    <button
+                                        onClick={closeLinkModal}
+                                        className="flex-1 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm transition-colors"
+                                    >
+                                        Отмена
+                                    </button>
+                                    <button
+                                        onClick={submitLinkModal}
+                                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm transition-colors"
+                                    >
+                                        Вставить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

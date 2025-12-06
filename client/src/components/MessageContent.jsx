@@ -33,6 +33,13 @@ export default function MessageContent({ html, className = '' }) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(sanitized, 'text/html');
 
+        // Make all links open in new tab
+        const links = doc.querySelectorAll('a');
+        links.forEach(link => {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        });
+
         // Find all spoiler elements and mark them
         const spoilers = doc.querySelectorAll('.spoiler');
         spoilers.forEach((spoiler, index) => {
