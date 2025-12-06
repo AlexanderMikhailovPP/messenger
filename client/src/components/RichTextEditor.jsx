@@ -1725,23 +1725,30 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         <div className="relative">
             {/* Toolbar */}
             <div className="flex items-center gap-1 px-3 py-2">
-                <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Жирный" shortcut="⌘B" isActive={activeFormats.bold} />
-                <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Курсив" shortcut="⌘I" isActive={activeFormats.italic} />
-                <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Подчёркнутый" shortcut="⌘U" isActive={activeFormats.underline} />
-                <ToolbarButton onClick={() => applyFormat('strikeThrough')} icon={<Strikethrough size={16} />} title="Зачёркнутый" shortcut="⌘⇧S" isActive={activeFormats.strikeThrough} />
+                {/* Inline formatting buttons - disabled inside code block or inline code per FORBID rules */}
+                <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Жирный" shortcut="⌘B" isActive={activeFormats.bold} disabled={activeFormats.inCodeBlock || activeFormats.inInlineCode} />
+                <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Курсив" shortcut="⌘I" isActive={activeFormats.italic} disabled={activeFormats.inCodeBlock || activeFormats.inInlineCode} />
+                <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Подчёркнутый" shortcut="⌘U" isActive={activeFormats.underline} disabled={activeFormats.inCodeBlock || activeFormats.inInlineCode} />
+                <ToolbarButton onClick={() => applyFormat('strikeThrough')} icon={<Strikethrough size={16} />} title="Зачёркнутый" shortcut="⌘⇧S" isActive={activeFormats.strikeThrough} disabled={activeFormats.inCodeBlock || activeFormats.inInlineCode} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
-                <ToolbarButton onClick={insertLink} icon={<Link size={16} />} title="Вставить ссылку" shortcut="⌘K" />
-                <ToolbarButton onClick={() => insertList(true)} icon={<ListOrdered size={16} />} title="Нумерованный список" shortcut="⌘⇧7" isActive={activeFormats.inOrderedList} />
-                <ToolbarButton onClick={() => insertList(false)} icon={<List size={16} />} title="Маркированный список" shortcut="⌘⇧8" isActive={activeFormats.inList} />
+                {/* Link - disabled inside code block or inline code */}
+                <ToolbarButton onClick={insertLink} icon={<Link size={16} />} title="Вставить ссылку" shortcut="⌘K" disabled={activeFormats.inCodeBlock || activeFormats.inInlineCode} />
+                {/* Lists - disabled inside code block */}
+                <ToolbarButton onClick={() => insertList(true)} icon={<ListOrdered size={16} />} title="Нумерованный список" shortcut="⌘⇧7" isActive={activeFormats.inOrderedList} disabled={activeFormats.inCodeBlock} />
+                <ToolbarButton onClick={() => insertList(false)} icon={<List size={16} />} title="Маркированный список" shortcut="⌘⇧8" isActive={activeFormats.inList} disabled={activeFormats.inCodeBlock} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
+                {/* Code block toggle - always enabled */}
                 <ToolbarButton onClick={insertCodeBlock} icon={<FileCode size={16} />} title="Блок кода" shortcut="⌘⇧C" isActive={activeFormats.inCodeBlock} />
-                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<Code size={16} />} title="Код в строке" shortcut="⌘E" isActive={activeFormats.inInlineCode} />
-                <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Цитата" shortcut="⌘⇧9" isActive={activeFormats.inBlockquote} />
-                <ToolbarButton onClick={insertSpoiler} icon={<EyeOff size={16} />} title="Спойлер" shortcut="⌘⇧P" isActive={activeFormats.inSpoiler} />
+                {/* Inline code - disabled inside code block */}
+                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<Code size={16} />} title="Код в строке" shortcut="⌘E" isActive={activeFormats.inInlineCode} disabled={activeFormats.inCodeBlock} />
+                {/* Blockquote - disabled inside code block */}
+                <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Цитата" shortcut="⌘⇧9" isActive={activeFormats.inBlockquote} disabled={activeFormats.inCodeBlock} />
+                {/* Spoiler - disabled inside code block or inline code */}
+                <ToolbarButton onClick={insertSpoiler} icon={<EyeOff size={16} />} title="Спойлер" shortcut="⌘⇧P" isActive={activeFormats.inSpoiler} disabled={activeFormats.inCodeBlock || activeFormats.inInlineCode} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
@@ -2216,20 +2223,24 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     );
 }
 
-function ToolbarButton({ onClick, icon, title, isActive = false, shortcut }) {
+function ToolbarButton({ onClick, icon, title, isActive = false, shortcut, disabled = false }) {
     const fullTitle = shortcut ? `${title} (${shortcut})` : title;
     return (
         <button
             type="button"
-            onClick={onClick}
+            onClick={disabled ? undefined : onClick}
+            disabled={disabled}
             className={`p-1.5 rounded transition-colors ${
-                isActive
-                    ? 'bg-blue-600/30 text-blue-400'
-                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                disabled
+                    ? 'text-gray-600 cursor-not-allowed opacity-50'
+                    : isActive
+                        ? 'bg-blue-600/30 text-blue-400'
+                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
             }`}
             title={fullTitle}
             aria-label={fullTitle}
             aria-pressed={isActive}
+            aria-disabled={disabled}
         >
             {icon}
         </button>
