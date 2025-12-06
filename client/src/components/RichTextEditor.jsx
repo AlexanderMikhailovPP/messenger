@@ -1440,17 +1440,39 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         // Cleanup empty spoiler elements (background remains after deleting content)
         if (editorRef.current) {
             const spoilers = editorRef.current.querySelectorAll('.spoiler-edit, .spoiler');
+            let removed = false;
             spoilers.forEach(spoiler => {
                 const text = spoiler.textContent || '';
-                // Remove spoiler if empty or only contains zero-width space
-                if (text === '' || text === '\u200B' || text.trim() === '') {
+                // Remove spoiler if empty, only whitespace, or only zero-width spaces
+                const cleanText = text.replace(/[\u200B\u200C\u200D\uFEFF]/g, '').trim();
+                if (cleanText === '' || spoiler.innerHTML === '' || spoiler.innerHTML === '<br>') {
+                    // Save cursor position before removal
+                    const selection = window.getSelection();
+                    const parent = spoiler.parentNode;
+                    const nextSibling = spoiler.nextSibling;
                     spoiler.remove();
+                    removed = true;
+                    // Restore cursor position
+                    if (selection && parent) {
+                        const newRange = document.createRange();
+                        if (nextSibling) {
+                            newRange.setStartBefore(nextSibling);
+                        } else if (parent.lastChild) {
+                            newRange.setStartAfter(parent.lastChild);
+                        } else {
+                            newRange.setStart(parent, 0);
+                        }
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                    }
                 }
             });
             // Update content after cleanup
-            const newContent = editorRef.current.innerHTML;
-            if (newContent !== content) {
+            if (removed) {
+                const newContent = editorRef.current.innerHTML;
                 onChange(newContent);
+                setTimeout(updateActiveFormats, 0);
             }
         }
 
@@ -2114,15 +2136,15 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
             // Handle spoiler element - exit at boundaries
             if (spoilerElement) {
-                // Calculate cursor position relative to spoiler content
-                const spoilerText = spoilerElement.textContent || '';
-                let cursorPosInSpoiler = 0;
+                // Get clean text without zero-width spaces
+                const spoilerText = (spoilerElement.textContent || '').replace(/[\u200B\u200C\u200D\uFEFF]/g, '');
 
-                // Get position by creating a range from spoiler start to cursor
+                // Calculate cursor position relative to spoiler content (excluding zero-width)
                 const tempRange = document.createRange();
                 tempRange.setStart(spoilerElement, 0);
                 tempRange.setEnd(range.startContainer, range.startOffset);
-                cursorPosInSpoiler = tempRange.toString().length;
+                const textBeforeCursor = tempRange.toString().replace(/[\u200B\u200C\u200D\uFEFF]/g, '');
+                const cursorPosInSpoiler = textBeforeCursor.length;
 
                 const isAtStart = cursorPosInSpoiler === 0;
                 const isAtEnd = cursorPosInSpoiler >= spoilerText.length;
