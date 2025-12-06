@@ -2112,13 +2112,17 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 current = current.parentElement;
             }
 
-            // Handle spoiler element - single arrow press exits spoiler
+            // Handle spoiler element - exit at boundaries
             if (spoilerElement) {
-                e.preventDefault();
-                const newRange = document.createRange();
+                const isAtStart = range.startOffset === 0 && (node === spoilerElement.firstChild || node === spoilerElement);
+                const isAtEnd = (node === spoilerElement.lastChild && range.startOffset === node.textContent?.length) ||
+                    (node === spoilerElement && range.startOffset === spoilerElement.childNodes.length);
 
-                // Arrow Right - move cursor after the element
-                if (e.key === 'ArrowRight') {
+                // Arrow Right at end - move cursor after the element
+                if (e.key === 'ArrowRight' && isAtEnd) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+
                     if (!spoilerElement.nextSibling ||
                         (spoilerElement.nextSibling.nodeType === Node.TEXT_NODE &&
                          spoilerElement.nextSibling.textContent === '')) {
@@ -2133,8 +2137,11 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     setTimeout(updateActiveFormats, 0);
                     return;
                 }
-                // Arrow Left - move cursor before the element
-                else if (e.key === 'ArrowLeft') {
+                // Arrow Left at start - move cursor before the element
+                else if (e.key === 'ArrowLeft' && isAtStart) {
+                    e.preventDefault();
+                    const newRange = document.createRange();
+
                     if (!spoilerElement.previousSibling ||
                         (spoilerElement.previousSibling.nodeType === Node.TEXT_NODE &&
                          spoilerElement.previousSibling.textContent === '')) {
