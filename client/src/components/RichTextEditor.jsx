@@ -649,35 +649,47 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
 
         if (spoilerElement) {
-            // Unwrap: extract content and replace spoiler with it
-            const content = spoilerElement.textContent || '';
-            const textNode = document.createTextNode(content);
-            spoilerElement.parentNode.replaceChild(textNode, spoilerElement);
+            // Unwrap: extract content (preserving HTML) and replace spoiler with it
+            const fragment = document.createDocumentFragment();
+            while (spoilerElement.firstChild) {
+                fragment.appendChild(spoilerElement.firstChild);
+            }
 
-            // Position cursor after the text
+            // Insert fragment before spoiler, then remove spoiler
+            const parent = spoilerElement.parentNode;
+            const lastChild = fragment.lastChild;
+            parent.insertBefore(fragment, spoilerElement);
+            spoilerElement.remove();
+
+            // Position cursor after the extracted content
             const newRange = document.createRange();
-            newRange.setStartAfter(textNode);
+            if (lastChild) {
+                newRange.setStartAfter(lastChild);
+            } else {
+                newRange.setStart(parent, 0);
+            }
             newRange.collapse(true);
             selection.removeAllRanges();
             selection.addRange(newRange);
         } else {
             // Create spoiler span - use spoiler-edit class in editor to avoid global .spoiler styles
-            const selectedText = range.toString();
+            // Use cloneContents to preserve HTML formatting
+            const contents = range.cloneContents();
             const spoiler = document.createElement('span');
             spoiler.className = 'spoiler-edit';
-            spoiler.textContent = selectedText || '\u200B'; // Zero-width space if empty
+            if (contents.childNodes.length > 0 && contents.textContent.trim()) {
+                spoiler.appendChild(contents);
+            } else {
+                spoiler.textContent = '\u200B'; // Zero-width space if empty
+            }
 
             range.deleteContents();
             range.insertNode(spoiler);
 
-            // Move cursor inside the spoiler
+            // Move cursor inside the spoiler at the end
             const newRange = document.createRange();
-            if (selectedText) {
-                newRange.setStart(spoiler, spoiler.childNodes.length);
-            } else {
-                newRange.setStart(spoiler, 0);
-            }
-            newRange.collapse(true);
+            newRange.selectNodeContents(spoiler);
+            newRange.collapse(false);
             selection.removeAllRanges();
             selection.addRange(newRange);
         }
@@ -991,9 +1003,157 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         editorRef.current.focus();
     };
 
+    // URL regex for auto-linking
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+
+    // Handle paste - auto-link URLs
+    const handlePaste = (e) => {
+        // Get plain text from clipboard
+        const pastedText = e.clipboardData.getData('text/plain');
+
+        // Check if it's a URL
+        if (pastedText && urlRegex.test(pastedText.trim())) {
+            const url = pastedText.trim();
+
+            // Validate URL
+            if (!isValidUrl(url)) {
+                // Just paste as plain text if invalid
+                return;
+            }
+
+            e.preventDefault();
+
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+
+            const range = selection.getRangeAt(0);
+
+            // Check if there's selected text - if so, make it a link
+            const selectedText = range.toString();
+
+            if (selectedText) {
+                // Create link with selected text
+                const link = document.createElement('a');
+                link.href = url;
+                link.textContent = selectedText;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+
+                range.deleteContents();
+                range.insertNode(link);
+
+                // Move cursor after link
+                const newRange = document.createRange();
+                newRange.setStartAfter(link);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            } else {
+                // No selection - insert URL as link
+                const link = document.createElement('a');
+                link.href = url;
+                link.textContent = url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+
+                range.insertNode(link);
+
+                // Move cursor after link
+                const newRange = document.createRange();
+                newRange.setStartAfter(link);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            }
+
+            if (editorRef.current) {
+                onChange(editorRef.current.innerHTML);
+            }
+        }
+        // Let other paste events (Ctrl+Shift+V for plain text) proceed normally
+    };
+
+    // Check and convert Markdown ``` to code block
+    const checkMarkdownCodeBlock = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return false;
+
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+
+        // Only process text nodes
+        if (node.nodeType !== Node.TEXT_NODE) return false;
+
+        const text = node.textContent || '';
+        const cursorPos = range.startOffset;
+
+        // Check if the text before cursor ends with ``` (at line start or after whitespace)
+        const textBeforeCursor = text.substring(0, cursorPos);
+        const match = textBeforeCursor.match(/(^|[\n\s])```$/);
+
+        if (match) {
+            // Found markdown code block trigger
+            const matchStart = match.index + (match[1] ? match[1].length : 0);
+
+            // Create code block
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            code.textContent = '\u200B'; // Zero-width space
+            pre.appendChild(code);
+
+            // Remove the ``` from the text
+            const beforeMatch = text.substring(0, matchStart);
+            const afterCursor = text.substring(cursorPos);
+
+            if (beforeMatch || afterCursor) {
+                // There's text before or after, need to split
+                node.textContent = beforeMatch;
+
+                // Insert the code block after current position
+                const newRange = document.createRange();
+                if (node.textContent) {
+                    newRange.setStartAfter(node);
+                } else {
+                    // Remove empty text node
+                    const parent = node.parentNode;
+                    newRange.setStart(parent, Array.from(parent.childNodes).indexOf(node));
+                    node.remove();
+                }
+                newRange.collapse(true);
+                newRange.insertNode(pre);
+
+                if (afterCursor) {
+                    const afterText = document.createTextNode(afterCursor);
+                    pre.parentNode.insertBefore(afterText, pre.nextSibling);
+                }
+            } else {
+                // Replace the entire text node with code block
+                node.parentNode.replaceChild(pre, node);
+            }
+
+            // Move cursor inside code block
+            const finalRange = document.createRange();
+            finalRange.setStart(code, 0);
+            finalRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(finalRange);
+
+            if (editorRef.current) {
+                onChange(editorRef.current.innerHTML);
+            }
+            return true;
+        }
+        return false;
+    };
+
     const handleInput = (e) => {
         const content = e.currentTarget.innerHTML;
         onChange(content);
+
+        // Check for Markdown ``` code block trigger
+        if (checkMarkdownCodeBlock()) {
+            return;
+        }
 
         const plainText = e.currentTarget.textContent || '';
         const selection = window.getSelection();
@@ -1076,6 +1236,23 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         return false;
     };
 
+    // Check if cursor is inside inline code (CODE not inside PRE)
+    const isInsideInlineCode = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return false;
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        let foundCode = false;
+        let foundPre = false;
+        while (current && current !== editorRef.current) {
+            if (current.tagName === 'CODE') foundCode = true;
+            if (current.tagName === 'PRE') foundPre = true;
+            current = current.parentElement;
+        }
+        return foundCode && !foundPre;
+    };
+
     // Handle list nesting with Tab/Shift+Tab
     const handleListNesting = (increase) => {
         const selection = window.getSelection();
@@ -1155,8 +1332,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
         const cmdKey = isMac ? e.metaKey : e.ctrlKey;
 
-        // Handle formatting shortcuts (disabled inside code block)
-        if (cmdKey && !isInsideCodeBlock()) {
+        // Handle formatting shortcuts (disabled inside code block AND inline code per spec FORBID rules)
+        if (cmdKey && !isInsideCodeBlock() && !isInsideInlineCode()) {
             // Cmd/Ctrl + B = Bold
             if (e.key === 'b' && !e.shiftKey) {
                 e.preventDefault();
@@ -1357,24 +1534,61 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 if (blockquote) {
                     e.preventDefault();
 
-                    // If blockquote is empty, exit the blockquote
-                    if (blockquote.textContent.trim() === '') {
-                        // Add a br after the blockquote and move cursor there
-                        const br = document.createElement('br');
-                        if (blockquote.nextSibling) {
-                            blockquote.parentNode.insertBefore(br, blockquote.nextSibling);
-                        } else {
-                            blockquote.parentNode.appendChild(br);
+                    // Check if cursor is at an empty last line (double Enter to exit)
+                    // This happens when: blockquote ends with <br> and cursor is right after it
+                    const blockquoteContent = blockquote.innerHTML;
+                    const cursorNode = range.startContainer;
+                    const cursorOffset = range.startOffset;
+
+                    // Check if we're at end of blockquote after a BR (empty line)
+                    const isAfterBr = (cursorNode === blockquote && cursorOffset > 0 &&
+                                       blockquote.childNodes[cursorOffset - 1]?.nodeName === 'BR') ||
+                                      (cursorNode.nodeName === 'BR') ||
+                                      (cursorNode.nodeType === Node.TEXT_NODE &&
+                                       cursorNode.textContent === '' &&
+                                       cursorNode.previousSibling?.nodeName === 'BR');
+
+                    // Also check if blockquote is empty or ends with double BR
+                    const endsWithDoubleBr = blockquoteContent.endsWith('<br><br>') ||
+                                             blockquoteContent.match(/<br>\s*$/);
+
+                    if (blockquote.textContent.trim() === '' || isAfterBr) {
+                        // Exit blockquote - remove the trailing BR/empty line
+                        const lastChild = blockquote.lastChild;
+                        if (lastChild?.nodeName === 'BR') {
+                            lastChild.remove();
                         }
 
-                        // Remove empty blockquote
-                        blockquote.remove();
+                        // If blockquote is now empty, remove it entirely
+                        if (blockquote.textContent.trim() === '' && !blockquote.querySelector('*')) {
+                            const br = document.createElement('br');
+                            if (blockquote.nextSibling) {
+                                blockquote.parentNode.insertBefore(br, blockquote.nextSibling);
+                            } else {
+                                blockquote.parentNode.appendChild(br);
+                            }
+                            blockquote.remove();
 
-                        const newRange = document.createRange();
-                        newRange.setStartAfter(br);
-                        newRange.collapse(true);
-                        selection.removeAllRanges();
-                        selection.addRange(newRange);
+                            const newRange = document.createRange();
+                            newRange.setStartAfter(br);
+                            newRange.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                        } else {
+                            // Add a br after the blockquote and move cursor there
+                            const br = document.createElement('br');
+                            if (blockquote.nextSibling) {
+                                blockquote.parentNode.insertBefore(br, blockquote.nextSibling);
+                            } else {
+                                blockquote.parentNode.appendChild(br);
+                            }
+
+                            const newRange = document.createRange();
+                            newRange.setStartAfter(br);
+                            newRange.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                        }
                     } else {
                         // Just insert a line break inside blockquote
                         document.execCommand('insertLineBreak');
@@ -1557,6 +1771,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     onInput={handleInput}
                     onKeyDown={handleKeyDown}
                     onClick={handleEditorClick}
+                    onPaste={handlePaste}
                     dir="ltr"
                     className="w-full min-w-0 px-3 py-2 max-h-[200px] overflow-y-auto overflow-x-hidden bg-transparent text-gray-200 focus:outline-none leading-normal break-words whitespace-pre-wrap [word-break:break-word]"
                     data-placeholder={placeholder}
@@ -1950,10 +2165,24 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     padding-left: 24px;
                     margin: 4px 0;
                 }
+                /* Nested UL markers per spec: • / ◦ / ▪ */
+                [contentEditable] ul ul {
+                    list-style-type: circle;
+                }
+                [contentEditable] ul ul ul {
+                    list-style-type: square;
+                }
                 [contentEditable] ol {
                     list-style-type: decimal;
                     padding-left: 24px;
                     margin: 4px 0;
+                }
+                /* Nested OL markers per spec: 1 / a / i */
+                [contentEditable] ol ol {
+                    list-style-type: lower-alpha;
+                }
+                [contentEditable] ol ol ol {
+                    list-style-type: lower-roman;
                 }
                 [contentEditable] li {
                     margin: 2px 0;
