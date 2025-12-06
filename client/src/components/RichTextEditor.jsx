@@ -357,6 +357,82 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         setShowLinkInput(false);
     };
 
+    const insertList = (ordered = false) => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+
+        // Check if already inside a list - if so, unwrap it
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        let listItem = null;
+        let listElement = null;
+        const targetTag = ordered ? 'OL' : 'UL';
+
+        while (current && current !== editorRef.current) {
+            if (current.tagName === 'LI') {
+                listItem = current;
+            }
+            if (current.tagName === 'UL' || current.tagName === 'OL') {
+                listElement = current;
+                break;
+            }
+            current = current.parentElement;
+        }
+
+        if (listElement) {
+            // Unwrap: extract content (preserving HTML) and replace list with it
+            const fragment = document.createDocumentFragment();
+            // Get content from all list items
+            Array.from(listElement.querySelectorAll('li')).forEach((li, index) => {
+                if (index > 0) {
+                    fragment.appendChild(document.createElement('br'));
+                }
+                while (li.firstChild) {
+                    fragment.appendChild(li.firstChild);
+                }
+            });
+            listElement.parentNode.replaceChild(fragment, listElement);
+
+            // Position cursor at the end
+            const newRange = document.createRange();
+            newRange.selectNodeContents(editorRef.current);
+            newRange.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        } else {
+            // Create list element - use cloneContents to preserve HTML
+            const list = document.createElement(ordered ? 'ol' : 'ul');
+            const li = document.createElement('li');
+            const contents = range.cloneContents();
+
+            if (contents.childNodes.length > 0 && contents.textContent.trim()) {
+                li.appendChild(contents);
+            } else {
+                li.innerHTML = '\u200B'; // Zero-width space if empty
+            }
+
+            list.appendChild(li);
+
+            range.deleteContents();
+            range.insertNode(list);
+
+            // Move cursor inside the list item at the end
+            const newRange = document.createRange();
+            newRange.selectNodeContents(li);
+            newRange.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        }
+
+        editorRef.current?.focus();
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+        setTimeout(updateActiveFormats, 0);
+    };
+
     const insertBlockquote = () => {
         const selection = window.getSelection();
         if (!selection.rangeCount) return;
@@ -377,34 +453,37 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
 
         if (blockquoteElement) {
-            // Unwrap: extract content and replace blockquote with it
-            const content = blockquoteElement.textContent || '';
-            const textNode = document.createTextNode(content);
-            blockquoteElement.parentNode.replaceChild(textNode, blockquoteElement);
+            // Unwrap: extract content (preserving HTML) and replace blockquote with it
+            const fragment = document.createDocumentFragment();
+            while (blockquoteElement.firstChild) {
+                fragment.appendChild(blockquoteElement.firstChild);
+            }
+            blockquoteElement.parentNode.replaceChild(fragment, blockquoteElement);
 
-            // Position cursor after the text
+            // Position cursor at the end
             const newRange = document.createRange();
-            newRange.setStartAfter(textNode);
-            newRange.collapse(true);
+            newRange.selectNodeContents(editorRef.current);
+            newRange.collapse(false);
             selection.removeAllRanges();
             selection.addRange(newRange);
         } else {
-            // Create blockquote element
-            const selectedText = range.toString();
+            // Create blockquote element - use cloneContents to preserve HTML
             const blockquote = document.createElement('blockquote');
-            blockquote.textContent = selectedText || '\u200B'; // Zero-width space if empty
+            const contents = range.cloneContents();
+
+            if (contents.childNodes.length > 0 && contents.textContent.trim()) {
+                blockquote.appendChild(contents);
+            } else {
+                blockquote.innerHTML = '\u200B'; // Zero-width space if empty
+            }
 
             range.deleteContents();
             range.insertNode(blockquote);
 
-            // Move cursor inside the blockquote
+            // Move cursor inside the blockquote at the end
             const newRange = document.createRange();
-            if (selectedText) {
-                newRange.setStart(blockquote, blockquote.childNodes.length);
-            } else {
-                newRange.setStart(blockquote, 0);
-            }
-            newRange.collapse(true);
+            newRange.selectNodeContents(blockquote);
+            newRange.collapse(false);
             selection.removeAllRanges();
             selection.addRange(newRange);
         }
@@ -1113,8 +1192,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
                 <ToolbarButton onClick={insertLink} icon={<Link size={16} />} title="Insert Link" />
-                <ToolbarButton onClick={() => applyFormat('insertOrderedList')} icon={<ListOrdered size={16} />} title="Numbered List" isActive={activeFormats.inOrderedList} />
-                <ToolbarButton onClick={() => applyFormat('insertUnorderedList')} icon={<List size={16} />} title="Bullet List" isActive={activeFormats.inList} />
+                <ToolbarButton onClick={() => insertList(true)} icon={<ListOrdered size={16} />} title="Numbered List" isActive={activeFormats.inOrderedList} />
+                <ToolbarButton onClick={() => insertList(false)} icon={<List size={16} />} title="Bullet List" isActive={activeFormats.inList} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
