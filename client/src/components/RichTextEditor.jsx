@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Check, Play, Pause, Trash2, Clock, ChevronDown, EyeOff } from 'lucide-react';
+import { Bold, Italic, Underline, Strikethrough, Link, List, ListOrdered, Code, FileCode, Quote, Send, Paperclip, Smile, Hash, AtSign, Mic, Square, X, Check, Play, Pause, Trash2, Clock, ChevronDown, EyeOff, ExternalLink, Pencil } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import QuickEmojiPicker from './QuickEmojiPicker';
@@ -21,6 +21,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     const [showCustomSchedule, setShowCustomSchedule] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
+    const [linkTooltip, setLinkTooltip] = useState({ visible: false, link: null, position: { top: 0, left: 0 } });
+    const linkTooltipRef = useRef(null);
     const [activeFormats, setActiveFormats] = useState({
         bold: false,
         italic: false,
@@ -344,17 +346,149 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         setTimeout(updateActiveFormats, 0);
     };
 
+    // Validate URL for security
+    const isValidUrl = (url) => {
+        if (!url || url.trim() === '') return false;
+        // Block dangerous protocols
+        const dangerousProtocols = /^(javascript|data|vbscript):/i;
+        if (dangerousProtocols.test(url)) return false;
+        // Allow safe protocols
+        const safeProtocols = /^(https?|mailto|tel|callto|sms):/i;
+        if (safeProtocols.test(url)) return true;
+        // Allow URLs without protocol (will add https://)
+        return true;
+    };
+
     const insertLink = () => {
+        const selection = window.getSelection();
+        const hasSelection = selection && selection.toString().trim() !== '';
+
         const url = prompt('Enter URL:');
         if (url) {
+            // Validate URL
+            if (!isValidUrl(url)) {
+                alert('Invalid URL. javascript: and data: URLs are not allowed.');
+                return;
+            }
             // Ensure URL has protocol, otherwise add https://
             let fullUrl = url.trim();
-            if (fullUrl && !fullUrl.match(/^https?:\/\//i)) {
+            if (fullUrl && !fullUrl.match(/^(https?|mailto|tel|callto|sms):/i)) {
                 fullUrl = 'https://' + fullUrl;
             }
-            applyFormat('createLink', fullUrl);
+
+            if (hasSelection) {
+                applyFormat('createLink', fullUrl);
+            } else {
+                // No selection - insert URL as link text
+                const link = document.createElement('a');
+                link.href = fullUrl;
+                link.textContent = fullUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+
+                const range = selection.getRangeAt(0);
+                range.insertNode(link);
+
+                // Move cursor after link
+                const newRange = document.createRange();
+                newRange.setStartAfter(link);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+
+                if (editorRef.current) {
+                    onChange(editorRef.current.innerHTML);
+                }
+            }
         }
         setShowLinkInput(false);
+    };
+
+    // Handle link click in editor - show tooltip
+    const handleLinkClick = (e, linkElement) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const editorRect = editorRef.current.getBoundingClientRect();
+        const linkRect = linkElement.getBoundingClientRect();
+
+        setLinkTooltip({
+            visible: true,
+            link: linkElement,
+            url: linkElement.href,
+            position: {
+                top: linkRect.bottom - editorRect.top + 4,
+                left: linkRect.left - editorRect.left
+            }
+        });
+    };
+
+    // Edit link URL
+    const editLink = () => {
+        if (!linkTooltip.link) return;
+
+        const newUrl = prompt('Редактировать URL:', linkTooltip.url);
+        if (newUrl !== null) {
+            if (!isValidUrl(newUrl)) {
+                alert('Недопустимый URL. javascript: и data: URL не разрешены.');
+                return;
+            }
+            let fullUrl = newUrl.trim();
+            if (fullUrl && !fullUrl.match(/^(https?|mailto|tel|callto|sms):/i)) {
+                fullUrl = 'https://' + fullUrl;
+            }
+            linkTooltip.link.href = fullUrl;
+            if (editorRef.current) {
+                onChange(editorRef.current.innerHTML);
+            }
+        }
+        setLinkTooltip({ visible: false, link: null, position: { top: 0, left: 0 } });
+    };
+
+    // Remove link (keep text)
+    const removeLink = () => {
+        if (!linkTooltip.link) return;
+
+        const text = linkTooltip.link.textContent;
+        const textNode = document.createTextNode(text);
+        linkTooltip.link.parentNode.replaceChild(textNode, linkTooltip.link);
+
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+        setLinkTooltip({ visible: false, link: null, position: { top: 0, left: 0 } });
+    };
+
+    // Close link tooltip when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (linkTooltip.visible && linkTooltipRef.current && !linkTooltipRef.current.contains(e.target)) {
+                // Check if clicked on a link in the editor
+                if (e.target.tagName === 'A' && editorRef.current?.contains(e.target)) {
+                    return; // Will be handled by the link click handler
+                }
+                setLinkTooltip({ visible: false, link: null, position: { top: 0, left: 0 } });
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [linkTooltip.visible]);
+
+    // Handle clicks on editor content
+    const handleEditorClick = (e) => {
+        // Check if clicked on a link
+        let target = e.target;
+        while (target && target !== editorRef.current) {
+            if (target.tagName === 'A') {
+                handleLinkClick(e, target);
+                return;
+            }
+            target = target.parentElement;
+        }
+        // If not clicked on a link, hide tooltip
+        if (linkTooltip.visible) {
+            setLinkTooltip({ visible: false, link: null, position: { top: 0, left: 0 } });
+        }
     };
 
     const insertList = (ordered = false) => {
@@ -928,7 +1062,200 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
     };
 
+    // Check if cursor is inside a code block
+    const isInsideCodeBlock = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return false;
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        while (current && current !== editorRef.current) {
+            if (current.tagName === 'PRE') return true;
+            current = current.parentElement;
+        }
+        return false;
+    };
+
+    // Handle list nesting with Tab/Shift+Tab
+    const handleListNesting = (increase) => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return false;
+
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+        let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        let listItem = null;
+        let parentList = null;
+
+        while (current && current !== editorRef.current) {
+            if (current.tagName === 'LI') listItem = current;
+            if (current.tagName === 'UL' || current.tagName === 'OL') {
+                parentList = current;
+                break;
+            }
+            current = current.parentElement;
+        }
+
+        if (!listItem || !parentList) return false;
+
+        if (increase) {
+            // Increase nesting - wrap in new list inside previous sibling
+            const prevLi = listItem.previousElementSibling;
+            if (!prevLi) return false; // Can't nest first item
+
+            // Check nesting level (max 3)
+            let nestingLevel = 0;
+            let checkParent = parentList;
+            while (checkParent) {
+                if (checkParent.tagName === 'UL' || checkParent.tagName === 'OL') nestingLevel++;
+                checkParent = checkParent.parentElement?.closest('ul, ol');
+            }
+            if (nestingLevel >= 3) return false;
+
+            // Create nested list
+            let nestedList = prevLi.querySelector(':scope > ul, :scope > ol');
+            if (!nestedList) {
+                nestedList = document.createElement(parentList.tagName.toLowerCase());
+                prevLi.appendChild(nestedList);
+            }
+            nestedList.appendChild(listItem);
+        } else {
+            // Decrease nesting - move item up one level
+            const grandparentLi = parentList.parentElement?.closest('li');
+            if (!grandparentLi) return false; // Already at top level
+
+            const grandparentList = grandparentLi.parentElement;
+            // Insert after the grandparent li
+            if (grandparentLi.nextSibling) {
+                grandparentList.insertBefore(listItem, grandparentLi.nextSibling);
+            } else {
+                grandparentList.appendChild(listItem);
+            }
+
+            // Clean up empty list
+            if (parentList.children.length === 0) {
+                parentList.remove();
+            }
+        }
+
+        // Restore cursor
+        const newRange = document.createRange();
+        newRange.selectNodeContents(listItem);
+        newRange.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+        return true;
+    };
+
     const handleKeyDown = (e) => {
+        const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+        const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+
+        // Handle formatting shortcuts (disabled inside code block)
+        if (cmdKey && !isInsideCodeBlock()) {
+            // Cmd/Ctrl + B = Bold
+            if (e.key === 'b' && !e.shiftKey) {
+                e.preventDefault();
+                applyFormat('bold');
+                return;
+            }
+            // Cmd/Ctrl + I = Italic
+            if (e.key === 'i' && !e.shiftKey) {
+                e.preventDefault();
+                applyFormat('italic');
+                return;
+            }
+            // Cmd/Ctrl + U = Underline
+            if (e.key === 'u' && !e.shiftKey) {
+                e.preventDefault();
+                applyFormat('underline');
+                return;
+            }
+            // Cmd/Ctrl + Shift + S = Strikethrough
+            if (e.key === 's' && e.shiftKey) {
+                e.preventDefault();
+                applyFormat('strikeThrough');
+                return;
+            }
+            // Cmd/Ctrl + E = Inline code
+            if (e.key === 'e' && !e.shiftKey) {
+                e.preventDefault();
+                wrapSelectionWithTag('code');
+                return;
+            }
+            // Cmd/Ctrl + K = Link
+            if (e.key === 'k' && !e.shiftKey) {
+                e.preventDefault();
+                insertLink();
+                return;
+            }
+            // Cmd/Ctrl + Shift + P = Spoiler
+            if (e.key === 'p' && e.shiftKey) {
+                e.preventDefault();
+                insertSpoiler();
+                return;
+            }
+            // Cmd/Ctrl + Shift + 8 = Unordered list
+            if (e.key === '8' && e.shiftKey) {
+                e.preventDefault();
+                insertList(false);
+                return;
+            }
+            // Cmd/Ctrl + Shift + 7 = Ordered list
+            if (e.key === '7' && e.shiftKey) {
+                e.preventDefault();
+                insertList(true);
+                return;
+            }
+            // Cmd/Ctrl + Shift + 9 = Blockquote
+            if (e.key === '9' && e.shiftKey) {
+                e.preventDefault();
+                insertBlockquote();
+                return;
+            }
+            // Cmd/Ctrl + Shift + C = Code block
+            if (e.key === 'c' && e.shiftKey) {
+                e.preventDefault();
+                insertCodeBlock();
+                return;
+            }
+        }
+
+        // Cmd/Ctrl + Shift + V = Paste without formatting
+        if (cmdKey && e.shiftKey && e.key === 'v') {
+            e.preventDefault();
+            navigator.clipboard.readText().then(text => {
+                document.execCommand('insertText', false, text);
+                if (editorRef.current) {
+                    onChange(editorRef.current.innerHTML);
+                }
+            }).catch(() => {
+                // Fallback for browsers that don't support clipboard API
+            });
+            return;
+        }
+
+        // Tab/Shift+Tab for list nesting
+        if (e.key === 'Tab') {
+            if (handleListNesting(!e.shiftKey)) {
+                e.preventDefault();
+                return;
+            }
+            // If not in a list, insert tab in code block
+            if (isInsideCodeBlock()) {
+                e.preventDefault();
+                document.execCommand('insertText', false, '  ');
+                if (editorRef.current) {
+                    onChange(editorRef.current.innerHTML);
+                }
+                return;
+            }
+        }
+
         if (showMentions && mentionResults.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
@@ -940,7 +1267,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 setSelectedMentionIndex((prev) =>
                     prev > 0 ? prev - 1 : mentionResults.length - 1
                 );
-            } else if (e.key === 'Enter' || e.key === 'Tab') {
+            } else if (e.key === 'Enter') {
                 e.preventDefault();
                 insertMention(mentionResults[selectedMentionIndex]);
             } else if (e.key === 'Escape') {
@@ -1184,23 +1511,23 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         <div className="relative">
             {/* Toolbar */}
             <div className="flex items-center gap-1 px-3 py-2">
-                <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Bold" isActive={activeFormats.bold} />
-                <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Italic" isActive={activeFormats.italic} />
-                <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Underline" isActive={activeFormats.underline} />
-                <ToolbarButton onClick={() => applyFormat('strikeThrough')} icon={<Strikethrough size={16} />} title="Strikethrough" isActive={activeFormats.strikeThrough} />
+                <ToolbarButton onClick={() => applyFormat('bold')} icon={<Bold size={16} />} title="Жирный" shortcut="⌘B" isActive={activeFormats.bold} />
+                <ToolbarButton onClick={() => applyFormat('italic')} icon={<Italic size={16} />} title="Курсив" shortcut="⌘I" isActive={activeFormats.italic} />
+                <ToolbarButton onClick={() => applyFormat('underline')} icon={<Underline size={16} />} title="Подчёркнутый" shortcut="⌘U" isActive={activeFormats.underline} />
+                <ToolbarButton onClick={() => applyFormat('strikeThrough')} icon={<Strikethrough size={16} />} title="Зачёркнутый" shortcut="⌘⇧S" isActive={activeFormats.strikeThrough} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
-                <ToolbarButton onClick={insertLink} icon={<Link size={16} />} title="Insert Link" />
-                <ToolbarButton onClick={() => insertList(true)} icon={<ListOrdered size={16} />} title="Numbered List" isActive={activeFormats.inOrderedList} />
-                <ToolbarButton onClick={() => insertList(false)} icon={<List size={16} />} title="Bullet List" isActive={activeFormats.inList} />
+                <ToolbarButton onClick={insertLink} icon={<Link size={16} />} title="Вставить ссылку" shortcut="⌘K" />
+                <ToolbarButton onClick={() => insertList(true)} icon={<ListOrdered size={16} />} title="Нумерованный список" shortcut="⌘⇧7" isActive={activeFormats.inOrderedList} />
+                <ToolbarButton onClick={() => insertList(false)} icon={<List size={16} />} title="Маркированный список" shortcut="⌘⇧8" isActive={activeFormats.inList} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
-                <ToolbarButton onClick={insertCodeBlock} icon={<FileCode size={16} />} title="Code Block" isActive={activeFormats.inCodeBlock} />
-                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<Code size={16} />} title="Inline Code" isActive={activeFormats.inInlineCode} />
-                <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Quote" isActive={activeFormats.inBlockquote} />
-                <ToolbarButton onClick={insertSpoiler} icon={<EyeOff size={16} />} title="Spoiler" isActive={activeFormats.inSpoiler} />
+                <ToolbarButton onClick={insertCodeBlock} icon={<FileCode size={16} />} title="Блок кода" shortcut="⌘⇧C" isActive={activeFormats.inCodeBlock} />
+                <ToolbarButton onClick={() => wrapSelectionWithTag('code')} icon={<Code size={16} />} title="Код в строке" shortcut="⌘E" isActive={activeFormats.inInlineCode} />
+                <ToolbarButton onClick={insertBlockquote} icon={<Quote size={16} />} title="Цитата" shortcut="⌘⇧9" isActive={activeFormats.inBlockquote} />
+                <ToolbarButton onClick={insertSpoiler} icon={<EyeOff size={16} />} title="Спойлер" shortcut="⌘⇧P" isActive={activeFormats.inSpoiler} />
 
                 <div className="w-px h-5 bg-gray-700 mx-1"></div>
 
@@ -1229,11 +1556,50 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     contentEditable
                     onInput={handleInput}
                     onKeyDown={handleKeyDown}
+                    onClick={handleEditorClick}
                     dir="ltr"
                     className="w-full min-w-0 px-3 py-2 max-h-[200px] overflow-y-auto overflow-x-hidden bg-transparent text-gray-200 focus:outline-none leading-normal break-words whitespace-pre-wrap [word-break:break-word]"
                     data-placeholder={placeholder}
                     suppressContentEditableWarning
                 />
+
+                {/* Link Tooltip */}
+                {linkTooltip.visible && (
+                    <div
+                        ref={linkTooltipRef}
+                        className="absolute bg-[#1f2225] border border-gray-700 rounded-lg shadow-xl z-50 py-1.5 px-2 flex items-center gap-2"
+                        style={{
+                            top: linkTooltip.position.top,
+                            left: linkTooltip.position.left
+                        }}
+                    >
+                        <a
+                            href={linkTooltip.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-400 hover:text-blue-300 truncate max-w-[200px] flex items-center gap-1"
+                            title={linkTooltip.url}
+                        >
+                            <ExternalLink size={12} />
+                            <span className="truncate">{linkTooltip.url}</span>
+                        </a>
+                        <div className="w-px h-4 bg-gray-600"></div>
+                        <button
+                            onClick={editLink}
+                            className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                            title="Редактировать ссылку"
+                        >
+                            <Pencil size={14} />
+                        </button>
+                        <button
+                            onClick={removeLink}
+                            className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
+                            title="Удалить ссылку"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
 
                 {/* Mention Autocomplete Dropdown */}
                 {showMentions && mentionResults.length > 0 && (
@@ -1621,7 +1987,8 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
     );
 }
 
-function ToolbarButton({ onClick, icon, title, isActive = false }) {
+function ToolbarButton({ onClick, icon, title, isActive = false, shortcut }) {
+    const fullTitle = shortcut ? `${title} (${shortcut})` : title;
     return (
         <button
             type="button"
@@ -1631,7 +1998,9 @@ function ToolbarButton({ onClick, icon, title, isActive = false }) {
                     ? 'bg-blue-600/30 text-blue-400'
                     : 'text-gray-400 hover:bg-gray-700 hover:text-white'
             }`}
-            title={title}
+            title={fullTitle}
+            aria-label={fullTitle}
+            aria-pressed={isActive}
         >
             {icon}
         </button>
