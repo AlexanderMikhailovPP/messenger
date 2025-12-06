@@ -497,7 +497,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
 
         const range = selection.getRangeAt(0);
 
-        // Check if already inside a list - if so, unwrap it
+        // Check if already inside a list
         let node = range.startContainer;
         let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
         let listItem = null;
@@ -516,25 +516,45 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         }
 
         if (listElement) {
-            // Unwrap: extract content (preserving HTML) and replace list with it
-            const fragment = document.createDocumentFragment();
-            // Get content from all list items
-            Array.from(listElement.querySelectorAll('li')).forEach((li, index) => {
-                if (index > 0) {
-                    fragment.appendChild(document.createElement('br'));
-                }
-                while (li.firstChild) {
-                    fragment.appendChild(li.firstChild);
-                }
-            });
-            listElement.parentNode.replaceChild(fragment, listElement);
+            // If clicking on same type - unwrap, if different type - convert
+            if (listElement.tagName === targetTag) {
+                // Same type - unwrap: extract content (preserving HTML) and replace list with it
+                const fragment = document.createDocumentFragment();
+                // Get content from all list items
+                Array.from(listElement.querySelectorAll(':scope > li')).forEach((li, index) => {
+                    if (index > 0) {
+                        fragment.appendChild(document.createElement('br'));
+                    }
+                    while (li.firstChild) {
+                        fragment.appendChild(li.firstChild);
+                    }
+                });
+                listElement.parentNode.replaceChild(fragment, listElement);
 
-            // Position cursor at the end
-            const newRange = document.createRange();
-            newRange.selectNodeContents(editorRef.current);
-            newRange.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
+                // Position cursor at the end
+                const newRange = document.createRange();
+                newRange.selectNodeContents(editorRef.current);
+                newRange.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            } else {
+                // Different type - convert UL <-> OL
+                const newList = document.createElement(ordered ? 'ol' : 'ul');
+                // Copy all children
+                while (listElement.firstChild) {
+                    newList.appendChild(listElement.firstChild);
+                }
+                listElement.parentNode.replaceChild(newList, listElement);
+
+                // Restore cursor position inside the list item
+                if (listItem) {
+                    const newRange = document.createRange();
+                    newRange.selectNodeContents(listItem);
+                    newRange.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                }
+            }
         } else {
             // Create list element - use cloneContents to preserve HTML
             const list = document.createElement(ordered ? 'ol' : 'ul');
@@ -1073,7 +1093,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         // Let other paste events (Ctrl+Shift+V for plain text) proceed normally
     };
 
-    // Check and convert Markdown ``` to code block
+    // Check and convert Markdown ``` or ```language to code block
     const checkMarkdownCodeBlock = () => {
         const selection = window.getSelection();
         if (!selection.rangeCount) return false;
@@ -1087,21 +1107,27 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         const text = node.textContent || '';
         const cursorPos = range.startOffset;
 
-        // Check if the text before cursor ends with ``` (at line start or after whitespace)
+        // Check if the text before cursor ends with ``` or ```language (at line start or after whitespace)
         const textBeforeCursor = text.substring(0, cursorPos);
-        const match = textBeforeCursor.match(/(^|[\n\s])```$/);
+        // Match ``` or ```language (language is optional word characters)
+        const match = textBeforeCursor.match(/(^|[\n\s])```(\w*)$/);
 
         if (match) {
             // Found markdown code block trigger
             const matchStart = match.index + (match[1] ? match[1].length : 0);
+            const language = match[2] || ''; // Extract language if provided
 
             // Create code block
             const pre = document.createElement('pre');
             const code = document.createElement('code');
+            if (language) {
+                code.setAttribute('data-language', language);
+                code.className = `language-${language}`;
+            }
             code.textContent = '\u200B'; // Zero-width space
             pre.appendChild(code);
 
-            // Remove the ``` from the text
+            // Remove the ```language from the text
             const beforeMatch = text.substring(0, matchStart);
             const afterCursor = text.substring(cursorPos);
 
@@ -1146,12 +1172,225 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         return false;
     };
 
+    // Check for Markdown inline formatting patterns and apply formatting
+    // Patterns: *italic*, **bold**, `code`, ~~strikethrough~~
+    const checkMarkdownInlineFormatting = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return false;
+
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+
+        // Only process text nodes
+        if (node.nodeType !== Node.TEXT_NODE) return false;
+
+        // Don't process inside code blocks
+        let parent = node.parentElement;
+        while (parent && parent !== editorRef.current) {
+            if (parent.tagName === 'PRE' || parent.tagName === 'CODE') return false;
+            parent = parent.parentElement;
+        }
+
+        const text = node.textContent || '';
+        const cursorPos = range.startOffset;
+
+        // Check for patterns ending at cursor position
+        const textBeforeCursor = text.substring(0, cursorPos);
+
+        // Pattern definitions: [regex, tag, wrapper function]
+        const patterns = [
+            // **bold** - must check before *italic*
+            {
+                regex: /\*\*([^*]+)\*\*$/,
+                apply: (match) => {
+                    const content = match[1];
+                    const wrapper = document.createElement('b');
+                    wrapper.textContent = content;
+                    return wrapper;
+                },
+                length: (match) => match[0].length
+            },
+            // *italic*
+            {
+                regex: /(?<!\*)\*([^*]+)\*$/,
+                apply: (match) => {
+                    const content = match[1];
+                    const wrapper = document.createElement('i');
+                    wrapper.textContent = content;
+                    return wrapper;
+                },
+                length: (match) => match[0].length
+            },
+            // `code`
+            {
+                regex: /`([^`]+)`$/,
+                apply: (match) => {
+                    const content = match[1];
+                    const wrapper = document.createElement('code');
+                    wrapper.textContent = content;
+                    return wrapper;
+                },
+                length: (match) => match[0].length
+            },
+            // ~~strikethrough~~
+            {
+                regex: /~~([^~]+)~~$/,
+                apply: (match) => {
+                    const content = match[1];
+                    const wrapper = document.createElement('s');
+                    wrapper.textContent = content;
+                    return wrapper;
+                },
+                length: (match) => match[0].length
+            }
+        ];
+
+        for (const pattern of patterns) {
+            const match = textBeforeCursor.match(pattern.regex);
+            if (match) {
+                const matchLength = pattern.length(match);
+                const matchStart = cursorPos - matchLength;
+
+                // Create the formatted element
+                const wrapper = pattern.apply(match);
+
+                // Replace the markdown syntax with formatted text
+                const beforeMatch = text.substring(0, matchStart);
+                const afterCursor = text.substring(cursorPos);
+
+                node.textContent = beforeMatch + afterCursor;
+
+                // Insert the wrapper at the correct position
+                const newRange = document.createRange();
+                if (beforeMatch) {
+                    newRange.setStart(node, beforeMatch.length);
+                } else {
+                    newRange.setStart(node, 0);
+                }
+                newRange.collapse(true);
+                newRange.insertNode(wrapper);
+
+                // Move cursor after the wrapper
+                const finalRange = document.createRange();
+                finalRange.setStartAfter(wrapper);
+                finalRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(finalRange);
+
+                if (editorRef.current) {
+                    onChange(editorRef.current.innerHTML);
+                }
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Check for auto-list formatting: "- ", "* ", "1. ", "> " at line start
+    const checkAutoListFormatting = () => {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return false;
+
+        const range = selection.getRangeAt(0);
+        let node = range.startContainer;
+
+        // Only process text nodes
+        if (node.nodeType !== Node.TEXT_NODE) return false;
+
+        // Don't process inside code blocks or lists
+        let parent = node.parentElement;
+        while (parent && parent !== editorRef.current) {
+            if (parent.tagName === 'PRE' || parent.tagName === 'LI' ||
+                parent.tagName === 'UL' || parent.tagName === 'OL' ||
+                parent.tagName === 'BLOCKQUOTE') return false;
+            parent = parent.parentElement;
+        }
+
+        const text = node.textContent || '';
+        const cursorPos = range.startOffset;
+
+        // Patterns at start of line
+        // "- " or "* " for unordered list
+        if (text.match(/^[-*]\s$/) && cursorPos === 2) {
+            // Create unordered list
+            const ul = document.createElement('ul');
+            const li = document.createElement('li');
+            li.innerHTML = '\u200B';
+            ul.appendChild(li);
+
+            node.parentNode.replaceChild(ul, node);
+
+            const newRange = document.createRange();
+            newRange.setStart(li, 0);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+            if (editorRef.current) {
+                onChange(editorRef.current.innerHTML);
+            }
+            return true;
+        }
+
+        // "1. " for ordered list
+        if (text.match(/^1\.\s$/) && cursorPos === 3) {
+            const ol = document.createElement('ol');
+            const li = document.createElement('li');
+            li.innerHTML = '\u200B';
+            ol.appendChild(li);
+
+            node.parentNode.replaceChild(ol, node);
+
+            const newRange = document.createRange();
+            newRange.setStart(li, 0);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+            if (editorRef.current) {
+                onChange(editorRef.current.innerHTML);
+            }
+            return true;
+        }
+
+        // "> " for blockquote
+        if (text.match(/^>\s$/) && cursorPos === 2) {
+            const blockquote = document.createElement('blockquote');
+            blockquote.innerHTML = '\u200B';
+
+            node.parentNode.replaceChild(blockquote, node);
+
+            const newRange = document.createRange();
+            newRange.setStart(blockquote, 0);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+            if (editorRef.current) {
+                onChange(editorRef.current.innerHTML);
+            }
+            return true;
+        }
+
+        return false;
+    };
+
     const handleInput = (e) => {
         const content = e.currentTarget.innerHTML;
         onChange(content);
 
         // Check for Markdown ``` code block trigger
         if (checkMarkdownCodeBlock()) {
+            return;
+        }
+
+        // Check for auto-list formatting (- , * , 1. , > )
+        if (checkAutoListFormatting()) {
+            return;
+        }
+
+        // Check for Markdown inline formatting (*italic*, **bold**, etc)
+        if (checkMarkdownInlineFormatting()) {
             return;
         }
 
@@ -1416,6 +1655,46 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
             return;
         }
 
+        // Cmd/Ctrl + Enter = Exit code block
+        if (cmdKey && e.key === 'Enter' && isInsideCodeBlock()) {
+            e.preventDefault();
+            // Exit code block by moving cursor outside
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+
+            let node = selection.getRangeAt(0).startContainer;
+            let preElement = null;
+            let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+            while (current && current !== editorRef.current) {
+                if (current.tagName === 'PRE') {
+                    preElement = current;
+                    break;
+                }
+                current = current.parentElement;
+            }
+
+            if (preElement) {
+                // Add a br after the code block and move cursor there
+                const br = document.createElement('br');
+                if (preElement.nextSibling) {
+                    preElement.parentNode.insertBefore(br, preElement.nextSibling);
+                } else {
+                    preElement.parentNode.appendChild(br);
+                }
+
+                const newRange = document.createRange();
+                newRange.setStartAfter(br);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+
+                if (editorRef.current) {
+                    onChange(editorRef.current.innerHTML);
+                }
+            }
+            return;
+        }
+
         // Tab/Shift+Tab for list nesting
         if (e.key === 'Tab') {
             if (handleListNesting(!e.shiftKey)) {
@@ -1430,6 +1709,100 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     onChange(editorRef.current.innerHTML);
                 }
                 return;
+            }
+        }
+
+        // Escape key to exit block formats (list, blockquote, code block)
+        if (e.key === 'Escape' && !showMentions) {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+
+            const range = selection.getRangeAt(0);
+            let node = range.startContainer;
+            let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+
+            let blockElement = null;
+            while (current && current !== editorRef.current) {
+                if (current.tagName === 'PRE' || current.tagName === 'BLOCKQUOTE' ||
+                    current.tagName === 'UL' || current.tagName === 'OL') {
+                    blockElement = current;
+                    break;
+                }
+                current = current.parentElement;
+            }
+
+            if (blockElement) {
+                e.preventDefault();
+                // Move cursor outside the block element
+                const br = document.createElement('br');
+                if (blockElement.nextSibling) {
+                    blockElement.parentNode.insertBefore(br, blockElement.nextSibling);
+                } else {
+                    blockElement.parentNode.appendChild(br);
+                }
+
+                const newRange = document.createRange();
+                newRange.setStartAfter(br);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+
+                if (editorRef.current) {
+                    onChange(editorRef.current.innerHTML);
+                }
+                return;
+            }
+        }
+
+        // Backspace at start of blockquote converts to paragraph
+        if (e.key === 'Backspace') {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+
+            const range = selection.getRangeAt(0);
+            if (!range.collapsed) return; // Only handle when no selection
+
+            let node = range.startContainer;
+            let current = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+
+            // Find blockquote
+            let blockquote = null;
+            while (current && current !== editorRef.current) {
+                if (current.tagName === 'BLOCKQUOTE') {
+                    blockquote = current;
+                    break;
+                }
+                current = current.parentElement;
+            }
+
+            if (blockquote) {
+                // Check if cursor is at the very start of blockquote
+                const blockquoteRange = document.createRange();
+                blockquoteRange.selectNodeContents(blockquote);
+                blockquoteRange.setEnd(range.startContainer, range.startOffset);
+                const textBefore = blockquoteRange.toString();
+
+                if (textBefore === '' || textBefore === '\u200B') {
+                    e.preventDefault();
+                    // Convert blockquote to paragraph
+                    const fragment = document.createDocumentFragment();
+                    while (blockquote.firstChild) {
+                        fragment.appendChild(blockquote.firstChild);
+                    }
+                    blockquote.parentNode.replaceChild(fragment, blockquote);
+
+                    // Position cursor at start
+                    const newRange = document.createRange();
+                    newRange.setStart(editorRef.current, 0);
+                    newRange.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+
+                    if (editorRef.current) {
+                        onChange(editorRef.current.innerHTML);
+                    }
+                    return;
+                }
             }
         }
 
