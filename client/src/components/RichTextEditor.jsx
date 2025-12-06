@@ -1437,6 +1437,23 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
         const content = e.currentTarget.innerHTML;
         onChange(content);
 
+        // Cleanup empty spoiler elements (background remains after deleting content)
+        if (editorRef.current) {
+            const spoilers = editorRef.current.querySelectorAll('.spoiler-edit, .spoiler');
+            spoilers.forEach(spoiler => {
+                const text = spoiler.textContent || '';
+                // Remove spoiler if empty or only contains zero-width space
+                if (text === '' || text === '\u200B' || text.trim() === '') {
+                    spoiler.remove();
+                }
+            });
+            // Update content after cleanup
+            const newContent = editorRef.current.innerHTML;
+            if (newContent !== content) {
+                onChange(newContent);
+            }
+        }
+
         // Check for Markdown ``` code block trigger
         if (checkMarkdownCodeBlock()) {
             return;
@@ -2095,18 +2112,13 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                 current = current.parentElement;
             }
 
-            // Handle spoiler element
+            // Handle spoiler element - single arrow press exits spoiler
             if (spoilerElement) {
-                const textContent = spoilerElement.textContent || '';
-                const isAtStart = range.startOffset === 0 && node === spoilerElement.firstChild;
-                const isAtEnd = range.startOffset === textContent.length ||
-                    (node === spoilerElement.lastChild && range.startOffset === node.textContent?.length);
+                e.preventDefault();
+                const newRange = document.createRange();
 
-                // Arrow Right at end - move cursor after the element
-                if (e.key === 'ArrowRight' && isAtEnd) {
-                    e.preventDefault();
-                    const newRange = document.createRange();
-
+                // Arrow Right - move cursor after the element
+                if (e.key === 'ArrowRight') {
                     if (!spoilerElement.nextSibling ||
                         (spoilerElement.nextSibling.nodeType === Node.TEXT_NODE &&
                          spoilerElement.nextSibling.textContent === '')) {
@@ -2118,13 +2130,11 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     newRange.collapse(true);
                     selection.removeAllRanges();
                     selection.addRange(newRange);
+                    setTimeout(updateActiveFormats, 0);
                     return;
                 }
-                // Arrow Left at start - move cursor before the element
-                else if (e.key === 'ArrowLeft' && isAtStart) {
-                    e.preventDefault();
-                    const newRange = document.createRange();
-
+                // Arrow Left - move cursor before the element
+                else if (e.key === 'ArrowLeft') {
                     if (!spoilerElement.previousSibling ||
                         (spoilerElement.previousSibling.nodeType === Node.TEXT_NODE &&
                          spoilerElement.previousSibling.textContent === '')) {
@@ -2136,6 +2146,7 @@ export default function RichTextEditor({ value, onChange, placeholder, onSubmit,
                     newRange.collapse(true);
                     selection.removeAllRanges();
                     selection.addRange(newRange);
+                    setTimeout(updateActiveFormats, 0);
                     return;
                 }
             }
